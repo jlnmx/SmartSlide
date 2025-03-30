@@ -1,16 +1,17 @@
 import React from 'react';
-import './styles/App.css';
+import { Link } from 'react-router-dom';
+import '../styles/App.css';
 
 function App() {
     return (
-        <div className="App">
-            <header className="App-header">
-                <h1>AI Powered PowerPoint Presentation Generator</h1>
-                <p>Welcome to the presentation generator app!</p>
+        <div className="welcome-container">
+            <header className="welcome-header">
+                <h1 className="welcome-title">SmartSlide</h1>
+                <p className="welcome-subtitle">Create stunning presentations effortlessly with AI.</p>
+                <Link to="/create">
+                    <button className="welcome-btn">Get Started</button>
+                </Link>
             </header>
-            <main>
-                {/* Add components for generating presentations here */}
-            </main>
         </div>
     );
 }

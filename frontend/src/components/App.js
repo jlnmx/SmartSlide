@@ -8,7 +8,7 @@ function App() {
             <header className="welcome-header">
                 <h1 className="welcome-title">SmartSlide</h1>
                 <p className="welcome-subtitle">Create stunning presentations effortlessly with AI.</p>
-                <Link to="/create">
+                <Link to="/auth">
                     <button className="welcome-btn">Get Started</button>
                 </Link>
             </header>

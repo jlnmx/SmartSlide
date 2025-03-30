@@ -3,6 +3,9 @@ import "../styles/GeneratePage.css";
 
 const GeneratePage = () => {
   const [prompt, setPrompt] = useState("");
+  const [language, setLanguage] = useState("English");
+  const [numSlides, setNumSlides] = useState(5);
+  const [presentationType, setPresentationType] = useState("Default");
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState("");
 
@@ -11,8 +14,9 @@ const GeneratePage = () => {
     setLoading(true);
     setResponse("");
     
+    // Simulate AI response (Replace with actual API call)
     setTimeout(() => {
-      setResponse(`Generating slides for: "${prompt}"`);
+      setResponse(`Generating ${numSlides} slides in ${language} (${presentationType} format) for: "${prompt}"`);
       setLoading(false);
     }, 2000);
   };
@@ -30,10 +34,38 @@ const GeneratePage = () => {
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
         />
-        <button className="generate-btn" onClick={handleGenerate} disabled={loading}>
-          {loading ? "Generating..." : "Generate"}
-        </button>
       </div>
+
+      <div className="options-section">
+        <label>Language:</label>
+        <select value={language} onChange={(e) => setLanguage(e.target.value)}>
+          <option>English</option>
+          <option>Spanish</option>
+          <option>French</option>
+          <option>German</option>
+          <option>Chinese</option>
+        </select>
+        
+        <label>Number of Slides:</label>
+        <input
+          type="number"
+          min="1"
+          max="20"
+          value={numSlides}
+          onChange={(e) => setNumSlides(e.target.value)}
+        />
+        
+        <label>Presentation Type:</label>
+        <select value={presentationType} onChange={(e) => setPresentationType(e.target.value)}>
+          <option>Default</option>
+          <option>Tall</option>
+          <option>Traditional</option>
+        </select>
+      </div>
+      
+      <button className="generate-btn" onClick={handleGenerate} disabled={loading}>
+        {loading ? "Generating..." : "Generate"}
+      </button>
       
       {response && <p className="response-text">{response}</p>}
     </div>

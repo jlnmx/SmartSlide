@@ -6,45 +6,77 @@
     height: 100vh;
     background-color: #f8f9fc;
     text-align: center;
-    padding: 20px;
+    padding: 40px;
+    max-width: 900px;
+    margin: auto;
   }
   
   .generate-title {
-    font-size: 2rem;
+    font-size: 2.5rem;
     font-weight: bold;
     color: #333;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
   }
   
   .generate-subtitle {
-    font-size: 1.2rem;
+    font-size: 1.3rem;
     color: #666;
-    margin-bottom: 20px;
+    margin-bottom: 25px;
   }
   
   .input-section {
     display: flex;
-    gap: 10px;
+    flex-direction: column;
     align-items: center;
+    width: 100%;
+    margin-bottom: 20px;
   }
   
   .prompt-input {
-    width: 300px;
-    padding: 12px;
-    font-size: 1rem;
+    width: 100%;
+    max-width: 600px;
+    padding: 14px;
+    font-size: 1.1rem;
     border: 1px solid #ccc;
-    border-radius: 8px;
+    border-radius: 10px;
     outline: none;
+    text-align: center;
   }
   
+  .options-section {
+    display: flex;
+    flex-direction: row; /* Align options in a single line */
+    justify-content: center;
+    align-items: center;
+    gap: 10px; /* Reduce spacing between options */
+    margin-bottom: 20px;
+}
+
+.options-section label {
+    font-size: 0.9rem; /* Make the label text smaller */
+    font-weight: normal; /* Reduce font weight */
+    color: #444;
+}
+
+.options-section select,
+.options-section input {
+    padding: 8px; /* Reduce padding for smaller inputs */
+    font-size: 0.9rem; /* Make the input text smaller */
+    border: 1px solid #ccc;
+    border-radius: 5px; /* Slightly smaller border radius */
+    outline: none;
+    width: 150px; /* Reduce the width of inputs */
+    text-align: center;
+}
+  
   .generate-btn {
-    padding: 12px 20px;
-    font-size: 1rem;
+    padding: 14px 25px;
+    font-size: 1.2rem;
     font-weight: bold;
     background-color: #a0d2eb;
     color: white;
     border: none;
-    border-radius: 8px;
+    border-radius: 10px;
     cursor: pointer;
     transition: all 0.3s ease-in-out;
   }
@@ -55,12 +87,14 @@
   }
   
   .generate-btn:hover:not(:disabled) {
-    opacity: 0.8;
+    opacity: 0.85;
   }
   
   .response-text {
     margin-top: 20px;
-    font-size: 1.2rem;
+    font-size: 1.3rem;
     color: #444;
+    max-width: 600px;
+    text-align: center;
   }
   

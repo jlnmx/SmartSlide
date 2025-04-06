@@ -1,20 +1,18 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom"; // Import useNavigate
+import { Link, useNavigate } from "react-router-dom"; 
 import "../styles/Auth.css";
 
 const AuthPage = ({ isLogin }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const navigate = useNavigate(); // Initialize useNavigate
+  const navigate = useNavigate(); 
 
   const handleSubmit = (e) => {
-    e.preventDefault(); // Prevent the default form submission behavior
+    e.preventDefault(); 
 
-    // Add authentication logic here (e.g., API call)
     console.log("Email:", email);
     console.log("Password:", password);
 
-    // Navigate to the Dashboard after successful login or signup
     navigate("/dashboard");
   };
 

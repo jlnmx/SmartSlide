@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import "../styles/ImportPopup.css";
+import "../styles/Popup.css";
 
 const ImportPopup = ({ onClose }) => {
   const [url, setUrl] = useState("");

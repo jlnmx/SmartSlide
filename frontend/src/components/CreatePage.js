@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom"; // Import useNavigate
 import "../styles/CreatePage.css";
-import "../styles/ImportPopup.css"; // Import the popup styles
 
 const CreatePage = () => {
   const [isPopupVisible, setIsPopupVisible] = useState(false);
@@ -15,15 +14,23 @@ const CreatePage = () => {
     navigate("/generate"); // Navigate to the GeneratePage
   };
 
+  const handleUploadDocument = () => {
+    navigate("/import"); // Navigate to the ImportPage
+  };
+
+  const handlePasteAndCreate = () => {
+    navigate("/paste-and-create"); // Navigate to the PasteAndCreate page
+  };
+
   return (
     <div className="create-container">
       <h1 className="title">Create a New Presentation</h1>
       <p className="subtitle">Start with a prompt, upload a document, or create from scratch.</p>
       
       <div className="button-group">
-        <button className="create-btn" onClick={handleStartWithAI}>Start with AI</button>
-        <button className="upload-btn">Upload Document</button>
-        <button className="scratch-btn" onClick={togglePopup}>Import URL</button>
+        <button className="create-btn" onClick={handleStartWithAI}>Generate</button>
+        <button className="upload-btn" onClick={handleUploadDocument}>Upload Document and URL</button>
+        <button className="scratch-btn" onClick={handlePasteAndCreate}>Paste in Text</button>
       </div>
 
       {/* Popup */}

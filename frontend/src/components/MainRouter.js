@@ -6,6 +6,7 @@ import Dashboard from "./Dashboard";
 import CreatePage from "./CreatePage";
 import GeneratePage from "./GeneratePage";
 import PasteAndCreate from "./PasteAndCreate"; // Import PasteAndCreate component
+import ImportPage from "./ImportPage";
 
 const MainRouter = () => {
   return (
@@ -26,6 +27,8 @@ const MainRouter = () => {
 
         {/* Generate Page */}
         <Route path="/generate" element={<GeneratePage />} />
+
+        <Route path="/import" element={<ImportPage />} />
 
         {/* Paste and Create Page */}
         <Route path="/paste-and-create" element={<PasteAndCreate />} />

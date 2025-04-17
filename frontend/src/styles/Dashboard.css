@@ -44,15 +44,20 @@
   
   .main-content {
     flex-grow: 1;
-    padding: 40px;
-  }
-  
-  .dashboard-header {
+    padding: 40px 20px; /* reduced horizontal padding */
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-  }
+    flex-direction: column;
+    align-items: flex-start; /* align content to the left */
+}
+  
+.dashboard-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px; /* reduce vertical gap */
+}
+
   
   .new-presentation-btn {
     background-color: #a0d2eb;
@@ -69,13 +74,14 @@
   }
   
   .recent-presentations {
-    margin-top: 20px;
-  }
+    margin-top: 10px; /* reduce vertical gap */
+}
   
-  .presentation-list {
-    display: flex;
-    gap: 15px;
-  }
+.presentation-list {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
   
   .presentation-card {
     background-color: white;
@@ -85,3 +91,38 @@
     text-align: center;
     width: 150px;
   }
+
+  .dashboard-header h1 {
+    text-align: left;
+}
+.settings-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 300px; /* Make the popup smaller */
+  background-color: white;
+  border: 2px solid #a0d2eb; /* Add an outline with a matching color */
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+}
+
+.settings-content {
+  padding: 20px;
+  text-align: center;
+}
+
+.close-btn {
+  background-color: #f44336;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.close-btn:hover {
+  background-color: #d32f2f;
+}

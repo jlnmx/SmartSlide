@@ -1,0 +1,46 @@
+.analytics-container {
+    display: block;
+    color: black;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+    background-color: #ecf0f1;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .analytics-header {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  
+  .analytics-section {
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+  
+  .chart-container {
+    width: 45%;
+    background-color: white;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .analytics-summary {
+    margin-top: 30px;
+    background-color: #f1f1f1;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .analytics-summary h2 {
+    margin-bottom: 10px;
+  }
+  
+  .analytics-summary p {
+    margin: 5px 0;
+  }

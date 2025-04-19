@@ -4,17 +4,28 @@ import "../styles/Dashboard.css";
 
 const Dashboard = () => {
   const [showSettings, setShowSettings] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // State for sidebar collapse
 
   return (
-    <div className="dashboard-container">
-      <aside className="sidebar">
-        <h2 className="logo">SmartSlide</h2>
-        <nav className="menu">
-          <Link to="/create" className="menu-item">Create</Link>
-          <Link to="/presentations" className="menu-item">My Presentations</Link>
-          <Link to="/analytics" className="menu-item">Analytics</Link>
-          <button className="menu-item" onClick={() => setShowSettings(true)}>Settings</button>
-        </nav>
+    <div className={`dashboard-container`}>
+      <aside className={`sidebar ${isSidebarCollapsed ? "collapsed" : ""}`}>
+        <button
+          className="collapse-btn"
+          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        >
+          {isSidebarCollapsed ? ">" : "<"}
+        </button>
+        {!isSidebarCollapsed && (
+          <>
+            <h2 className="logo">SmartSlide</h2>
+            <nav className="menu">
+              <Link to="/create" className="menu-item">Create</Link>
+              <Link to="/templates" className="menu-item">Templates</Link>
+              <Link to="/analytics" className="menu-item">Analytics</Link>
+              <button className="menu-item" onClick={() => setShowSettings(true)}>Settings</button>
+            </nav>
+          </>
+        )}
       </aside>
 
       <main className="main-content">

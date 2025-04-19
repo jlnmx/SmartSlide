@@ -8,6 +8,11 @@ import GeneratePage from "./GeneratePage";
 import PasteAndCreate from "./PasteAndCreate"; // Import PasteAndCreate component
 import ImportPage from "./ImportPage";
 import Analytics from "./Analytics"; // Ensure Analytics is imported
+import Templates from "./Templates"; // Import the Templates component
+
+<Routes>
+  <Route path="/templates" element={<Templates />} />
+</Routes>
 
 
 const MainRouter = () => {
@@ -36,7 +41,8 @@ const MainRouter = () => {
         <Route path="/paste-and-create" element={<PasteAndCreate />} />
 
         <Route path="/analytics" element={<Analytics />} /> {/* Route for Analytics */}
-
+    
+        <Route path="/templates" element={<Templates />} />
       </Routes>
     </Router>
   );

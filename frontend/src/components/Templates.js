@@ -1,4 +1,5 @@
 import React from "react";
+import Navbar from "./Navbar";
 import "../styles/Templates.css";
 
 const Templates = () => {
@@ -33,30 +34,33 @@ const Templates = () => {
   ];
 
   return (
-    <div className="templates-container">
-      <header className="templates-header">
-        <h1>Templates</h1>
-        <input
-          type="text"
-          placeholder="Search templates..."
-          className="search-bar"
-        />
-      </header>
-      <section className="categories-list">
-        {categories.map((category) => (
-          <div key={category.id} className="category">
-            <h2 className="category-title">{category.name}</h2>
-            <div className="templates-list">
-              {category.templates.map((template) => (
-                <div key={template.id} className="template-card">
-                  <h3>{template.title}</h3>
-                  <button className="use-template-btn">Use Template</button>
-                </div>
-              ))}
+    <div>
+      <Navbar />
+      <div className="templates-container">
+        <header className="templates-header">
+          <h1>Templates</h1>
+          <input
+            type="text"
+            placeholder="Search templates..."
+            className="search-bar"
+          />
+        </header>
+        <section className="categories-list">
+          {categories.map((category) => (
+            <div key={category.id} className="category">
+              <h2 className="category-title">{category.name}</h2>
+              <div className="templates-list">
+                {category.templates.map((template) => (
+                  <div key={template.id} className="template-card">
+                    <h3>{template.title}</h3>
+                    <button className="use-template-btn">Use Template</button>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
-      </section>
+          ))}
+        </section>
+      </div>
     </div>
   );
 };

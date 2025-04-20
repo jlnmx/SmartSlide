@@ -1,9 +1,9 @@
 import React from "react";
+import Navbar from "./Navbar";
 import { Bar, Pie } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend } from "chart.js";
 import "../styles/Analytics.css";
 
-// Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
 const Analytics = () => {
@@ -44,26 +44,29 @@ const Analytics = () => {
   };
 
   return (
-    <div className="analytics-container">
-      <header className="analytics-header">
-        <h1>SmartSlide Analytics</h1>
-      </header>
-      <section className="analytics-section">
-        <div className="chart-container">
-          <h2>Slides Created Over Time</h2>
-          <Bar data={slideData} />
-        </div>
-        <div className="chart-container">
-          <h2>Most Common Topics</h2>
-          <Pie data={topicData} />
-        </div>
-      </section>
-      <section className="analytics-summary">
-        <h2>Summary</h2>
-        <p>Total Slides Created: 54</p>
-        <p>Most Used Template: "Modern Business"</p>
-        <p>Usage Frequency: 3 times per week</p>
-      </section>
+    <div>
+      <Navbar />
+      <div className="analytics-container">
+        <header className="analytics-header">
+          <h1>SmartSlide Analytics</h1>
+        </header>
+        <section className="analytics-section">
+          <div className="chart-container">
+            <h2>Slides Created Over Time</h2>
+            <Bar data={slideData} />
+          </div>
+          <div className="chart-container">
+            <h2>Most Common Topics</h2>
+            <Pie data={topicData} />
+          </div>
+        </section>
+        <section className="analytics-summary">
+          <h2>Summary</h2>
+          <p>Total Slides Created: 54</p>
+          <p>Most Used Template: "Modern Business"</p>
+          <p>Usage Frequency: 3 times per week</p>
+        </section>
+      </div>
     </div>
   );
 };

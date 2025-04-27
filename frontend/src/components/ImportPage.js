@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import Navbar from "./Navbar";
-import '../styles/ImportPage.css';
-import '../styles/Popup.css'; 
+import "../styles/ImportPage.css";
 
 export default function ImportPage() {
   const [popupType, setPopupType] = useState(null);
@@ -10,77 +9,97 @@ export default function ImportPage() {
     setPopupType(null);
   };
 
+  const renderPopupContent = () => {
+    switch (popupType) {
+      case "topic":
+        return (
+          <>
+            <h2 className="popup-title">Start from a Topic</h2>
+            <p className="popup-description">
+              Enter your topic to generate a presentation.
+            </p>
+            <input
+              type="text"
+              className="popup-input"
+              placeholder="Enter your topic"
+              onChange={(e) => console.log("Topic:", e.target.value)}
+            />
+          </>
+        );
+      case "url":
+        return (
+          <>
+            <h2 className="popup-title">Import from URL</h2>
+            <p className="popup-description">
+              This will extract the text from the webpage you enter.
+            </p>
+            <input
+              type="text"
+              className="popup-input"
+              placeholder="http://www.example.com/"
+              onChange={(e) => console.log("URL:", e.target.value)}
+            />
+          </>
+        );
+      case "file":
+        return (
+          <>
+            <h2 className="popup-title">Upload a File</h2>
+            <p className="popup-description">
+              Choose a file to upload and generate a presentation.
+            </p>
+            <input
+              type="file"
+              className="popup-input"
+              accept=".pdf,.docx,.pptx"
+              onChange={(e) => console.log("File:", e.target.files[0])}
+            />
+          </>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <div>
       <Navbar />
       <div className="import-container">
-        <h1 className="title">Create with SmartSlide</h1>
-        <div className="card-container">
-          <div className="card" onClick={() => setPopupType('topic')}>
-            <h2>Start from a Topic</h2>
-            <p>Generate a presentation by entering a topic.</p>
-          </div>
+        <div className="import-box">
+          <h1 className="title">Create with SmartSlide</h1>
+          <div className="card-container">
+            <div className="card" onClick={() => setPopupType("topic")}>
+              <h2>START FROM A TOPIC</h2>
+              <p>Generate a presentation by entering a topic.</p>
+              <button className="card-btn">TYPE TOPIC</button>
+            </div>
 
-          <div className="card" onClick={() => setPopupType('url')}>
-            <h2>Paste a Link</h2>
-            <p>Import content from a URL to generate slides.</p>
-          </div>
+            <div className="card" onClick={() => setPopupType("url")}>
+              <h2>PASTE A LINK</h2>
+              <p>Import content from a URL to generate slides.</p>
+              <button className="card-btn">PASTE LINK</button>
+            </div>
 
-          <div className="card" onClick={() => setPopupType('file')}>
-            <h2>Upload a File</h2>
-            <p>Upload a document to create a presentation.</p>
+            <div className="card" onClick={() => setPopupType("file")}>
+              <h2>UPLOAD A FILE</h2>
+              <p>Upload a document to create a presentation.</p>
+              <button className="card-btn">UPLOAD FILE</button>
+            </div>
           </div>
+          <a href="#" className="help-link">Need help?</a>
         </div>
 
-        {popupType === 'topic' && (
+        {popupType && (
           <div className="popup-overlay">
             <div className="popup-box">
-              <h2>Start from a Topic</h2>
-              <p>Enter your topic to generate a presentation:</p>
-              <input
-                type="text"
-                placeholder="Enter your topic"
-                onChange={(e) => console.log('Topic:', e.target.value)}
-              />
+              {renderPopupContent()}
               <div className="popup-actions">
-                <button className="cancel-btn" onClick={closePopup}>Cancel</button>
-                <button className="import-btn" onClick={closePopup}>Generate</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {popupType === 'url' && (
-          <div className="popup-overlay">
-            <div className="popup-box">
-              <h2>Paste a Link</h2>
-              <p>Enter the URL to import content:</p>
-              <input
-                type="text"
-                placeholder="Enter URL here"
-                onChange={(e) => console.log('URL:', e.target.value)}
-              />
-              <div className="popup-actions">
-                <button className="cancel-btn" onClick={closePopup}>Cancel</button>
-                <button className="import-btn" onClick={closePopup}>Import</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {popupType === 'file' && (
-          <div className="popup-overlay">
-            <div className="popup-box">
-              <h2>Upload a File</h2>
-              <p>Choose a file to upload:</p>
-              <input
-                type="file"
-                accept=".pdf,.docx,.pptx"
-                onChange={(e) => console.log('File:', e.target.files[0])}
-              />
-              <div className="popup-actions">
-                <button className="cancel-btn" onClick={closePopup}>Cancel</button>
-                <button className="import-btn" onClick={closePopup}>Upload</button>
+                <button className="cancel-btn" onClick={closePopup}>
+                  Cancel
+                </button>
+                <button className="import-btn" onClick={closePopup}>
+                  {popupType === "file" ? "Upload" : popupType === "url" ? "Import" : "Generate"}
+                </button>
               </div>
             </div>
           </div>

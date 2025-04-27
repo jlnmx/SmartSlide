@@ -48,11 +48,11 @@ const Analytics = () => {
       <Navbar />
       <div className="analytics-container">
         <header className="analytics-header">
-          <h1>SmartSlide Analytics</h1>
+          <h1 className="analytics-title">SMARTSLIDE ANALYTICS</h1>
         </header>
         <section className="analytics-section">
           <div className="chart-container">
-            <h2>Slides Created Over Time</h2>
+            <h2>Slides created over time</h2>
             <Bar data={slideData} />
           </div>
           <div className="chart-container">

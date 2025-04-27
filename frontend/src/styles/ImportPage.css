@@ -1,44 +1,178 @@
 .import-container {
     display: flex;
-    flex-direction: column;
-    align-items: center;
     justify-content: center;
+    align-items: center;
     height: 100vh; /* Full viewport height */
+    background-color: #f3e8ff; /* Light purple background */
+  }
+  
+  .import-box {
+    background-color: #ffffff; /* White container */
+    padding: 40px;
+    border-radius: 15px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); /* Subtle shadow */
     text-align: center;
-    background-color: #f8f9fc; /* Optional background color */
-}
-
-.card-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 20px; /* Space between cards */
-    flex-wrap: wrap; /* Allow wrapping if there are too many cards */
-    margin-top: 20px;
-}
-
-.card {
+    width: 700px;
+  }
+  
+  .title {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #4a148c; /* Dark purple */
+    margin-bottom: 30px;
+  }
+  
+  .card-container {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* Two columns */
+    gap: 20px;
+    justify-items: center;
+  }
+  
+  .card-container .card:nth-child(3) {
+    grid-column: span 2; /* Make the third card span two columns */
+  }
+  
+  .card {
     background: #ffffff;
     border: 1px solid #ddd;
     border-radius: 10px;
     padding: 20px;
-    width: 250px;
+    width: 300px;
     text-align: center;
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.card:hover {
+  }
+  
+  .card:hover {
     transform: translateY(-5px);
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-}
-
-.card h2 {
+  }
+  
+  .card h2 {
     font-size: 1.2rem;
+    font-weight: bold;
+    color: #4a148c; /* Dark purple */
     margin-bottom: 10px;
-}
-
-.card p {
+  }
+  
+  .card p {
     font-size: 0.9rem;
     color: #666;
-}
+    margin-bottom: 15px;
+  }
+  
+  .card-btn {
+    background-color: #7e57c2; /* Purple button */
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .card-btn:hover {
+    background-color: #5e35b1; /* Darker purple on hover */
+  }
+  
+  .help-link {
+    margin-top: 20px;
+    font-size: 0.9rem;
+    color: #4a148c; /* Dark purple */
+    text-decoration: none;
+  }
+  
+  .help-link:hover {
+    text-decoration: underline;
+  }
+  .popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+  }
+  
+  .popup-box {
+    background-color: #ffffff; /* White background */
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); /* Subtle shadow */
+    width: 400px;
+    text-align: left;
+    position: relative;
+  }
+  
+  .close-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #666;
+    cursor: pointer;
+  }
+  
+  .popup-title {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #2c3e50; /* Dark blue-gray */
+    margin-bottom: 10px;
+  }
+  
+  .popup-description {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 20px;
+  }
+  
+  .popup-input {
+    width: 100%;
+    padding: 10px;
+    font-size: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin-bottom: 20px;
+  }
+  
+  .popup-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+  
+  .cancel-btn {
+    background-color: #f5f5f5; /* Light gray */
+    color: #666;
+    border: 1px solid #ddd;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .cancel-btn:hover {
+    background-color: #e0e0e0; /* Darker gray on hover */
+  }
+  
+  .import-btn {
+    background-color: #7e57c2; /* Purple button */
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .import-btn:hover {
+    background-color: #5e35b1; /* Darker purple on hover */
+  }

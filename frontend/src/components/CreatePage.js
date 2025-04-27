@@ -1,8 +1,11 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
 import "../styles/CreatePage.css";
 
 const CreatePage = () => {
+  const navigate = useNavigate();
+
   return (
     <div>
       <Navbar />
@@ -13,9 +16,15 @@ const CreatePage = () => {
         </p>
 
         <div className="button-group">
-          <button className="create-btn">GENERATE</button>
-          <button className="upload-btn">UPLOAD DOCUMENT OR URL</button>
-          <button className="scratch-btn">PASTE IN TEXT</button>
+          <button className="create-btn" onClick={() => navigate("/generate")}>
+            GENERATE
+          </button>
+          <button className="upload-btn" onClick={() => navigate("/import")}>
+            UPLOAD DOCUMENT OR URL
+          </button>
+          <button className="scratch-btn" onClick={() => navigate("/paste-and-create")}>
+            PASTE IN TEXT
+          </button>
         </div>
 
         <a href="#" className="help-link">Need help?</a>

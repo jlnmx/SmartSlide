@@ -38,7 +38,7 @@ const Templates = () => {
       <Navbar />
       <div className="templates-container">
         <header className="templates-header">
-          <h1>Templates</h1>
+          <h1 className="templates-title">TEMPLATES</h1>
           <input
             type="text"
             placeholder="Search templates..."
@@ -51,15 +51,21 @@ const Templates = () => {
               <h2 className="category-title">{category.name}</h2>
               <div className="templates-list">
                 {category.templates.map((template) => (
-                  <div key={template.id} className="template-card">
-                    <h3>{template.title}</h3>
-                    <button className="use-template-btn">Use Template</button>
-                  </div>
+                  <a
+                    key={template.id}
+                    href="#"
+                    className="template-card"
+                    onClick={() => alert(`Clicked on ${template.title}`)}
+                  >
+                    <div className="template-placeholder"></div>
+                    <h3 className="template-title">{template.title}</h3>
+                  </a>
                 ))}
               </div>
             </div>
           ))}
         </section>
+        <a href="#" className="help-link">Need help?</a>
       </div>
     </div>
   );

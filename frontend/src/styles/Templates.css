@@ -1,20 +1,21 @@
 .templates-container {
   padding: 20px;
   font-family: Arial, sans-serif;
-  background-color: #f8f9fc;
-  height: 100vh;
+  background-color: #e3f2fd; /* Light blue background */
+  min-height: 100vh;
 }
 
 .templates-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 30px;
 }
 
-.templates-header h1 {
-  font-size: 1.8rem;
-  color: #2c3e50;
+.templates-title {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #2c3e50; /* Dark blue-gray */
 }
 
 .search-bar {
@@ -32,16 +33,17 @@
 }
 
 .category {
-  background-color: white;
+  background-color: #ffffff;
   padding: 20px;
   border-radius: 10px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); /* Subtle shadow */
 }
 
 .category-title {
-  font-size: 1.5rem;
-  color: #2c3e50;
-  margin-bottom: 15px;
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #2c3e50; /* Dark blue-gray */
+  margin-bottom: 20px;
 }
 
 .templates-list {
@@ -51,35 +53,46 @@
 }
 
 .template-card {
-  background-color: #ffffff;
-  padding: 15px;
-  border-radius: 8px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
-  transition: transform 0.2s ease;
+  background-color: #ffffff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .template-card:hover {
   transform: scale(1.05);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15); /* Slightly stronger shadow on hover */
 }
 
-.template-card h3 {
-  font-size: 1.1rem;
-  color: #2c3e50;
+.template-placeholder {
+  width: 100%;
+  height: 120px;
+  background-color: #d6e4f0; /* Light blue placeholder */
+  border-radius: 8px;
   margin-bottom: 10px;
 }
 
-.use-template-btn {
-  background-color: #6c63ff;
-  color: white;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: background-color 0.3s ease;
+.template-title {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #2c3e50; /* Dark blue-gray */
 }
 
-.use-template-btn:hover {
-  background-color: #5a52e0;
+.help-link {
+  display: block;
+  margin-top: 30px;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #2c3e50; /* Dark blue-gray */
+  text-decoration: none;
+}
+
+.help-link:hover {
+  text-decoration: underline;
 }

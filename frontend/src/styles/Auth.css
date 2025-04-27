@@ -1,72 +1,113 @@
-/* Auth.css */
+/* Auth Container */
 .auth-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    background-color: #f8f9fc;
-  }
-  
-  .auth-box {
-    background: white;
-    padding: 40px;
-    border-radius: 12px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-    text-align: center;
-    max-width: 400px;
-    width: 100%;
-  }
-  
-  .auth-box h2 {
-    color: #333;
-    margin-bottom: 10px;
-  }
-  
-  .auth-box p {
-    color: #666;
-    margin-bottom: 20px;
-  }
-  
-  .auth-form {
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .auth-form input {
-    padding: 12px;
-    margin-bottom: 15px;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    font-size: 16px;
-  }
-  
-  .auth-btn {
-    background: #a0d2eb;
-    color: white;
-    border: none;
-    padding: 12px;
-    font-size: 16px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: 0.3s;
-  }
-  
-  .auth-btn:hover {
-    background: #7bb1d1;
-  }
-  
-  .auth-footer {
-    margin-top: 15px;
-    color: #666;
-  }
-  
-  .auth-footer a {
-    color: #7bb1d1;
-    text-decoration: none;
-    font-weight: bold;
-  }
-  
-  .auth-footer a:hover {
-    text-decoration: underline;
-  }
-  
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #FFF6F6; /* Light pink background */
+  background: url("/public/SS_Logo_3.png") no-repeat center center; /* Background image */
+  background-size: contain; /* Ensure the image scales proportionally */
+}
+
+/* Auth Box */
+.auth-box {
+  background: white;
+  padding: 40px;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  max-width: 400px;
+  width: 100%;
+}
+
+.auth-box h2 {
+  font-family: 'Inter', sans-serif;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 24px;
+  color: #B9393B; /* Dark red color for the title */
+  margin-bottom: 10px;
+}
+
+.auth-box p {
+  font-family: 'Inter', sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 16px;
+  color: #666666; /* Gray color for the subtitle */
+  margin-bottom: 20px;
+}
+
+/* Auth Form */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-form input {
+  padding: 12px;
+  margin-bottom: 15px;
+  border: 1px solid #CCCCCC;
+  border-radius: 8px;
+  font-size: 16px;
+  font-family: 'Inter', sans-serif;
+  color: #333333;
+}
+
+.auth-form input::placeholder {
+  color: #AAAAAA; /* Placeholder text color */
+}
+
+/* Auth Button */
+.auth-btn {
+  background: #B9393B; /* Dark red button background */
+  color: white;
+  border: none;
+  padding: 12px;
+  font-size: 16px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+}
+
+.auth-btn:hover {
+  background: #9E2F2F; /* Slightly darker red on hover */
+}
+
+/* Auth Footer */
+.auth-footer {
+  margin-top: 15px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: #666666;
+}
+
+.auth-footer a {
+  color: #B9393B; /* Dark red for links */
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.auth-footer a:hover {
+  text-decoration: underline;
+}
+/* Clickable Logo */
+.auth-logo {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 120px; /* Adjusted size for the logo */
+  height: 120px;
+  cursor: pointer;
+  z-index: 10; /* Ensure it appears above other elements */
+}
+
+.auth-logo img {
+  width: 100%;
+  height: auto;
+}

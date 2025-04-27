@@ -6,8 +6,7 @@ const Navbar = () => {
   return (
     <div className="navbar">
       <div className="navbar-logo">
-        <img src="/logo.png" alt="SmartSlide Logo" className="logo" />
-        <h1 className="app-name">SmartSlide</h1>
+        <img src="/SS_Logo_7.png" alt="SmartSlide Logo" className="logo" />
       </div>
       <div className="navbar-links">
         <Link to="/dashboard" className="nav-link">Dashboard</Link>

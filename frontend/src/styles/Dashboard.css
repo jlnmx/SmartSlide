@@ -2,177 +2,144 @@
 .dashboard-container {
   display: flex;
   height: 100vh;
-  font-family: Arial, sans-serif;
-  transition: all 0.3s ease;
+  font-family: 'Inter', sans-serif;
+  background-color: #DFFFD6; /* Pastel green background for the entire dashboard */
+  background: url("/public/SS_Logo_3.png") no-repeat center center; /* Add background image */
+  background-size: contain; /* Ensure the image covers the entire container */
+  overflow: hidden;
 }
 
 /* Sidebar styles */
+/* Sidebar styles */
 .sidebar {
-  width: 250px;
-  background-color: #a0d2eb;
-  padding: 20px;
-  color: white;
+  width: 300px;
+  background-color: #E6FFD7;
+  padding: 20px 0; /* Adjusted padding for top and bottom */
   display: flex;
   flex-direction: column;
   align-items: center;
-  transition: width 0.3s ease, opacity 0.3s ease;
-  overflow: hidden;
 }
 
-.sidebar.collapsed {
-  width: 40px; /* Leave a small part of the sidebar visible */
-  padding: 10px 5px; /* Adjust padding for the collapsed state */
-  opacity: 1; /* Keep the button visible */
-}
-
-/* Collapse button styles */
-.collapse-btn {
-  background-color: #7bb1d1;
-  color: white;
-  border: none;
-  padding: 5px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-bottom: 20px;
-  transition: background-color 0.3s ease;
-}
-
-.collapse-btn:hover {
-  background-color: #5a9bb0;
-}
-
-/* Logo styles */
-.logo {
-  font-size: 1.8rem;
-  font-weight: bold;
-  margin-bottom: 20px;
-  transition: opacity 0.3s ease;
-}
-
-.sidebar.collapsed .logo {
-  opacity: 0; /* Hide logo when collapsed */
-  height: 0;
-  overflow: hidden;
+/* Sidebar Logo */
+.sidebar .logo {
+  margin-top: -40px; /* Adjusted margin for top spacing */
+  width: 80%; /* Adjusted width for better scaling */
+  height: 200px; /* Adjusted height for the logo */
+  background: url("/public/SS_Logo_6-removebg-preview.png") no-repeat center center;
+  background-size: contain; /* Ensure the logo scales proportionally */
+  margin-bottom: 5px; /* Increased spacing below the logo */
 }
 
 /* Menu styles */
 .menu {
+  margin-top: -50px;
   display: flex;
   flex-direction: column;
   width: 100%;
   align-items: center;
-  transition: opacity 0.3s ease;
+  gap: 75px; /* Added spacing between menu items */
 }
 
 .menu-item {
-  padding: 10px;
-  color: white;
+  font-family: 'Inter', sans-serif;
+  font-size: 25px; /* Adjusted font size */
+  font-weight: 600;
+  color: #397125;
   text-decoration: none;
-  font-size: 1.2rem;
   text-align: center;
-  border-radius: 8px;
-  transition: background 0.3s ease, font-size 0.3s ease;
+  width: 100%;
+  transition: background-color 0.3s ease;
 }
 
 .menu-item:hover {
-  background-color: #7bb1d1;
+  background-color: #CFF5D2;
+  border-radius: 8px;
 }
 
-.sidebar.collapsed .menu-item {
-  opacity: 0; /* Hide menu items when collapsed */
-  height: 0;
-  overflow: hidden;
+/* Logout Button */
+.logout-btn {
+  margin-top: auto; /* Push the logout button to the bottom */
+  font-family: 'Inter', sans-serif;
+  font-size: 20px; /* Adjusted font size */
+  font-weight: 600;
+  color: #397125;
+  text-align: center;
+  padding: 10px 0;
+  cursor: pointer;
+  border: 2px solid #397125;
+  border-radius: 8px;
+  background-color: #F4FFF0;
+  width: 80%; /* Adjusted width for better alignment */
+  transition: background-color 0.3s ease;
 }
 
+.logout-btn:hover {
+  background-color: #CFF5D2;
+}
 /* Main content styles */
 .main-content {
   flex-grow: 1;
-  padding: 40px 20px;
-  background-color: #f8f9fc;
-  transition: margin-left 0.3s ease;
+  padding: 40px;
+  position: relative;
 }
 
-.dashboard-container.collapsed .main-content {
-  margin-left: 40px; /* Adjust margin when sidebar is collapsed */
-}
-
-/* Dashboard header styles */
 .dashboard-header {
-  width: 100%;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px; /* Reduce vertical gap */
+  margin-bottom: 20px;
 }
 
 .dashboard-header h1 {
-  text-align: left;
+  font-family: 'Koulen', sans-serif;
+  font-size: 60px;
+  color: #397125;
+  margin: 0;
 }
 
-/* New presentation button styles */
 .new-presentation-btn {
-  background-color: #a0d2eb;
-  border: none;
-  padding: 12px 20px;
-  font-size: 1rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: #397125;
+  background-color: #AFF4C6;
+  border: 1px solid #02542D;
   border-radius: 8px;
+  padding: 10px 20px;
   cursor: pointer;
-  transition: 0.3s ease;
+  transition: background-color 0.3s ease;
 }
 
 .new-presentation-btn:hover {
-  background-color: #7bb1d1;
+  background-color: #9FE3B4;
 }
 
 /* Recent presentations section */
-.recent-presentations {
-  margin-top: 10px; /* Reduce vertical gap */
+.recent-presentations h2 {
+  font-family: 'Koulen', sans-serif;
+  font-size: 30px;
+  color: #397125;
+  margin-bottom: 20px;
 }
 
 .presentation-list {
   display: flex;
-  gap: 15px;
-  flex-wrap: wrap;
+  gap: 20px;
 }
 
 .presentation-card {
-  background-color: white;
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-  text-align: center;
-  width: 150px;
-}
-
-/* Settings modal styles */
-.settings-modal {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 300px; /* Make the popup smaller */
-  background-color: white;
-  border: 2px solid #a0d2eb; /* Add an outline with a matching color */
+  width: 250px;
+  height: 180px;
+  background-color: #FFFFFF;
+  border: 3px solid #397125;
   border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  z-index: 1000;
-}
-
-.settings-content {
-  padding: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  color: #02542D;
   text-align: center;
-}
-
-.close-btn {
-  background-color: #f44336;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-top: 10px;
-}
-
-.close-btn:hover {
-  background-color: #d32f2f;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }

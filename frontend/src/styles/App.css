@@ -1,44 +1,82 @@
+/* Container Styles */
 .welcome-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    background-color: #f8f9fc;
-    text-align: center;
-    padding: 20px;
-  }
-  
-  .welcome-header {
-    max-width: 600px;
-  }
-  
-  .welcome-title {
-    font-size: 2.5rem;
-    font-weight: bold;
-    color: #333;
-    margin-bottom: 10px;
-  }
-  
-  .welcome-subtitle {
-    font-size: 1.2rem;
-    color: #666;
-    margin-bottom: 20px;
-  }
-  
-  .welcome-btn {
-    padding: 14px 24px;
-    font-size: 1rem;
-    font-weight: bold;
-    background-color: #a0d2eb;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.3s ease-in-out;
-  }
-  
-  .welcome-btn:hover {
-    opacity: 0.8;
-  }
-  
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  background: #FFF6F6; /* Light pink background */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+/* Button Styles */
+.welcome-btn {
+  margin-top: 20px;
+  padding: 15px 40px;
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #FFFFFF;
+  background: #B9393B;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  z-index: 10; /* Ensure the button is above other elements */
+  position: relative; /* Ensure z-index applies */
+}
+
+.welcome-btn:hover {
+  background: #9E2F2F;
+  opacity: 0.9;
+}
+/* Background Logo */
+.background-logo {
+  position: absolute;
+  background: url("/public/SS_Logo_3.png") no-repeat center center;
+  background-size: contain;
+  width: 100%;
+  height: 100%;
+  opacity: 0.2; /* Subtle transparency */
+  z-index: 0; /* Ensure it is below the button */
+}
+
+/* Gradient Bar */
+.gradient-bar {
+  position: relative;
+  width: 100%;
+  height: 30vh;
+  background: linear-gradient(90deg, #FFD884 0%, #FF9A9A 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 1;
+  padding: 20px 0;
+}
+
+/* Title Styles */
+.welcome-title {
+  font-family: 'Koulen', sans-serif;
+  font-size: 6rem;
+  font-weight: 600;
+  color: #FFFFFF;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.25);
+  margin: 0;
+  letter-spacing: 0.2em;
+  -webkit-text-stroke: 2px #DB7373; /* Added border to text letters */
+}
+
+/* Subtitle Styles */
+.welcome-subtitle {
+  font-family: 'Inter', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 400;
+  color: #FFFFFF;
+  margin-top: 10px;
+  letter-spacing: 0.1em;
+}
+

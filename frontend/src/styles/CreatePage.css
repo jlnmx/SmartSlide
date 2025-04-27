@@ -1,58 +1,58 @@
 .create-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    background-color: #f8f9fc;
-    text-align: center;
-    padding: 20px;
-  }
-  
-  .title {
-    font-size: 2rem;
-    font-weight: bold;
-    color: #333;
-    margin-bottom: 10px;
-  }
-  
-  .subtitle {
-    font-size: 1.2rem;
-    color: #666;
-    margin-bottom: 20px;
-  }
-  
-  .button-group {
-    display: flex;
-    gap: 15px;
-  }
-  
-  button {
-    padding: 12px 20px;
-    font-size: 1rem;
-    font-weight: bold;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.3s ease-in-out;
-  }
-  
-  .create-btn {
-    background-color: #a0d2eb;
-    color: #fff;
-  }
-  
-  .upload-btn {
-    background-color: #ffb3c6;
-    color: #fff;
-  }
-  
-  .scratch-btn {
-    background-color: #b8e0d2;
-    color: #fff;
-  }
-  
-  button:hover {
-    opacity: 0.8;
-  }
-  
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background-color: #e3f2fd; /* Light blue background */
+  text-align: center;
+  padding: 20px;
+  border-radius: 15px; /* Rounded corners for the container */
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); /* Subtle shadow for the container */
+}
+
+.title {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #1a1a1a; /* Dark gray */
+  margin-bottom: 10px;
+}
+
+.subtitle {
+  font-size: 1.2rem;
+  color: #666666; /* Gray */
+  margin-bottom: 30px;
+}
+
+.button-group {
+  display: flex;
+  gap: 20px;
+}
+
+button {
+  padding: 12px 25px;
+  font-size: 1rem;
+  font-weight: bold;
+  border: 1px solid #1a1a1a; /* Border for buttons */
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  background-color: #ffffff; /* White background */
+  color: #1a1a1a; /* Dark gray text */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Subtle shadow for buttons */
+}
+
+button:hover {
+  background-color: #d6e4f0; /* Slightly darker blue on hover */
+}
+
+.help-link {
+  margin-top: 20px;
+  font-size: 0.9rem;
+  color: #1a1a1a; /* Dark gray */
+  text-decoration: none;
+}
+
+.help-link:hover {
+  text-decoration: underline;
+}

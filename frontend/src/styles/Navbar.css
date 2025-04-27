@@ -1,44 +1,43 @@
 .navbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 20px;
-    background-color: #a0d2eb;
-    color: white;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    position: sticky;
-    top: 0;
-    z-index: 1000;
-  }
-  
-  .navbar-logo {
-    display: flex;
-    align-items: center;
-  }
-  
-  .logo {
-    height: 40px;
-    margin-right: 10px;
-  }
-  
-  .app-name {
-    font-size: 1.5rem;
-    font-weight: bold;
-  }
-  
-  .navbar-links {
-    display: flex;
-    gap: 20px;
-  }
-  
-  .nav-link {
-    color: white;
-    text-decoration: none;
-    font-size: 1rem;
-    font-weight: 500;
-    transition: color 0.3s ease;
-  }
-  
-  .nav-link:hover {
-    color: #f0f0f0;
-  }
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 40px; /* Maintain consistent spacing */
+  height: 100px; /* Fixed height for the navbar */
+  background-color: #e3f2fd; /* Light blue background */
+  color: #1a1a1a; /* Dark gray text */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  overflow: hidden; /* Prevent the navbar from expanding */
+}
+
+.navbar-logo {
+  display: flex;
+  align-items: center;
+}
+
+.logo {
+  height: 200px; /* Increased logo height */
+  max-height: 100%; /* Ensure it fits within the navbar */
+  margin-right: 15px; /* Spacing between logo and text */
+  object-fit: contain; /* Ensure the logo scales proportionally */
+}
+
+.navbar-links {
+  display: flex;
+  gap: 30px; /* Adjusted space between links */
+}
+
+.nav-link {
+  color: #1a1a1a; /* Dark gray text */
+  text-decoration: none;
+  font-size: 1rem; /* Adjusted font size */
+  font-weight: 500; /* Adjusted font weight */
+  transition: color 0.3s ease;
+}
+
+.nav-link:hover {
+  color: #0d47a1; /* Darker blue on hover */
+}

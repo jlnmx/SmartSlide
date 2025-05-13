@@ -5,14 +5,11 @@ import AuthPage from "./Auth";
 import Dashboard from "./Dashboard";
 import CreatePage from "./CreatePage";
 import GeneratePage from "./GeneratePage";
-import PasteAndCreate from "./PasteAndCreate"; // Import PasteAndCreate component
+import PasteAndCreate from "./PasteAndCreate";
 import ImportPage from "./ImportPage";
-import Analytics from "./Analytics"; // Ensure Analytics is imported
-import Templates from "./Templates"; // Import the Templates component
-
-<Routes>
-  <Route path="/templates" element={<Templates />} />
-</Routes>
+import Analytics from "./Analytics";
+import Templates from "./Templates";
+import SlidesGeneratingPage from "./SlidesGeneratingPage";
 
 
 const MainRouter = () => {
@@ -35,14 +32,20 @@ const MainRouter = () => {
         {/* Generate Page */}
         <Route path="/generate" element={<GeneratePage />} />
 
+        {/* Import Page */}
         <Route path="/import" element={<ImportPage />} />
 
         {/* Paste and Create Page */}
         <Route path="/paste-and-create" element={<PasteAndCreate />} />
 
-        <Route path="/analytics" element={<Analytics />} /> {/* Route for Analytics */}
-    
+        {/* Analytics Page */}
+        <Route path="/analytics" element={<Analytics />} />
+
+        {/* Templates Page */}
         <Route path="/templates" element={<Templates />} />
+
+        <Route path="/slides-generating" element={<SlidesGeneratingPage />} />
+
       </Routes>
     </Router>
   );

@@ -1,113 +1,258 @@
 /* Auth Container */
 .auth-container {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  background-color: #FFF6F6; /* Light pink background */
-  background: url("/public/SS_Logo_3.png") no-repeat center center; /* Background image */
-  background-size: contain; /* Ensure the image scales proportionally */
+  justify-content: center; /* Center the main content box horizontally */
+  align-items: center; /* Center the main content box vertically */
+  min-height: 100vh;
+  background-color: #f0f2f5; /* Light grey background for the page */
+  padding: 20px; /* Add some padding around the main box */
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; /* Modern font stack */
 }
 
-/* Auth Box */
-.auth-box {
-  background: white;
-  padding: 40px;
-  border-radius: 12px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-  text-align: center;
-  max-width: 400px;
+/* Main Content Box */
+.auth-main-content {
+  display: flex;
+  flex-direction: row; /* Side-by-side layout */
   width: 100%;
+  max-width: 1200px; /* Increased max-width for a wider look */
+  min-height: 600px; /* Give it a minimum height */
+  background-color: #ffffff; /* White background for the right side */
+  border-radius: 10px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1); /* Softer shadow */
+  overflow: hidden; /* Keep content within rounded corners */
+}
+
+/* Slideshow Container (Left Side) */
+.auth-slideshow-container {
+  flex-basis: 50%; /* Take up half the width */
+  padding: 50px 40px; /* More vertical padding */
+  background: linear-gradient(135deg, #8e44ad 0%, #3498db 100%); /* Purple to blue gradient */
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Center content vertically */
+  align-items: center; /* Center content horizontally */
+  text-align: center;
+  position: relative; /* Needed for slideshow arrows/indicators */
+}
+
+/* Add Logo Style */
+.slideshow-logo {
+    width: 80px; /* Adjust size */
+    height: auto;
+    margin-bottom: 30px;
+}
+
+.slideshow-title {
+  font-size: 2rem; /* Adjust size */
+  font-weight: 600;
+  margin-bottom: 15px;
+}
+
+.slideshow-subtitle {
+  font-size: 1rem; /* Adjust size */
+  margin-bottom: 40px; /* Space before slideshow */
+  opacity: 0.9;
+}
+
+/* Slideshow specific styles */
+.slide-container { /* Add a wrapper for the slideshow itself */
+    width: 100%;
+    max-width: 400px; /* Limit slideshow width */
+    margin-bottom: 40px; /* Space after slideshow */
+}
+
+.each-slide > div.slide-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-size: contain; /* Use contain to see the whole image */
+  background-position: center;
+  background-repeat: no-repeat;
+  height: 250px; /* Adjust height */
+  border-radius: 8px;
+  /* Remove background color if images are used */
+  /* background-color: rgba(255, 255, 255, 0.1); */
+  color: #ccc; /* Placeholder text color */
+  font-style: italic;
+}
+
+/* Remove caption overlay if not desired */
+.slide-caption {
+ display: none; /* Hide the overlay caption from previous style */
+}
+
+/* Style react-slideshow-image arrows */
+.react-slideshow-container .nav {
+  height: 40px;
+  width: 40px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: absolute; /* Position arrows relative to slideshow container */
+  top: 50%; /* Center vertically */
+  transform: translateY(-50%);
+  z-index: 10;
+}
+
+.react-slideshow-container .nav:hover {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.react-slideshow-container .nav:first-of-type {
+    left: 15px; /* Position left arrow */
+}
+
+.react-slideshow-container .nav:last-of-type {
+    right: 15px; /* Position right arrow */
+}
+
+/* Style react-slideshow-image indicators */
+.indicators {
+    position: absolute;
+    bottom: 60px; /* Adjust position */
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+}
+
+.indicators .each-indicator {
+    width: 8px;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.4);
+    border-radius: 50%;
+    margin: 0 4px;
+    cursor: pointer;
+}
+
+.indicators .each-indicator.active {
+    background: white;
+}
+
+
+.slideshow-footer {
+  margin-top: auto; /* Push footer to the bottom */
+  padding-top: 20px; /* Space above footer */
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+/* Auth Box (Right Side) */
+.auth-box {
+  flex-basis: 50%; /* Take up half the width */
+  padding: 60px 50px; /* Adjust padding */
+  background-color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Center form vertically */
+  color: #333; /* Default text color for this side */
 }
 
 .auth-box h2 {
-  font-family: 'Inter', sans-serif;
-  font-style: normal;
-  font-weight: 600;
-  font-size: 24px;
-  color: #B9393B; /* Dark red color for the title */
+  font-size: 1.8rem; /* Adjust size */
+  color: #333;
   margin-bottom: 10px;
+  text-align: center;
+  font-weight: 600;
 }
 
-.auth-box p {
-  font-family: 'Inter', sans-serif;
-  font-style: normal;
-  font-weight: 400;
-  font-size: 16px;
-  color: #666666; /* Gray color for the subtitle */
-  margin-bottom: 20px;
+.auth-subtitle { /* Renamed from previous use */
+  font-size: 0.95rem; /* Adjust size */
+  color: #666;
+  margin-bottom: 30px; /* Space below subtitle */
+  text-align: center;
 }
 
-/* Auth Form */
 .auth-form {
   display: flex;
   flex-direction: column;
+  gap: 18px; /* Space between form elements */
+  width: 100%;
+  max-width: 350px; /* Limit form width */
+  margin: 0 auto; /* Center form horizontally */
 }
 
 .auth-form input {
-  padding: 12px;
-  margin-bottom: 15px;
-  border: 1px solid #CCCCCC;
-  border-radius: 8px;
-  font-size: 16px;
-  font-family: 'Inter', sans-serif;
-  color: #333333;
+  padding: 14px 18px; /* Adjust padding */
+  border: 1px solid #d9d9d9; /* Light grey border */
+  border-radius: 6px; /* Slightly more rounded */
+  font-size: 0.95rem;
+  background-color: #fafafa; /* Very light grey background */
 }
 
-.auth-form input::placeholder {
-  color: #AAAAAA; /* Placeholder text color */
+.auth-form input:focus {
+    outline: none;
+    border-color: #8e44ad; /* Highlight border on focus */
+    box-shadow: 0 0 0 2px rgba(142, 68, 173, 0.2);
 }
 
-/* Auth Button */
 .auth-btn {
-  background: #B9393B; /* Dark red button background */
+  padding: 14px; /* Match input padding */
+  background: linear-gradient(90deg, #8e44ad 0%, #3498db 100%); /* Match slideshow gradient */
   color: white;
   border: none;
-  padding: 12px;
-  font-size: 16px;
-  font-family: 'Inter', sans-serif;
+  border-radius: 6px;
+  font-size: 1rem;
   font-weight: 600;
-  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.3s ease-in-out;
+  transition: opacity 0.3s ease;
+  margin-top: 10px; /* Space above button */
 }
 
 .auth-btn:hover {
-  background: #9E2F2F; /* Slightly darker red on hover */
+  opacity: 0.9; /* Slight fade on hover */
 }
 
-/* Auth Footer */
 .auth-footer {
-  margin-top: 15px;
-  font-family: 'Inter', sans-serif;
-  font-size: 14px;
-  color: #666666;
+  margin-top: 25px; /* Space above footer link */
+  font-size: 0.9rem;
+  color: #666;
+  text-align: center;
 }
 
 .auth-footer a {
-  color: #B9393B; /* Dark red for links */
+  color: #3498db; /* Blue link color */
   text-decoration: none;
-  font-weight: bold;
+  font-weight: 500;
 }
 
 .auth-footer a:hover {
   text-decoration: underline;
 }
-/* Clickable Logo */
-.auth-logo {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 120px; /* Adjusted size for the logo */
-  height: 120px;
-  cursor: pointer;
-  z-index: 10; /* Ensure it appears above other elements */
-}
 
-.auth-logo img {
-  width: 100%;
-  height: auto;
+/* Responsive Adjustments */
+@media (max-width: 1250px) {
+  .auth-main-content {
+    flex-direction: column; /* Stack vertically */
+    width: 95%;
+    max-width: 95%; /* Limit width on smaller screens */
+    min-height: auto; /* Remove fixed min-height */
+  }
+
+  .auth-slideshow-container,
+  .auth-box {
+    flex-basis: auto; /* Reset flex-basis */
+    width: 100%; /* Take full width */
+    padding: 40px 30px; /* Adjust padding */
+  }
+
+  .auth-slideshow-container {
+      border-radius: 10px 10px 0 0; /* Adjust border radius when stacked */
+  }
+   .auth-box {
+      border-radius: 0 0 10px 10px; /* Adjust border radius when stacked */
+  }
+
+  .slide-container {
+      max-width: 100%;
+  }
+  .auth-form {
+      max-width: 100%;
+  }
 }

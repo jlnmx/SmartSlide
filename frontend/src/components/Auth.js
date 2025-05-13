@@ -1,6 +1,25 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Slide } from "react-slideshow-image"; // Import the Slide component
+import "react-slideshow-image/dist/styles.css"; // Import default styles
 import "../styles/Auth.css";
+
+// --- Slideshow Images ---
+const slideImages = [
+  "/images/preview1.png", // Example path - MAKE SURE THESE EXIST in public/images
+  "/images/preview2.png", // Example path
+  "/images/preview3.png", // Example path
+];
+
+// --- Slideshow Properties ---
+const properties = {
+  duration: 5000,
+  transitionDuration: 500,
+  infinite: true,
+  indicators: true, // Use CSS to style/position indicators
+  arrows: true, // Use CSS to style/position arrows
+  // Removed pauseOnHover as it might interfere with arrow clicks sometimes
+};
 
 const AuthPage = ({ isLogin }) => {
   const [email, setEmail] = useState("");
@@ -9,63 +28,94 @@ const AuthPage = ({ isLogin }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    console.log("Attempting:", isLogin ? "Login" : "Sign Up");
     console.log("Email:", email);
     console.log("Password:", password);
+    // On successful login/signup:
     navigate("/dashboard");
   };
 
   return (
     <div className="auth-container">
-      {/* Clickable Logo */}
-      <Link to="/" className="auth-logo">
-        <img src="/SS_Logo_3.png" alt="SmartSlide Logo" />
-      </Link>
+      <div className="auth-main-content">
+        {/* --- Slideshow Section --- */}
+        <div className="auth-slideshow-container">
+          {/* Add Logo Here */}
+          <img src="/SS_Logo_3.png" alt="SmartSlide Logo" className="slideshow-logo" />
 
-      <div className="auth-box">
-        <h2>{isLogin ? "Enter your Account." : "Create an Account"}</h2>
-        <p>
-          {isLogin
-            ? "Get started on creating presentations."
-            : "Join SmartSlide and start creating."}
-        </p>
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <input
-            type="email"
-            placeholder="Enter email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <input
-            type="password"
-            placeholder="Enter password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          {!isLogin && (
+          <h1 className="slideshow-title">Discover SmartSlide</h1>
+          <p className="slideshow-subtitle">Generate stunning presentations effortlessly.</p>
+
+          {/* Add a wrapper div for slideshow sizing */}
+          <div className="slide-container">
+            <Slide {...properties}>
+              {slideImages.map((slideImage, index) => (
+                <div className="each-slide" key={index}>
+                  <div
+                    style={{ backgroundImage: `url(${slideImage})` }}
+                    className="slide-image"
+                  >
+                    {/* Display placeholder text if image fails to load */}
+                    {`Preview ${index + 1}`}
+                  </div>
+                </div>
+              ))}
+            </Slide>
+          </div>
+
+          <p className="slideshow-footer">Directly create and open in Google Slides.</p>
+        </div>
+
+        {/* --- Form Section --- */}
+        <div className="auth-box">
+          <h2>{isLogin ? "Enter your Account" : "Create an Account"}</h2>
+          <p className="auth-subtitle">
+            {isLogin
+              ? "Get started on creating presentations."
+              : "Join SmartSlide and start creating."}
+          </p>
+          <form className="auth-form" onSubmit={handleSubmit}>
+            <input
+              type="email"
+              placeholder="Enter email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              aria-label="Email Address"
+            />
             <input
               type="password"
-              placeholder="Confirm password"
+              placeholder="Enter password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               required
+              aria-label="Password"
             />
-          )}
-          <button type="submit" className="auth-btn">
-            {isLogin ? "Sign In" : "Sign Up"}
-          </button>
-        </form>
-        <p className="auth-footer">
-          {isLogin ? (
-            <>
-              Don't have an account? <Link to="/register">Create an account</Link>
-            </>
-          ) : (
-            <>
-              Already have an account? <Link to="/auth">Sign In</Link>
-            </>
-          )}
-        </p>
-      </div>
+            {!isLogin && (
+              <input
+                type="password"
+                placeholder="Confirm password"
+                required
+                aria-label="Confirm Password"
+              />
+            )}
+            <button type="submit" className="auth-btn">
+              {isLogin ? "Sign In" : "Sign Up"}
+            </button>
+          </form>
+          <p className="auth-footer">
+            {isLogin ? (
+              <>
+                Don't have an account? <Link to="/register">Create an account</Link>
+              </>
+            ) : (
+              <>
+                Already have an account? <Link to="/auth">Sign In</Link>
+              </>
+            )}
+          </p>
+        </div>
+      </div> {/* End auth-main-content */}
     </div>
   );
 };

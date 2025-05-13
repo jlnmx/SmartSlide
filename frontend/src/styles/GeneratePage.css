@@ -2,28 +2,30 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  height: 100vh;
+  justify-content: flex-start; /* Align content to the top */
+  min-height: 100vh; /* Full viewport height */
   background-color: #f3e8ff; /* Light purple background */
   text-align: center;
-  padding: 40px;
-  max-width: 900px;
+  padding: 20px; /* Reduce padding */
+  max-width: 800px; /* Limit width for better readability */
   margin: auto;
-  border-radius: 15px; /* Rounded corners for the container */
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+  border-radius: 10px; /* Slightly rounded corners */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+  overflow-y: auto; /* Enable vertical scrolling if content overflows */
+  box-sizing: border-box;
 }
 
 .generate-title {
-  font-size: 2.5rem;
+  font-size: 2rem; /* Adjusted size */
   font-weight: bold;
   color: #4a148c; /* Dark purple */
-  margin-bottom: 15px;
+  margin-bottom: 10px; /* Reduce spacing */
 }
 
 .generate-subtitle {
-  font-size: 1.3rem;
+  font-size: 1rem; /* Adjusted size */
   color: #6a1b9a; /* Medium purple */
-  margin-bottom: 25px;
+  margin-bottom: 20px; /* Reduce spacing */
 }
 
 .input-section {
@@ -31,16 +33,16 @@
   flex-direction: column;
   align-items: center;
   width: 100%;
-  margin-bottom: 20px;
+  margin-bottom: 15px; /* Reduce spacing */
 }
 
 .prompt-input {
   width: 100%;
-  max-width: 600px;
-  padding: 14px;
-  font-size: 1.1rem;
+  max-width: 500px; /* Limit input width */
+  padding: 10px; /* Reduce padding */
+  font-size: 1rem; /* Adjusted size */
   border: 1px solid #ccc;
-  border-radius: 10px;
+  border-radius: 8px; /* Slightly rounded corners */
   outline: none;
   text-align: center;
 }
@@ -50,34 +52,32 @@
   flex-direction: row;
   justify-content: center;
   align-items: center;
-  gap: 20px;
-  margin-bottom: 20px;
+  gap: 15px; /* Reduce spacing */
+  margin-bottom: 15px; /* Reduce spacing */
 }
 
 .options-section label {
-  font-size: 1rem;
+  font-size: 0.9rem; /* Adjusted size */
   font-weight: bold;
   color: #4a148c; /* Dark purple */
-  margin-bottom: 5px;
 }
 
 .options-section select {
-  padding: 10px;
-  font-size: 1rem;
+  padding: 8px; /* Reduce padding */
+  font-size: 0.9rem; /* Adjusted size */
   border: 1px solid #ccc;
-  border-radius: 8px;
+  border-radius: 6px; /* Slightly rounded corners */
   outline: none;
-  text-align: center;
 }
 
 .generate-btn {
-  padding: 14px 25px;
-  font-size: 1.2rem;
+  padding: 10px 20px; /* Reduce padding */
+  font-size: 1rem; /* Adjusted size */
   font-weight: bold;
   background-color: #7e57c2; /* Purple button */
   color: white;
   border: none;
-  border-radius: 10px;
+  border-radius: 8px; /* Slightly rounded corners */
   cursor: pointer;
   transition: all 0.3s ease-in-out;
 }
@@ -91,17 +91,60 @@
   background-color: #5e35b1; /* Darker purple on hover */
 }
 
-.response-text {
-  margin-top: 20px;
-  font-size: 1.3rem;
+.template-selection-title {
+  font-size: 1.2rem; /* Adjusted size */
+  font-weight: bold;
   color: #4a148c; /* Dark purple */
-  max-width: 600px;
+  margin: 15px 0; /* Reduce spacing */
+}
+
+.template-selection {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); /* 3 columns */
+  gap: 15px; /* Reduce spacing */
+  justify-items: center; /* Center items horizontally */
+  margin-bottom: 15px; /* Reduce spacing */
+}
+
+.template-box {
+  width: 140px; /* Adjusted size */
+  height: 180px; /* Adjusted size */
+  border: 2px solid transparent;
+  border-radius: 8px; /* Slightly rounded corners */
+  overflow: hidden;
   text-align: center;
+  cursor: pointer;
+  transition: transform 0.3s ease, border-color 0.3s ease;
+  background-color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+}
+
+.template-box:hover {
+  transform: scale(1.05);
+  border-color: #7e57c2; /* Purple border on hover */
+}
+
+.template-box.selected {
+  border-color: #4a148c; /* Dark purple border for selected template */
+}
+
+.template-preview {
+  width: 100%;
+  height: 100px; /* Adjusted size */
+  object-fit: cover;
+  border-bottom: 1px solid #ddd;
+}
+
+.template-title {
+  font-size: 0.9rem; /* Adjusted size */
+  font-weight: bold;
+  color: #4a148c; /* Dark purple */
+  margin-top: 8px; /* Reduce spacing */
 }
 
 .help-link {
-  margin-top: 20px;
-  font-size: 0.9rem;
+  margin-top: 15px; /* Reduce spacing */
+  font-size: 0.8rem; /* Adjusted size */
   color: #4a148c; /* Dark purple */
   text-decoration: none;
 }

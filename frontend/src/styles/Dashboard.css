@@ -1,20 +1,19 @@
 /* General container for the dashboard */
 .dashboard-container {
   display: flex;
-  height: 100vh;
+  height: 100vh; /* Full viewport height */
   font-family: 'Inter', sans-serif;
   background-color: #DFFFD6; /* Pastel green background for the entire dashboard */
   background: url("/public/SS_Logo_3.png") no-repeat center center; /* Add background image */
-  background-size: contain; /* Ensure the image covers the entire container */
+  background-size: contain; /* Ensure the image scales proportionally */
   overflow: hidden;
 }
 
 /* Sidebar styles */
-/* Sidebar styles */
 .sidebar {
-  width: 300px;
+  width: 220px; /* Reduced width for better proportions */
   background-color: #E6FFD7;
-  padding: 20px 0; /* Adjusted padding for top and bottom */
+  padding: 15px 0; /* Adjusted padding for top and bottom */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -22,32 +21,32 @@
 
 /* Sidebar Logo */
 .sidebar .logo {
-  margin-top: -40px; /* Adjusted margin for top spacing */
-  width: 80%; /* Adjusted width for better scaling */
-  height: 200px; /* Adjusted height for the logo */
+  margin-top: -20px; /* Adjusted margin for top spacing */
+  width: 70%; /* Adjusted width for better scaling */
+  height: 120px; /* Reduced height for the logo */
   background: url("/public/SS_Logo_6-removebg-preview.png") no-repeat center center;
   background-size: contain; /* Ensure the logo scales proportionally */
-  margin-bottom: 5px; /* Increased spacing below the logo */
+  margin-bottom: 10px; /* Increased spacing below the logo */
 }
 
 /* Menu styles */
 .menu {
-  margin-top: -50px;
+  margin-top: -20px; /* Adjusted spacing */
   display: flex;
   flex-direction: column;
   width: 100%;
   align-items: center;
-  gap: 75px; /* Added spacing between menu items */
+  gap: 30px; /* Reduced spacing between menu items */
 }
 
 .menu-item {
   font-family: 'Inter', sans-serif;
-  font-size: 25px; /* Adjusted font size */
+  font-size: 18px; /* Reduced font size */
   font-weight: 600;
   color: #397125;
   text-decoration: none;
   text-align: center;
-  width: 100%;
+  width: 90%; /* Adjusted width for better alignment */
   transition: background-color 0.3s ease;
 }
 
@@ -60,11 +59,11 @@
 .logout-btn {
   margin-top: auto; /* Push the logout button to the bottom */
   font-family: 'Inter', sans-serif;
-  font-size: 20px; /* Adjusted font size */
+  font-size: 16px; /* Reduced font size */
   font-weight: 600;
   color: #397125;
   text-align: center;
-  padding: 10px 0;
+  padding: 8px 0; /* Reduced padding */
   cursor: pointer;
   border: 2px solid #397125;
   border-radius: 8px;
@@ -76,10 +75,11 @@
 .logout-btn:hover {
   background-color: #CFF5D2;
 }
+
 /* Main content styles */
 .main-content {
   flex-grow: 1;
-  padding: 40px;
+  padding: 20px; /* Reduced padding */
   position: relative;
 }
 
@@ -87,25 +87,25 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 15px; /* Reduced spacing */
 }
 
 .dashboard-header h1 {
   font-family: 'Koulen', sans-serif;
-  font-size: 60px;
+  font-size: 36px; /* Reduced font size */
   color: #397125;
   margin: 0;
 }
 
 .new-presentation-btn {
   font-family: 'Inter', sans-serif;
-  font-size: 16px;
+  font-size: 14px; /* Reduced font size */
   font-weight: 600;
   color: #397125;
   background-color: #AFF4C6;
   border: 1px solid #02542D;
   border-radius: 8px;
-  padding: 10px 20px;
+  padding: 8px 16px; /* Reduced padding */
   cursor: pointer;
   transition: background-color 0.3s ease;
 }
@@ -117,29 +117,34 @@
 /* Recent presentations section */
 .recent-presentations h2 {
   font-family: 'Koulen', sans-serif;
-  font-size: 30px;
+  font-size: 24px; /* Reduced font size */
   color: #397125;
-  margin-bottom: 20px;
+  margin-bottom: 15px; /* Reduced spacing */
 }
 
 .presentation-list {
   display: flex;
-  gap: 20px;
+  gap: 15px; /* Reduced spacing between cards */
 }
 
 .presentation-card {
-  width: 250px;
-  height: 180px;
+  width: 180px; /* Reduced width */
+  height: 140px; /* Reduced height */
   background-color: #FFFFFF;
-  border: 3px solid #397125;
+  border: 2px solid #397125; /* Reduced border thickness */
   border-radius: 8px;
   display: flex;
   justify-content: center;
   align-items: center;
   font-family: 'Inter', sans-serif;
-  font-size: 16px;
+  font-size: 14px; /* Reduced font size */
   font-weight: 400;
   color: #02542D;
   text-align: center;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+}
+
+.presentation-card:hover {
+  transform: scale(1.05); /* Slight zoom effect on hover */
 }

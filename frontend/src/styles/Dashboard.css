@@ -3,15 +3,15 @@
   display: flex;
   height: 100vh; /* Full viewport height */
   font-family: 'Inter', sans-serif;
-  background-color: #DFFFD6; /* Pastel green background for the entire dashboard */
-  background: url("/public/SS_Logo_3.png") no-repeat center center; /* Add background image */
+  background-color: #eefff1;
+  /* background: url("/public/SS_Logo_3.png") no-repeat center center; Add background image */
   background-size: contain; /* Ensure the image scales proportionally */
   overflow: hidden;
 }
 
 /* Sidebar styles */
 .sidebar {
-  width: 220px; /* Reduced width for better proportions */
+  width: 360px; /* Reduced width for better proportions */
   background-color: #E6FFD7;
   padding: 15px 0; /* Adjusted padding for top and bottom */
   display: flex;
@@ -22,11 +22,11 @@
 /* Sidebar Logo */
 .sidebar .logo {
   margin-top: -20px; /* Adjusted margin for top spacing */
-  width: 70%; /* Adjusted width for better scaling */
-  height: 120px; /* Reduced height for the logo */
+  width: 100%; /* Adjusted width for better scaling */
+  height: 200px; /* Reduced height for the logo */
   background: url("/public/SS_Logo_6-removebg-preview.png") no-repeat center center;
   background-size: contain; /* Ensure the logo scales proportionally */
-  margin-bottom: 10px; /* Increased spacing below the logo */
+  margin-bottom: 20px; /* Increased spacing below the logo */
 }
 
 /* Menu styles */
@@ -36,12 +36,12 @@
   flex-direction: column;
   width: 100%;
   align-items: center;
-  gap: 30px; /* Reduced spacing between menu items */
+  gap: 60px; /* Reduced spacing between menu items */
 }
 
 .menu-item {
   font-family: 'Inter', sans-serif;
-  font-size: 18px; /* Reduced font size */
+  font-size: 40px; /* Reduced font size */
   font-weight: 600;
   color: #397125;
   text-decoration: none;
@@ -59,7 +59,7 @@
 .logout-btn {
   margin-top: auto; /* Push the logout button to the bottom */
   font-family: 'Inter', sans-serif;
-  font-size: 16px; /* Reduced font size */
+  font-size: 30px; /* Reduced font size */
   font-weight: 600;
   color: #397125;
   text-align: center;
@@ -92,18 +92,18 @@
 
 .dashboard-header h1 {
   font-family: 'Koulen', sans-serif;
-  font-size: 36px; /* Reduced font size */
+  font-size: 40px; /* Reduced font size */
   color: #397125;
-  margin: 0;
+  margin-top: 20px;
 }
 
 .new-presentation-btn {
   font-family: 'Inter', sans-serif;
-  font-size: 14px; /* Reduced font size */
+  font-size: 30px; /* Reduced font size */
   font-weight: 600;
   color: #397125;
-  background-color: #AFF4C6;
-  border: 1px solid #02542D;
+  background-color: #ffffff;
+  border: 2px solid #397125;
   border-radius: 8px;
   padding: 8px 16px; /* Reduced padding */
   cursor: pointer;
@@ -111,33 +111,34 @@
 }
 
 .new-presentation-btn:hover {
-  background-color: #9FE3B4;
+  background-color: #c5f8d5;
 }
 
 /* Recent presentations section */
 .recent-presentations h2 {
   font-family: 'Koulen', sans-serif;
-  font-size: 24px; /* Reduced font size */
+  font-size: 30px; /* Reduced font size */
   color: #397125;
+  margin-top: 30px;
   margin-bottom: 15px; /* Reduced spacing */
 }
 
 .presentation-list {
   display: flex;
-  gap: 15px; /* Reduced spacing between cards */
+  gap: 30px; /* Increase spacing between cards */
 }
 
 .presentation-card {
-  width: 180px; /* Reduced width */
-  height: 140px; /* Reduced height */
-  background-color: #FFFFFF;
+  width: 240px; /* Increased width */
+  height: 180px; 
+  background-color: #d5f0d1;
   border: 2px solid #397125; /* Reduced border thickness */
   border-radius: 8px;
   display: flex;
   justify-content: center;
   align-items: center;
   font-family: 'Inter', sans-serif;
-  font-size: 14px; /* Reduced font size */
+  font-size: 18px; /* Reduced font size */
   font-weight: 400;
   color: #02542D;
   text-align: center;

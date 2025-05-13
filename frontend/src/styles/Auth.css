@@ -45,6 +45,7 @@
   width: 80px; /* Keep the size */
   height: auto;
   margin: 0; /* Remove bottom margin */
+  cursor: pointer;
 }
 
 .slideshow-title {

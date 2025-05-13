@@ -27,7 +27,7 @@
 .auth-slideshow-container {
   flex-basis: 50%; /* Take up half the width */
   padding: 50px 40px; /* More vertical padding */
-  background: linear-gradient(135deg, #8e44ad 0%, #3498db 100%); /* Purple to blue gradient */
+  background-color: #7392B7; /* Purple to blue gradient */
   color: #fff;
   display: flex;
   flex-direction: column;
@@ -39,21 +39,26 @@
 
 /* Add Logo Style */
 .slideshow-logo {
-    width: 80px; /* Adjust size */
-    height: auto;
-    margin-bottom: 30px;
+  position: absolute;
+  top: 20px; /* Adjust vertical position */
+  left: 20px; /* Adjust horizontal position */
+  width: 80px; /* Keep the size */
+  height: auto;
+  margin: 0; /* Remove bottom margin */
 }
 
 .slideshow-title {
   font-size: 2rem; /* Adjust size */
   font-weight: 600;
   margin-bottom: 15px;
+  color:white;
 }
 
 .slideshow-subtitle {
   font-size: 1rem; /* Adjust size */
   margin-bottom: 40px; /* Space before slideshow */
   opacity: 0.9;
+  color:white;
 }
 
 /* Slideshow specific styles */
@@ -115,24 +120,26 @@
 
 /* Style react-slideshow-image indicators */
 .indicators {
-    position: absolute;
-    bottom: 60px; /* Adjust position */
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 10;
+  position: absolute; /* Position relative to the slideshow container */
+  bottom: 20px; /* Adjust this value to move the indicators vertically */
+  left: 47%; /* Center horizontally */
+  transform: translateX(-50%); /* Center the indicators exactly */
+  display: flex;
+  justify-content: center;
+  z-index: 10;
 }
 
 .indicators .each-indicator {
-    width: 8px;
-    height: 8px;
-    background: rgba(255, 255, 255, 0.4);
-    border-radius: 50%;
-    margin: 0 4px;
-    cursor: pointer;
+  width: 8px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 50%;
+  margin: 0 4px;
+  cursor: pointer;
 }
 
 .indicators .each-indicator.active {
-    background: white;
+  background: white;
 }
 
 
@@ -141,6 +148,7 @@
   padding-top: 20px; /* Space above footer */
   font-size: 0.9rem;
   opacity: 0.8;
+  color:#ffffff;
 }
 
 /* Auth Box (Right Side) */
@@ -188,13 +196,13 @@
 
 .auth-form input:focus {
     outline: none;
-    border-color: #8e44ad; /* Highlight border on focus */
-    box-shadow: 0 0 0 2px rgba(142, 68, 173, 0.2);
+    border-color: #759EB8; /* Highlight border on focus */
+    box-shadow: 0 0 0 2px rgba(64, 55, 68, 0.2);
 }
 
 .auth-btn {
   padding: 14px; /* Match input padding */
-  background: linear-gradient(90deg, #8e44ad 0%, #3498db 100%); /* Match slideshow gradient */
+  background: #7392B7; /* Match slideshow gradient */
   color: white;
   border: none;
   border-radius: 6px;
@@ -206,6 +214,7 @@
 }
 
 .auth-btn:hover {
+  background-color: #759EB8;
   opacity: 0.9; /* Slight fade on hover */
 }
 

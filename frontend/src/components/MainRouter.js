@@ -10,6 +10,8 @@ import ImportPage from "./ImportPage";
 import Analytics from "./Analytics";
 import Templates from "./Templates";
 import SlidesGeneratingPage from "./SlidesGeneratingPage";
+import AccountProfile from "./AccountProfile";
+
 
 
 const MainRouter = () => {
@@ -43,6 +45,8 @@ const MainRouter = () => {
 
         {/* Templates Page */}
         <Route path="/templates" element={<Templates />} />
+
+        <Route path="/account" element={<AccountProfile />} />
 
         <Route path="/slides-generating" element={<SlidesGeneratingPage />} />
 

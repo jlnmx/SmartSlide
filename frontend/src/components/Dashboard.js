@@ -17,8 +17,7 @@ const Dashboard = () => {
           </div> {/* Logo is styled in CSS */}
         <nav className="menu">
           <Link to="/create" className="menu-item">Create</Link>
-          <Link to="/templates" className="menu-item">Templates</Link>
-          <Link to="/analytics" className="menu-item">Analytics</Link>
+          <Link to="/templates" className="menu-  ">Templates</Link>
           <Link to="/account" className="menu-item">Account</Link>
           <Link to="/settings" className="menu-item">Settings</Link>
         </nav>

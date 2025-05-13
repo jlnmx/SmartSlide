@@ -40,13 +40,14 @@ const AuthPage = ({ isLogin }) => {
       <div className="auth-main-content">
         {/* --- Slideshow Section --- */}
         <div className="auth-slideshow-container">
-          {/* Add Logo Here */}
-          <img src="/SS_Logo_3.png" alt="SmartSlide Logo" className="slideshow-logo" />
+                <Link to="/">
+                <img src="/SS_Logo_3.png" alt="SmartSlide Logo" className="slideshow-logo" />
+                </Link>
 
-          <h1 className="slideshow-title">Discover SmartSlide</h1>
-          <p className="slideshow-subtitle">Generate stunning presentations effortlessly.</p>
+                <h1 className="slideshow-title">Discover SmartSlide</h1>
+                <p className="slideshow-subtitle">Generate stunning presentations effortlessly.</p>
 
-          {/* Add a wrapper div for slideshow sizing */}
+                {/* Add a wrapper div for slideshow sizing */}
           <div className="slide-container">
             <Slide {...properties}>
               {slideImages.map((slideImage, index) => (

@@ -19,7 +19,7 @@ const MainRouter = () => {
     <Router>
       <Routes>
         {/* Welcome Page */}
-        <Route path="/" element={<App />} />
+        <Route path="/" element={<App />} exact />
 
         {/* Authentication Page */}
         <Route path="/auth" element={<AuthPage isLogin={true} />} />

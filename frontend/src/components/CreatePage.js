@@ -10,6 +10,9 @@ const CreatePage = () => {
     <div>
       <Navbar />
       <div className="create-container">
+       
+        
+
         <h1 className="title">CREATE A NEW PRESENTATION</h1>
         <p className="subtitle">
           Start with a prompt, upload a document, or create from scratch.

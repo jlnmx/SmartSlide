@@ -9,15 +9,15 @@ const Dashboard = () => {
     // Perform any logout logic here (e.g., clearing tokens)
     navigate("/auth"); // Redirect to the Auth page
   };
+
   return (
     <div className="dashboard-container">
       {/* Sidebar */}
       <aside className="sidebar">
-        <div className="sidebar logo">
-          </div> {/* Logo is styled in CSS */}
+        <div className="sidebar logo"></div> {/* Logo is styled in CSS */}
         <nav className="menu">
           <Link to="/create" className="menu-item">Create</Link>
-          <Link to="/templates" className="menu-item">Templates</Link>
+          <Link to="/templates" className="menu-item">Templates</Link> {/* Fixed className */}
           <Link to="/account" className="menu-item">Account</Link>
           <Link to="/settings" className="menu-item">Settings</Link>
         </nav>

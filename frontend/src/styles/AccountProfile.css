@@ -1,17 +1,17 @@
 .account-profile-container {
-  max-width: 900px; /* Increased width */
-  margin: 40px auto;
-  padding: 30px; /* Increased padding */
-  background-color: #e6ffd7; /* Light green background */
+  max-width: 1000px; /* Significantly wider to match Image 2 */
+  margin: 40px auto; /* Center the container */
+  padding: 30px; /* Increased padding for overall container */
+  background-color: #e6ffd7; /* Light green background for the main container */
   border-radius: 10px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Slightly more pronounced shadow */
   font-family: 'Inter', sans-serif;
 }
 
 .back-to-dashboard {
   display: inline-block;
-  margin-bottom: 20px;
-  font-size: 1rem; /* Slightly increased font size */
+  margin-bottom: 25px; /* More space below */
+  font-size: 0.9rem;
   color: #397125; /* Green text */
   text-decoration: none;
 }
@@ -21,106 +21,103 @@
 }
 
 .account-title {
-  font-size: 2.5rem; /* Increased font size */
+  font-size: 2.2rem; /* Adjusted to look like Image 2 */
   font-weight: bold;
   color: #397125; /* Green text */
   text-align: center;
-  margin-bottom: 40px; /* Increased spacing */
+  margin-bottom: 35px; /* Adjusted spacing */
 }
 
 .account-section {
-  margin-bottom: 40px; /* Increased spacing between sections */
-  padding: 30px; /* Increased padding */
-  background-color: #dfffd6; /* Slightly darker green */
-  border-radius: 10px; /* Slightly more rounded corners */
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); /* Slightly larger shadow */
+  margin-bottom: 30px; /* Spacing between sections */
+  padding: 25px; /* Padding within each section box */
+  background-color: #dfffd6; /* Slightly different light green for section boxes */
+  border-radius: 10px; /* Rounded corners for section boxes */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05); /* Softer shadow for sections */
 }
 
 .section-title {
-  font-size: 1.5rem; /* Increased font size */
+  font-size: 1.4rem; /* Adjusted font size for section titles */
   font-weight: bold;
   color: #02542d; /* Dark green */
-  margin-bottom: 20px; /* Increased spacing */
+  margin-bottom: 20px; /* Spacing below section title */
 }
 
 .form-group {
-  margin-bottom: 20px; /* Increased spacing */
+  margin-bottom: 20px; /* Spacing between form groups */
 }
 
 .form-group label {
   display: block;
-  font-size: 1rem; /* Increased font size */
+  font-size: 0.95rem; /* Adjusted font size for labels */
   font-weight: bold;
   color: #02542d; /* Dark green */
-  margin-bottom: 10px; /* Increased spacing */
+  margin-bottom: 8px; /* Spacing below label */
 }
 
 .form-group input {
   width: 100%;
-  padding: 15px; /* Increased padding */
-  font-size: 1rem; /* Increased font size */
-  border: 1px solid #ccc;
-  border-radius: 8px; /* Slightly more rounded corners */
+  padding: 12px; /* Padding within input fields */
+  font-size: 1rem;
+  border: 1px solid #b0dab7; /* Softer border color, or #ccc */
+  background-color: #fff; /* White background for inputs as in Image 2 */
+  border-radius: 5px;
   outline: none;
+  box-sizing: border-box; /* Ensure padding and border are included in width */
 }
 
-.save-changes-btn {
-  display: inline-block;
-  padding: 12px 25px; /* Increased padding */
-  font-size: 1rem; /* Increased font size */
+.save-changes-btn,
+.show-statistics-btn {
+  width: 100%; /* Make buttons full width */
+  padding: 12px 20px;
+  font-size: 1rem;
   font-weight: bold;
   color: white;
   background-color: #397125; /* Green button */
   border: none;
-  border-radius: 8px; /* Slightly more rounded corners */
+  border-radius: 5px;
   cursor: pointer;
   transition: background-color 0.3s ease;
+  text-align: center;
+  box-sizing: border-box;
 }
 
-.save-changes-btn:hover {
+.save-changes-btn:hover,
+.show-statistics-btn:hover {
   background-color: #2e5a1e; /* Darker green */
 }
 
 .theme-options {
   display: flex;
-  gap: 15px; /* Increased spacing between buttons */
+  justify-content: space-between;
+  gap: 15px; /* Spacing between theme buttons */
 }
 
 .theme-btn {
-  padding: 12px 25px; /* Increased padding */
-  font-size: 1rem; /* Increased font size */
+  flex: 1; /* Make buttons equal width */
+  padding: 12px 20px;
+  font-size: 1rem;
   font-weight: bold;
-  color: #397125; /* Green text */
-  background-color: #f4fff0; /* Light green */
-  border: 1px solid #397125;
-  border-radius: 8px; /* Slightly more rounded corners */
+  color: #397125; /* Green text for non-active */
+  background-color: #f4fff0; /* Light background for non-active */
+  border: 1px solid #397125; /* Border for non-active */
+  border-radius: 5px;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .theme-btn.active {
   background-color: #397125; /* Green background for active theme */
   color: white;
+  border-color: #397125;
 }
 
-.theme-btn:hover {
-  background-color: #2e5a1e; /* Darker green */
-  color: white;
+.theme-btn:not(.active):hover {
+  background-color: #cce8cc; /* Slightly darker green on hover for non-active */
 }
 
-.show-statistics-btn {
-  display: inline-block;
-  padding: 12px 25px; /* Increased padding */
-  font-size: 1rem; /* Increased font size */
-  font-weight: bold;
-  color: white;
-  background-color: #397125; /* Green button */
-  border: none;
-  border-radius: 8px; /* Slightly more rounded corners */
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-
-.show-statistics-btn:hover {
-  background-color: #2e5a1e; /* Darker green */
+.theme-btn.active:hover {
+  background-color: #2e5a1e; /* Darker green for active button hover */
 }

@@ -1,74 +1,65 @@
 /* General container for the dashboard */
 .dashboard-container {
   display: flex;
+  flex-direction: row; /* Sidebar and main content side by side */
   height: 100vh; /* Full viewport height */
   font-family: 'Inter', sans-serif;
   background-color: #eefff1;
-  /* background: url("/public/SS_Logo_3.png") no-repeat center center; Add background image */
-  background-size: contain; /* Ensure the image scales proportionally */
   overflow: hidden;
 }
 
 /* Sidebar styles */
 .sidebar {
-  width: 360px; /* Reduced width for better proportions */
+  width: 300px; /* Default width for larger screens */
   background-color: #E6FFD7;
-  padding: 15px 0; /* Adjusted padding for top and bottom */
+  padding: 15px 0;
   display: flex;
   flex-direction: column;
   align-items: center;
+  flex-shrink: 0; /* Prevent sidebar from shrinking */
 }
 
-/* Sidebar Logo */
 .sidebar .logo {
-  margin-top: -20px; /* Adjusted margin for top spacing */
-  width: 100%; /* Adjusted width for better scaling */
-  height: 200px; /* Reduced height for the logo */
-  background: url("/public/SS_Logo_6-removebg-preview.png") no-repeat center center;
-  background-size: contain; /* Ensure the logo scales proportionally */
-  margin-bottom: 20px; /* Increased spacing below the logo */
+  width: 80%; /* Make the logo responsive */
+  height: 150px;
+  background: url("D:\CAPSTONE\CAPSTONE\frontend\public\SS_Logo_6-removebg-preview.png") no-repeat center center;
+  background-size: contain;
 }
 
-/* Menu styles */
 .menu {
-  margin-top: -20px; /* Adjusted spacing */
   display: flex;
   flex-direction: column;
   width: 100%;
   align-items: center;
-  gap: 60px; /* Reduced spacing between menu items */
+  gap: 20px; /* Space between menu items */
 }
 
 .menu-item {
-  font-family: 'Inter', sans-serif;
-  font-size: 40px; /* Reduced font size */
+  font-size: 25px; /* Responsive font size */
   font-weight: 600;
   color: #397125;
   text-decoration: none;
   text-align: center;
-  width: 90%; /* Adjusted width for better alignment */
+  padding: 20px 0;
+  width: 80%; /* Make menu items responsive */
+  border-radius: 8px;
   transition: background-color 0.3s ease;
 }
 
 .menu-item:hover {
   background-color: #CFF5D2;
-  border-radius: 8px;
 }
 
-/* Logout Button */
 .logout-btn {
-  margin-top: auto; /* Push the logout button to the bottom */
-  font-family: 'Inter', sans-serif;
-  font-size: 30px; /* Reduced font size */
+  margin-top: auto;
+  font-size: 1rem;
   font-weight: 600;
   color: #397125;
-  text-align: center;
-  padding: 8px 0; /* Reduced padding */
-  cursor: pointer;
+  padding: 10px 0;
+  width: 80%;
   border: 2px solid #397125;
   border-radius: 8px;
   background-color: #F4FFF0;
-  width: 80%; /* Adjusted width for better alignment */
   transition: background-color 0.3s ease;
 }
 
@@ -78,74 +69,131 @@
 
 /* Main content styles */
 .main-content {
-  flex-grow: 1;
-  padding: 20px; /* Reduced padding */
-  position: relative;
+  flex: 1; /* Take up remaining space */
+  padding: 20px;
+  overflow-y: auto; /* Allow scrolling if content overflows */
 }
 
 .dashboard-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px; /* Reduced spacing */
+  flex-wrap: wrap; /* Allow wrapping on smaller screens */
+  margin-bottom: 20px;
 }
 
 .dashboard-header h1 {
-  font-family: 'Koulen', sans-serif;
-  font-size: 40px; /* Reduced font size */
+  font-size: 2rem; /* Responsive font size */
   color: #397125;
-  margin-top: 20px;
 }
 
 .new-presentation-btn {
-  font-family: 'Inter', sans-serif;
-  font-size: 30px; /* Reduced font size */
+  font-size: 1rem;
   font-weight: 600;
   color: #397125;
   background-color: #ffffff;
   border: 2px solid #397125;
   border-radius: 8px;
-  padding: 8px 16px; /* Reduced padding */
+  padding: 10px 20px;
   cursor: pointer;
   transition: background-color 0.3s ease;
 }
 
 .new-presentation-btn:hover {
-  background-color: #c5f8d5;
+  background-color: #CFF5D2;
 }
 
 /* Recent presentations section */
 .recent-presentations h2 {
-  font-family: 'Koulen', sans-serif;
-  font-size: 30px; /* Reduced font size */
+  font-size: 1.5rem;
   color: #397125;
-  margin-top: 30px;
-  margin-bottom: 15px; /* Reduced spacing */
+  margin-bottom: 20px;
 }
 
 .presentation-list {
-  display: flex;
-  gap: 30px; /* Increase spacing between cards */
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Responsive grid */
+  gap: 20px;
 }
 
 .presentation-card {
-  width: 240px; /* Increased width */
-  height: 180px; 
   background-color: #d5f0d1;
-  border: 2px solid #397125; /* Reduced border thickness */
+  border: 2px solid #397125;
   border-radius: 8px;
   display: flex;
   justify-content: center;
   align-items: center;
-  font-family: 'Inter', sans-serif;
-  font-size: 18px; /* Reduced font size */
+  font-size: 1.2rem; /* Slightly larger font size */
   font-weight: 400;
   color: #02542D;
   text-align: center;
+  padding: 30px; /* Increased padding for more space */
+  width: 80%; /* Ensure cards take full width of grid column */
+  height: 150px; /* Increased height */
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s ease;
 }
 
 .presentation-card:hover {
   transform: scale(1.05); /* Slight zoom effect on hover */
+}
+/* Media Queries for Responsiveness */
+
+/* For tablets and smaller devices */
+@media (max-width: 768px) {
+  .dashboard-container {
+    flex-direction: column; /* Stack sidebar and main content */
+  }
+
+  .sidebar {
+    width: 100%; /* Full width for sidebar */
+    flex-direction: row; /* Horizontal layout for menu */
+    justify-content: space-around;
+    padding: 10px 0;
+  }
+
+  .menu {
+    flex-direction: row; /* Horizontal menu items */
+    gap: 10px;
+  }
+
+  .menu-item {
+    font-size: 1rem;
+    padding: 5px 10px;
+  }
+
+  .logout-btn {
+    width: auto;
+    padding: 5px 10px;
+  }
+
+  .main-content {
+    padding: 10px;
+  }
+
+  .dashboard-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .new-presentation-btn {
+    font-size: 0.9rem;
+    padding: 8px 16px;
+  }
+}
+
+/* For mobile devices */
+@media (max-width: 480px) {
+  .dashboard-header h1 {
+    font-size: 1.2rem;
+  }
+
+  .new-presentation-btn {
+    font-size: 0.8rem;
+    padding: 6px 12px;
+  }
+
+  .presentation-card {
+    font-size: 0.9rem;
+    padding: 15px;
+  }
 }

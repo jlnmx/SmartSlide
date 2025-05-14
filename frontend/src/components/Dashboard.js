@@ -16,10 +16,10 @@ const Dashboard = () => {
       <aside className="sidebar">
         <div className="sidebar logo"></div> {/* Logo is styled in CSS */}
         <nav className="menu">
-          <Link to="/create" className="menu-item">Create</Link>
-          <Link to="/templates" className="menu-item">Templates</Link> {/* Fixed className */}
-          <Link to="/account" className="menu-item">Account</Link>
-          <Link to="/settings" className="menu-item">Settings</Link>
+          <Link to="/create" className="menu-item">CREATE</Link>
+          <Link to="/templates" className="menu-item">TEMPLATES</Link> {/* Fixed className */}
+          <Link to="/account" className="menu-item">ACCOUNT</Link>
+          <Link to="/settings" className="menu-item">SETTINGS</Link>
         </nav>
         <button className="logout-btn" onClick={handleLogout}>Logout</button>
       </aside>
@@ -28,9 +28,6 @@ const Dashboard = () => {
       <main className="main-content">
         <header className="dashboard-header">
           <h1>WELCOME BACK!</h1>
-          <Link to="/create">
-            <button className="new-presentation-btn">Create Presentation</button>
-          </Link>
         </header>
 
         <section className="recent-presentations">

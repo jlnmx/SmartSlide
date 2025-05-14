@@ -5,8 +5,8 @@
   padding: 0 40px; /* Maintain consistent spacing */
   height: 100px; /* Fixed height for the navbar */
   background-color: #e3f2fd; /* Light blue background */
-  color: #1a1a1a; /* Dark gray text */
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  color: #232981; /* Dark gray text */
+  box-shadow: 0 2px 5px rgba(4, 13, 51, 0.1);
   position: sticky;
   top: 0;
   z-index: 1000;
@@ -31,13 +31,15 @@
 }
 
 .nav-link {
-  color: #1a1a1a; /* Dark gray text */
+  color: #080c36; /* Dark gray text */
   text-decoration: none;
-  font-size: 1rem; /* Adjusted font size */
-  font-weight: 500; /* Adjusted font weight */
+  font-size: 18px; /* Adjusted font size */
+  font-weight: 525; /* Adjusted font weight */
+  font-family:Verdana;/* Consistent font */
+  padding: 10px 15px; /* Added padding for better click area */
   transition: color 0.3s ease;
 }
 
 .nav-link:hover {
-  color: #0d47a1; /* Darker blue on hover */
+  color: #3256a1; /* Darker blue on hover */
 }

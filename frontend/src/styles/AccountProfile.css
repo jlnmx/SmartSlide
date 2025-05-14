@@ -1,63 +1,53 @@
-body {
-  background-color: #ffffff; /* Set the background to white */
-  margin: 0;
-  padding: 0;
-  font-family: 'Inter', sans-serif; /* Ensure consistent font */
-}
-
+/* General container for the account profile */
 .account-profile-container {
   max-width: 1000px; /* Keep the container width */
-  margin: 40px ; /* Center the container */
+  margin: 40px auto; /* Center the container horizontally */
   padding: 30px; /* Keep the padding for spacing */
-  background-color: #e6ffd7; /* Light green background for the container */
+  background-color: #d7efff; /* Light green background for the container */
   border-radius: 10px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Slightly more pronounced shadow */
+  box-sizing: border-box; /* Include padding and border in width */
 }
 
-.back-to-dashboard {
-  display: inline-block;
-  margin-bottom: 25px; /* More space below */
-  font-size: 20px;
-  color: #397125; /* Green text */
-  text-decoration: none;
-}
-
-.back-to-dashboard:hover {
-  text-decoration: underline;
-}
-
+/* Account title */
 .account-title {
   font-size: 2.2rem; /* Adjusted to look like Image 2 */
   font-weight: bold;
-  color: #397125; /* Green text */
+  font-family: Verdana;
+  color: #253071; /* Green text */
   text-align: center;
   margin-bottom: 35px; /* Adjusted spacing */
 }
 
+/* Account sections */
 .account-section {
   margin-bottom: 30px; /* Spacing between sections */
-  padding: 25px; /* Padding within each section box */
-  background-color: #dfffd6; /* Slightly different light green for section boxes */
+  padding: 20px; /* Padding within each section box */
+  background-color: #d6ebff; /* Slightly different light green for section boxes */
   border-radius: 10px; /* Rounded corners for section boxes */
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05); /* Softer shadow for sections */
 }
 
+/* Section titles */
 .section-title {
-  font-size: 1.4rem; /* Adjusted font size for section titles */
+  font-size: 1.5rem; /* Adjusted font size for section titles */
   font-weight: bold;
-  color: #02542d; /* Dark green */
+  font-family: Verdana;
+  color: #253071; /* Dark green */
   margin-bottom: 20px; /* Spacing below section title */
 }
 
+/* Form group styles */
 .form-group {
   margin-bottom: 20px; /* Spacing between form groups */
 }
 
 .form-group label {
   display: block;
-  font-size: 0.95rem; /* Adjusted font size for labels */
+  font-size: 1rem; /* Adjusted font size for labels */
   font-weight: bold;
-  color: #02542d; /* Dark green */
+  font-family: Verdana;
+  color: #253071; /* Dark green */
   margin-bottom: 8px; /* Spacing below label */
 }
 
@@ -65,21 +55,24 @@ body {
   width: 100%;
   padding: 12px; /* Padding within input fields */
   font-size: 1rem;
-  border: 1px solid #b0dab7; /* Softer border color, or #ccc */
-  background-color: #fff; /* White background for inputs as in Image 2 */
+  font-family: Verdana;
+  border: 1px solid #b0b8da; /* Softer border color */
+  background-color: #fff; /* White background for inputs */
   border-radius: 5px;
   outline: none;
   box-sizing: border-box; /* Ensure padding and border are included in width */
 }
 
+/* Buttons */
 .save-changes-btn,
 .show-statistics-btn {
   width: 100%; /* Make buttons full width */
   padding: 12px 20px;
   font-size: 1rem;
+  font-family: Verdana;
   font-weight: bold;
   color: white;
-  background-color: #397125; /* Green button */
+  background-color: #253371; /* Green button */
   border: none;
   border-radius: 5px;
   cursor: pointer;
@@ -90,9 +83,10 @@ body {
 
 .save-changes-btn:hover,
 .show-statistics-btn:hover {
-  background-color: #2e5a1e; /* Darker green */
+  background-color: #1e245a; /* Darker green */
 }
 
+/* Theme options */
 .theme-options {
   display: flex;
   justify-content: space-between;
@@ -103,10 +97,11 @@ body {
   flex: 1; /* Make buttons equal width */
   padding: 12px 20px;
   font-size: 1rem;
+  font-family: Verdana;
   font-weight: bold;
-  color: #397125; /* Green text for non-active */
+  color: #254371; /* Green text for non-active */
   background-color: #f4fff0; /* Light background for non-active */
-  border: 1px solid #397125; /* Border for non-active */
+  border: 1px solid #253971; /* Border for non-active */
   border-radius: 5px;
   cursor: pointer;
   transition: background-color 0.3s ease, color 0.3s ease;
@@ -115,15 +110,74 @@ body {
 }
 
 .theme-btn.active {
-  background-color: #397125; /* Green background for active theme */
+  background-color: #253371; /* Green background for active theme */
   color: white;
-  border-color: #397125;
+  border-color: #253071;
 }
 
 .theme-btn:not(.active):hover {
-  background-color: #cce8cc; /* Slightly darker green on hover for non-active */
+  background-color: #ccd7e8; /* Slightly darker green on hover for non-active */
 }
 
 .theme-btn.active:hover {
-  background-color: #2e5a1e; /* Darker green for active button hover */
+  background-color: #1e245a; /* Darker green for active button hover */
+}
+
+/* Responsive Design */
+
+/* For tablets and smaller devices */
+@media (max-width: 768px) {
+  .account-profile-container {
+    padding: 20px; /* Reduce padding for smaller screens */
+    margin: 20px auto; /* Adjust margin */
+  }
+
+  .account-title {
+    font-size: 1.8rem; /* Reduce font size for smaller screens */
+  }
+
+  .section-title {
+    font-size: 1.3rem; /* Reduce font size for section titles */
+  }
+
+  .form-group input {
+    font-size: 0.9rem; /* Adjust input font size */
+  }
+
+  .save-changes-btn,
+  .show-statistics-btn {
+    font-size: 0.9rem; /* Adjust button font size */
+  }
+
+  .theme-btn {
+    font-size: 0.9rem; /* Adjust theme button font size */
+  }
+}
+
+/* For mobile devices */
+@media (max-width: 480px) {
+  .account-profile-container {
+    padding: 15px; /* Further reduce padding */
+  }
+
+  .account-title {
+    font-size: 1.5rem; /* Further reduce font size */
+  }
+
+  .section-title {
+    font-size: 1.2rem; /* Further reduce font size */
+  }
+
+  .form-group input {
+    font-size: 0.85rem; /* Adjust input font size */
+  }
+
+  .save-changes-btn,
+  .show-statistics-btn {
+    font-size: 0.85rem; /* Adjust button font size */
+  }
+
+  .theme-btn {
+    font-size: 0.85rem; /* Adjust theme button font size */
+  }
 }

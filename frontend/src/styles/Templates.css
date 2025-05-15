@@ -1,7 +1,7 @@
 .templates-container {
   padding: 20px;
   font-family: Arial, sans-serif;
-  background-color: #e3f2fd; /* Light blue background */
+  background-color: #d7efff; /* Light blue background */
   min-height: 100vh;
 }
 
@@ -15,12 +15,14 @@
 .templates-title {
   font-size: 2.5rem;
   font-weight: bold;
+  font-family: Verdana;
   color: #2c3e50; /* Dark blue-gray */
 }
 
 .search-bar {
   padding: 10px;
   font-size: 1rem;
+  font-family: Verdana;
   border: 1px solid #ddd;
   border-radius: 8px;
   width: 250px;
@@ -42,6 +44,7 @@
 .category-title {
   font-size: 1.8rem;
   font-weight: bold;
+  font-family: Verdana;
   color: #2c3e50; /* Dark blue-gray */
   margin-bottom: 20px;
 }
@@ -81,6 +84,7 @@
 .template-title {
   font-size: 1.2rem;
   font-weight: bold;
+  font-family: Verdana;
   color: #2c3e50; /* Dark blue-gray */
 }
 
@@ -89,10 +93,27 @@
   margin-top: 30px;
   text-align: center;
   font-size: 0.9rem;
+  font-family: Verdana;
   color: #2c3e50; /* Dark blue-gray */
   text-decoration: none;
 }
 
 .help-link:hover {
   text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .templates-container {
+    padding: 10px;
+  }
+
+  .categories-list {
+    grid-template-columns: 1fr; /* Single column layout */
+  }
+}
+
+@media (max-width: 480px) {
+  .templates-title {
+    font-size: 1.5rem;
+  }
 }

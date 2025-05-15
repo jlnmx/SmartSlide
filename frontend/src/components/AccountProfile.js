@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom"; // Import useNavigate
 import Navbar from "./Navbar"; // Import the Navbar component
 import "../styles/AccountProfile.css";
 
@@ -7,6 +7,8 @@ const AccountProfile = () => {
   const [email, setEmail] = useState("user@example.com");
   const [password, setPassword] = useState("");
   const [theme, setTheme] = useState("Light");
+
+  const navigate = useNavigate(); // Initialize useNavigate
 
   const handleSaveChanges = () => {
     alert("Changes saved successfully!");
@@ -19,8 +21,7 @@ const AccountProfile = () => {
   };
 
   const handleShowStatistics = () => {
-    alert("Displaying statistics...");
-    // Add logic to show analytics/statistics
+    navigate("/analytics"); // Navigate to the Analytics page
   };
 
   return (

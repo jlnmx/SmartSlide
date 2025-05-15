@@ -19,6 +19,7 @@
 .analytics-title {
   font-size: 2.5rem;
   font-weight: bold;
+  font-family: Verdana;
   color: #2c3e50; /* Dark blue-gray */
 }
 
@@ -40,6 +41,7 @@
 .chart-container h2 {
   font-size: 1.2rem;
   font-weight: bold;
+  font-family: Verdana;
   color: #2c3e50; /* Dark blue-gray */
   margin-bottom: 15px;
 }
@@ -57,12 +59,42 @@
 .analytics-summary h2 {
   font-size: 1.5rem;
   font-weight: bold;
+  font-family: Verdana;
   color: #2c3e50; /* Dark blue-gray */
   margin-bottom: 15px;
 }
 
 .analytics-summary p {
   font-size: 1rem;
+  font-family: Verdana;
   color: #666;
   margin: 5px 0;
+}
+
+@media (max-width: 768px) {
+  .analytics-container {
+    padding: 10px;
+  }
+
+  .analytics-section {
+    grid-template-columns: 1fr; /* Single column layout */
+  }
+
+  .chart-container {
+    padding: 15px;
+  }
+
+  .analytics-title {
+    font-size: 2rem; /* Adjust font size */
+  }
+}
+
+@media (max-width: 480px) {
+  .analytics-title {
+    font-size: 1.5rem;
+  }
+
+  .chart-container {
+    padding: 10px;
+  }
 }

@@ -23,7 +23,7 @@
 .account-section {
   margin-bottom: 30px; /* Spacing between sections */
   padding: 20px; /* Padding within each section box */
-  background-color: #d6ebff; /* Slightly different light green for section boxes */
+  background-color: white; /* Slightly different light green for section boxes */
   border-radius: 10px; /* Rounded corners for section boxes */
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05); /* Softer shadow for sections */
 }

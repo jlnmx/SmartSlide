@@ -176,3 +176,19 @@
   .import-btn:hover {
     background-color: #5e35b1; /* Darker purple on hover */
   }
+
+  @media (max-width: 768px) {
+  .import-container {
+    padding: 10px;
+  }
+
+  .import-title {
+    font-size: 1.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .import-title {
+    font-size: 1.5rem;
+  }
+}

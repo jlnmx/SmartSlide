@@ -22,7 +22,7 @@
 .sidebar .logo {
   width: 80%; /* Make the logo responsive */
   height: 150px;
-  background: url("d:\Codes\CAPSTONE\frontend\public\SS_Logo_6-removebg-preview.png") no-repeat center center;
+  background: url("D:\CAPSTONE\CAPSTONE\frontend\public\SMARTSLIDE_LOGO_WORD.png") no-repeat center center;
   background-size: contain;
 }
 
@@ -38,7 +38,7 @@
   font-size: 20px; /* Responsive font size */
   font-weight: 600;
   font-family: Verdana;
-  color: #397125;
+  color: #257136;
   text-decoration: none;
   text-align: center;
   padding: 20px 0;
@@ -59,7 +59,7 @@
   color: #397125;
   padding: 10px 0;
   width: 80%;
-  border: 2px solid #397125;
+  border: 2px solid #257136;
   border-radius: 8px;
   background-color: #F4FFF0;
   transition: background-color 0.3s ease;
@@ -86,15 +86,15 @@
 
 .dashboard-header h1 {
   font-size: 2rem; /* Responsive font size */
-  color: #397125;
+  color: #257136;
 }
 
 .new-presentation-btn {
   font-size: 1rem;
   font-weight: 600;
-  color: #397125;
+  color: #257136;
   background-color: #ffffff;
-  border: 2px solid #397125;
+  border: 2px solid #257136;
   border-radius: 8px;
   padding: 10px 20px;
   cursor: pointer;
@@ -120,7 +120,7 @@
 
 .presentation-card {
   background-color: #d5f0d1;
-  border: 2px solid #397125;
+  border: 2px solid #257136;
   border-radius: 8px;
   display: flex;
   justify-content: center;
@@ -128,7 +128,7 @@
   font-size: 1.2rem; /* Slightly larger font size */
   font-weight: 400;
   font-family: Verdana;
-  color: #02542D;
+  color: #257136;
   text-align: center;
   padding: 30px; /* Increased padding for more space */
   width: 80%; /* Ensure cards take full width of grid column */
@@ -139,6 +139,58 @@
 
 .presentation-card:hover {
   transform: scale(1.05); /* Slight zoom effect on hover */
+}
+
+/* Account button styles */
+.account-btn {
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: Verdana;
+  color: #397125;
+  background-color: #ffffff; /* Green background */
+  border: #187531;
+  border-style: solid;
+  border-radius: 10px;
+  padding: 10px 40px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  text-decoration: none; /* Remove underline for links */
+}
+
+.account-btn:hover {
+  background-color: #41744e; /* Darker green on hover */
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between; /* Space between title and account button */
+  align-items: center;
+  flex-wrap: wrap; /* Allow wrapping on smaller screens */
+  margin-bottom: 20px;
+}
+
+/* Need Help button styles */
+.need-help-btn {
+  position: fixed; /* Fix the button to the bottom-right corner */
+  bottom: 20px; /* Distance from the bottom */
+  right: 20px; /* Distance from the right */
+  width: 60px; /* Button width */
+  height: 60px; /* Button height */
+  background: url("D:\CAPSTONE\CAPSTONE\frontend\public\Message_ICON.png") no-repeat center center; /* Replace with your image path */
+  background-size: cover; /* Ensure the image covers the button */
+  border: none;
+  border-radius: 50%; /* Make the button circular */
+  cursor: pointer;
+  padding: 40px;
+  box-shadow: 0 4px 8px rgb(255, 255, 255); /* Add a subtle shadow */
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  z-index: 1000; /* Ensure it appears above other elements */
+}
+
+.need-help-btn:hover {
+  transform: scale(1.1); /* Slight zoom effect on hover */
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3); /* Enhance shadow on hover */
+  background-color: rgba(255, 255, 255, 0.8); /* Add a semi-transparent white overlay */
 }
 /* Media Queries for Responsiveness */
 

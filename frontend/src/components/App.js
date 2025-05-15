@@ -21,6 +21,8 @@ function App() {
         <button className="welcome-btn">GET STARTED</button>
       </Link>
     </div>
+
+    
   );
 }
 

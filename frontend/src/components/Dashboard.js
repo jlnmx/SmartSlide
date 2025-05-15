@@ -1,13 +1,17 @@
 import React from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom"; // Import useNavigate
 import "../styles/Dashboard.css";
 
 const Dashboard = () => {
-  const navigate = useNavigate();
+  const navigate = useNavigate(); // Initialize useNavigate
 
-  const handleLogout = () => {
-    // Perform any logout logic here (e.g., clearing tokens)
-    navigate("/auth"); // Redirect to the Auth page
+  const handleHelpClick = () => {
+    navigate("/help"); // Navigate to the Help page
+  };
+
+  const handleLogoutClick = () => {
+    // Add any logout logic here (e.g., clearing tokens, session data, etc.)
+    navigate("/auth"); // Navigate to the Auth page
   };
 
   return (
@@ -17,17 +21,22 @@ const Dashboard = () => {
         <div className="sidebar logo"></div> {/* Logo is styled in CSS */}
         <nav className="menu">
           <Link to="/create" className="menu-item">CREATE</Link>
-          <Link to="/templates" className="menu-item">TEMPLATES</Link> {/* Fixed className */}
-          <Link to="/account" className="menu-item">ACCOUNT</Link>
+          <Link to="/templates" className="menu-item">TEMPLATES</Link>
           <Link to="/settings" className="menu-item">SETTINGS</Link>
         </nav>
-        <button className="logout-btn" onClick={handleLogout}>Logout</button>
+        <button className="logout-btn" onClick={handleLogoutClick}>
+          Logout
+        </button>
       </aside>
 
       {/* Main Content */}
       <main className="main-content">
         <header className="dashboard-header">
           <h1>WELCOME BACK!</h1>
+          {/* Add Account Button */}
+          <Link to="/account" className="account-btn">
+            Account
+          </Link>
         </header>
 
         <section className="recent-presentations">
@@ -39,6 +48,9 @@ const Dashboard = () => {
           </div>
         </section>
       </main>
+
+      {/* Need Help Button */}
+      <button className="need-help-btn" onClick={handleHelpClick}></button>
     </div>
   );
 };

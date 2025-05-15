@@ -152,3 +152,19 @@
 .help-link:hover {
   text-decoration: underline;
 }
+
+@media (max-width: 768px) {
+  .generate-container {
+    padding: 10px;
+  }
+
+  .template-selection {
+    grid-template-columns: 1fr; /* Single column layout */
+  }
+}
+
+@media (max-width: 480px) {
+  .generate-title {
+    font-size: 1.5rem;
+  }
+}

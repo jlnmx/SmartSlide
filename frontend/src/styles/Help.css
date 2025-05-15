@@ -1,0 +1,86 @@
+.help-page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  text-align: center;
+  font-family: 'Inter', sans-serif;
+}
+
+.help-title {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.help-description {
+  font-size: 1rem;
+  color: #666;
+  margin-bottom: 40px;
+  line-height: 1.6;
+}
+
+.help-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.help-card {
+  background-color: #ffffff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.help-card h3 {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.help-card p {
+  font-size: 0.9rem;
+  color: #666;
+  margin: 5px 0;
+}
+
+.help-icon {
+  font-size: 2rem;
+  color: #4a90e2;
+  margin-bottom: 15px;
+}
+
+.location-icon::before {
+  content: "📍"; /* Replace with an actual icon if using a library */
+}
+
+.phone-icon::before {
+  content: "📞"; /* Replace with an actual icon if using a library */
+}
+
+.fax-icon::before {
+  content: "📠"; /* Replace with an actual icon if using a library */
+}
+
+.email-icon::before {
+  content: "✉️"; /* Replace with an actual icon if using a library */
+}
+
+@media (max-width: 768px) {
+  .help-cards {
+    grid-template-columns: 1fr; /* Single column layout */
+  }
+
+  .help-card {
+    padding: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .help-title {
+    font-size: 1.8rem;
+  }
+}

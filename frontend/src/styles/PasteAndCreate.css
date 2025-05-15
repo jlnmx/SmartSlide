@@ -128,3 +128,19 @@ button:disabled {
     transform: translateY(0);
   }
 }
+
+@media (max-width: 768px) {
+  .paste-container {
+    padding: 10px;
+  }
+
+  .paste-title {
+    font-size: 1.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .paste-title {
+    font-size: 1.5rem;
+  }
+}

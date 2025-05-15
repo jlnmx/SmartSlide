@@ -56,3 +56,20 @@ button:hover {
 .help-link:hover {
   text-decoration: underline;
 }
+
+@media (max-width: 768px) {
+  .create-container {
+    flex-direction: column;
+    padding: 10px;
+  }
+
+  .create-title {
+    font-size: 1.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .create-title {
+    font-size: 1.5rem;
+  }
+}

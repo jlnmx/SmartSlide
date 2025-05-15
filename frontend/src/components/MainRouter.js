@@ -11,6 +11,7 @@ import Analytics from "./Analytics";
 import Templates from "./Templates";
 import SlidesGeneratingPage from "./SlidesGeneratingPage";
 import AccountProfile from "./AccountProfile";
+import Help from "./Help";
 
 
 
@@ -49,6 +50,9 @@ const MainRouter = () => {
         <Route path="/account" element={<AccountProfile />} />
 
         <Route path="/slides-generating" element={<SlidesGeneratingPage />} />
+
+        {/* Help Page */}
+        <Route path="/help" element={<Help />} />
 
       </Routes>
     </Router>

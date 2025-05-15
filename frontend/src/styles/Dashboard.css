@@ -22,7 +22,7 @@
 .sidebar .logo {
   width: 80%; /* Make the logo responsive */
   height: 150px;
-  background: url("D:\CAPSTONE\CAPSTONE\frontend\public\SMARTSLIDE_LOGO_WORD.png") no-repeat center center;
+  background: url("/public/SMARTSLIDE_LOGO_WORD.png") no-repeat center center;
   background-size: contain;
 }
 
@@ -176,7 +176,7 @@
   right: 20px; /* Distance from the right */
   width: 60px; /* Button width */
   height: 60px; /* Button height */
-  background: url("D:\CAPSTONE\CAPSTONE\frontend\public\Message_ICON.png") no-repeat center center; /* Replace with your image path */
+  background: url("/public/Message_ICON.png") no-repeat center center; /* Replace with your image path */
   background-size: cover; /* Ensure the image covers the button */
   border: none;
   border-radius: 50%; /* Make the button circular */

@@ -1,12 +1,84 @@
 import React, { useState } from "react";
 import Navbar from "./Navbar";
 import "../styles/ImportPage.css";
+import { useNavigate } from "react-router-dom";
 
 export default function ImportPage() {
   const [popupType, setPopupType] = useState(null);
+  const [topic, setTopic] = useState("");
+  const [url, setUrl] = useState("");
+  const [file, setFile] = useState(null);
+  const navigate = useNavigate();
 
   const closePopup = () => {
     setPopupType(null);
+    setTopic("");
+    setUrl("");
+    setFile(null);
+  };
+
+  // Handle Import button click for URL
+  const handleImportUrl = async () => {
+    if (!url) {
+      alert("Please enter a URL.");
+      return;
+    }
+    try {
+      const response = await fetch("http://localhost:5000/import-from-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        navigate("/slides-generating", { state: { slides: data.slides } });
+      } else {
+        alert(data.error || "Failed to import from URL.");
+      }
+    } catch (error) {
+      alert("Error importing from URL.");
+    }
+  };
+
+  // Handle Upload button click for File
+  const handleImportFile = async () => {
+    if (!file) {
+      alert("Please select a file.");
+      return;
+    }
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("http://localhost:5000/upload-file", {
+        method: "POST",
+        body: formData,
+      });
+
+      // If backend returns a PowerPoint file, download it
+      const contentType = response.headers.get("content-type");
+      if (response.ok && contentType && contentType.includes("application/vnd.openxmlformats-officedocument.presentationml.presentation")) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "converted_presentation.pptx";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        closePopup();
+      } else {
+        // If backend returns JSON (error or slides), handle accordingly
+        const data = await response.json();
+        if (data.slides) {
+          navigate("/slides-generating", { state: { slides: data.slides } });
+        } else {
+          alert(data.error || "Failed to convert file.");
+        }
+      }
+    } catch (error) {
+      alert("Error uploading file.");
+    }
   };
 
   const renderPopupContent = () => {
@@ -22,7 +94,8 @@ export default function ImportPage() {
               type="text"
               className="popup-input"
               placeholder="Enter your topic"
-              onChange={(e) => console.log("Topic:", e.target.value)}
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
             />
           </>
         );
@@ -31,13 +104,14 @@ export default function ImportPage() {
           <>
             <h2 className="popup-title">Import from URL</h2>
             <p className="popup-description">
-              This will extract the text from the webpage you enter.
+              This will extract the text from the webpage, Google Doc, Google Slides, or video you enter.
             </p>
             <input
               type="text"
               className="popup-input"
               placeholder="http://www.example.com/"
-              onChange={(e) => console.log("URL:", e.target.value)}
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
             />
           </>
         );
@@ -51,13 +125,24 @@ export default function ImportPage() {
             <input
               type="file"
               className="popup-input"
-              accept=".pdf,.docx,.pptx"
-              onChange={(e) => console.log("File:", e.target.files[0])}
+              accept=".pdf,.docx,.xlsx,.xls,.csv"
+              onChange={(e) => setFile(e.target.files[0])}
             />
           </>
         );
       default:
         return null;
+    }
+  };
+
+  // Choose which handler to use for the Import/Generate/Upload button
+  const handleImport = () => {
+    if (popupType === "url") {
+      handleImportUrl();
+    } else if (popupType === "file") {
+      handleImportFile();
+    } else {
+      closePopup();
     }
   };
 
@@ -97,8 +182,12 @@ export default function ImportPage() {
                 <button className="cancel-btn" onClick={closePopup}>
                   Cancel
                 </button>
-                <button className="import-btn" onClick={closePopup}>
-                  {popupType === "file" ? "Upload" : popupType === "url" ? "Import" : "Generate"}
+                <button className="import-btn" onClick={handleImport}>
+                  {popupType === "file"
+                    ? "Upload"
+                    : popupType === "url"
+                    ? "Import"
+                    : "Generate"}
                 </button>
               </div>
             </div>

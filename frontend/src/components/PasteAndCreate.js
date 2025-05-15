@@ -1,19 +1,38 @@
 import React, { useState } from "react";
 import Navbar from "./Navbar";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import "../styles/PasteAndCreate.css";
 
 export default function PasteToCreate() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const navigate = useNavigate();
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
+    if (!input.trim()) {
+      alert("Please paste some content.");
+      return;
+    }
     setIsLoading(true);
-    setTimeout(() => {
-      setResult(`You pasted: ${input}`);
-      setIsLoading(false);
-    }, 1000);
+    try {
+      const response = await fetch("http://localhost:5000/paste-and-create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: input }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        // Redirect to slide preview/generation page
+        navigate("/slides-generating", { state: { slides: data.slides } });
+      } else {
+        setResult(data.error || "Failed to generate slides.");
+      }
+    } catch (error) {
+      setResult("Error generating slides.");
+    }
+    setIsLoading(false);
   };
 
   return (

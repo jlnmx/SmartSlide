@@ -12,10 +12,10 @@ const Navbar = () => {
         </Link>
       </div>
       <div className="navbar-links">
-        <Link to="/dashboard" className="nav-link">Dashboard</Link>
-        <Link to="/templates" className="nav-link">Templates</Link>
-        <Link to="/account" className="nav-link">Account</Link>
-        <Link to="/create" className="nav-link">Create</Link>
+        <Link to="/dashboard" className="nav-link">DASHBOARD</Link>
+        <Link to="/create" className="nav-link">CREATE</Link>
+        <Link to="/templates" className="nav-link">TEMPLATES</Link>
+        <Link to="/account" className="nav-link">ACCOUNT</Link>
       </div>
     </div>
   );

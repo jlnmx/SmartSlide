@@ -35,8 +35,9 @@
 }
 
 .menu-item {
-  font-size: 25px; /* Responsive font size */
+  font-size: 20px; /* Responsive font size */
   font-weight: 600;
+  font-family: Verdana;
   color: #397125;
   text-decoration: none;
   text-align: center;
@@ -54,6 +55,7 @@
   margin-top: auto;
   font-size: 1rem;
   font-weight: 600;
+  font-family: Verdana;
   color: #397125;
   padding: 10px 0;
   width: 80%;
@@ -125,6 +127,7 @@
   align-items: center;
   font-size: 1.2rem; /* Slightly larger font size */
   font-weight: 400;
+  font-family: Verdana;
   color: #02542D;
   text-align: center;
   padding: 30px; /* Increased padding for more space */

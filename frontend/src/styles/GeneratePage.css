@@ -4,7 +4,7 @@
   align-items: center;
   justify-content: flex-start; /* Align content to the top */
   min-height: 100vh; /* Full viewport height */
-  background-color: #f3e8ff; /* Light purple background */
+  background-color: rgb(252, 228, 255); /* Make the container background transparent */
   text-align: center;
   padding: 20px; /* Reduce padding */
   max-width: 800px; /* Limit width for better readability */

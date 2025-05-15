@@ -44,47 +44,46 @@ const GeneratePage = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleGenerate = async () => {
-    if (!prompt.trim()) {
-      alert("Please enter a topic.");
-      return;
+ const handleGenerate = async () => {
+  if (!prompt.trim()) {
+    alert("Please enter a topic.");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const response = await fetch("http://localhost:5000/generate-slides", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        prompt,
+        language,
+        numSlides: parseInt(numSlides),
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text(); // Read as text to handle non-JSON responses
+      throw new Error(errorData || "Failed to generate slides. Please try again.");
     }
 
-    setLoading(true);
+    const data = await response.json(); // Parse JSON response
 
-    try {
-      const response = await fetch("http://localhost:5000/generate-slides", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prompt,
-          language,
-          numSlides: parseInt(numSlides),
-          template: selectedTemplate, // Include the selected template
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to generate slides. Please try again.");
-      }
-
-      const data = await response.json();
-
-      navigate("/slides-generating", {
-        state: {
-          slides: data.slides,
-          template: selectedTemplate, // Pass the selected template to the next page
-        },
-      });
-    } catch (error) {
-      console.error("Error generating slides:", error);
-      alert(error.message || "An error occurred while generating slides.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    navigate("/slides-generating", {
+      state: {
+        slides: data.slides,
+      },
+    });
+  } catch (error) {
+    console.error("Error generating slides:", error);
+    alert(error.message || "An error occurred while generating slides.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div>

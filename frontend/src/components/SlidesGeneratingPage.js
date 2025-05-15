@@ -27,34 +27,55 @@ const SlidesGeneratingPage = () => {
   }, [slides]);
 
   const handleDownload = async () => {
-    try {
-      const response = await fetch("http://localhost:5000/download-pptx", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ slides: generatedSlides }), // Send slides data to the backend
-      });
+  try {
+    const response = await fetch("http://localhost:5000/download-pptx", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ slides: generatedSlides }),
+    });
 
-      if (!response.ok) {
-        throw new Error("Failed to download PowerPoint file.");
+    // Check if the response is JSON (error) or a blob (file)
+    const contentType = response.headers.get("content-type");
+    if (!response.ok) {
+      let errorMsg = "Failed to download PowerPoint file.";
+      if (contentType && contentType.includes("application/json")) {
+        const errorData = await response.json();
+        errorMsg = errorData.error || errorMsg;
       }
-
-      // Create a blob from the response
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-
-      // Create a temporary link to download the file
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "generated_presentation.pptx";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (error) {
-      console.error("Error downloading PowerPoint file:", error);
-      alert("An error occurred while downloading the PowerPoint file.");
+      throw new Error(errorMsg);
     }
+
+    if (contentType && contentType.includes("application/json")) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to download PowerPoint file.");
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "generated_presentation.pptx";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (error) {
+    console.error("Error downloading PowerPoint file:", error);
+    alert(error.message || "An error occurred while downloading the PowerPoint file.");
+  }
+};
+
+  // Helper to render slide content robustly
+  const renderSlideContent = (content) => {
+    if (Array.isArray(content)) {
+      return content.join("\n");
+    }
+    if (typeof content === "string") {
+      return content.replace(/\\n/g, "\n");
+    }
+    return "";
   };
 
   return (
@@ -72,7 +93,7 @@ const SlidesGeneratingPage = () => {
               {generatedSlides.map((slide, index) => (
                 <div key={index} className="slide">
                   <h2>{slide.title}</h2>
-                  <p>{slide.content.replace(/\\n/g, "\n")}</p> {/* Replace \n with actual newlines */}
+                  <p>{renderSlideContent(slide.content)}</p>
                 </div>
               ))}
               <button className="download-btn" onClick={handleDownload}>

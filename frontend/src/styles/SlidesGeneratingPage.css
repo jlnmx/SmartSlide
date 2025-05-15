@@ -1,111 +1,94 @@
-/* Container for the entire page */
-.slides-generating-container {
-    display: flex;
+.slide-split-preview-card {
+  display: flex;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  margin-bottom: 32px;
+  min-height: 340px;
+  overflow: hidden;
+}
+
+.slide-split-left {
+  flex: 1.2;
+  padding: 48px 36px 48px 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.slide-split-title {
+  font-size: 2.1rem;
+  font-weight: 800;
+  margin-bottom: 18px;
+  color: #181818;
+  line-height: 1.15;
+}
+
+.slide-split-content {
+  font-size: 1.13rem;
+  color: #222b45;
+  margin-bottom: 18px;
+}
+
+.slide-bullets {
+  margin: 0;
+  padding-left: 22px;
+  color: #334155;
+  font-size: 1.08rem;
+}
+
+.slide-desc {
+  color: #222b45;
+  font-size: 1.08rem;
+}
+
+.slide-split-author {
+  display: flex;
+  align-items: center;
+  margin-top: 18px;
+  font-size: 1rem;
+  color: #222b45;
+}
+.slide-split-author-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e8e8e8;
+  margin-right: 10px;
+  display: inline-block;
+}
+.slide-split-author-edit {
+  color: #888;
+  font-size: 0.92rem;
+}
+
+.slide-split-right {
+  flex: 1;
+  background: #e8f0fe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 260px;
+}
+
+.slide-split-image {
+  max-width: 98%;
+  max-height: 98%;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+.slide-split-image-placeholder {
+  color: #aaa;
+  font-size: 1.2rem;
+}
+
+@media (max-width: 900px) {
+  .slide-split-preview-card {
     flex-direction: column;
-    align-items: center;
-    justify-content: flex-start; /* Align content to the top */
-    min-height: 100vh;
-    padding: 20px;
-    background: linear-gradient(to bottom, #6a11cb, #2575fc); /* Purple to blue gradient */
-    color: #fff;
-    font-family: "Arial", sans-serif;
-    overflow-y: auto; /* Enable vertical scrolling if content overflows */
-    box-sizing: border-box; /* Include padding in height calculations */
+    min-height: 220px;
   }
-  
-  /* Loading container */
-  .loading-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    margin-top: 50px; /* Add spacing from the top */
+  .slide-split-left, .slide-split-right {
+    padding: 24px 12px;
   }
-  
-  .loading-container p {
-    margin-top: 10px;
-    font-size: 1.2rem;
-    font-weight: 500;
-  }
-  
-  /* Spinner for loading */
-  .spinner {
-    width: 50px;
-    height: 50px;
-    border: 5px solid rgba(255, 255, 255, 0.3);
-    border-top: 5px solid #fff;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-  }
-  
-  @keyframes spin {
-    0% {
-      transform: rotate(0deg);
-    }
-    100% {
-      transform: rotate(360deg);
-    }
-  }
-  
-  /* Individual slide container */
-  .slide {
-    background-color: #ffffff;
-    color: #333;
-    border-radius: 10px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    padding: 20px;
-    margin: 15px 0;
-    width: 90%;
-    max-width: 600px;
-    text-align: left;
-    box-sizing: border-box; /* Include padding in width calculations */
-  }
-  
-  /* Slide title */
-  .slide h2 {
-    font-size: 1.5rem;
-    font-weight: bold;
-    margin-bottom: 10px;
-    color: #6a11cb; /* Purple color for the title */
-  }
-  
-  /* Slide content */
-  .slide p {
-    font-size: 1rem;
-    line-height: 1.5;
-    color: #555;
-  }
-  
-  /* Download Button */
-  .download-btn {
-    padding: 12px 20px;
-    font-size: 1rem;
-    font-weight: bold;
-    color: #fff;
-    background: linear-gradient(to right, #6a11cb, #2575fc); /* Purple to blue gradient */
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background-color 0.3s ease, transform 0.2s ease;
-    margin-top: 20px;
-  }
-  
-  .download-btn:hover {
-    background: linear-gradient(to right, #5a0fbf, #1e63d9); /* Darker gradient on hover */
-    transform: scale(1.05); /* Slight zoom effect */
-  }
-  
-  .download-btn:active {
-    transform: scale(1); /* Reset zoom effect on click */
-  }
-  
-  /* Ensure the container scrolls properly on smaller screens */
-  @media (max-width: 768px) {
-    .slides-generating-container {
-      padding: 10px;
-    }
-  
-    .slide {
-      width: 100%; /* Use full width on smaller screens */
-    }
-  }
+}

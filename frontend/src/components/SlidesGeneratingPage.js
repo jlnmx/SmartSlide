@@ -4,107 +4,122 @@ import "../styles/SlidesGeneratingPage.css";
 
 const SlidesGeneratingPage = () => {
   const location = useLocation();
-  const { slides } = location.state || {}; // Get slides from state
-  const [isLoading, setIsLoading] = useState(true); // Loading state
-  const [generatedSlides, setGeneratedSlides] = useState([]); // Store slides
+  const { slides } = location.state || {};
+  const [isLoading, setIsLoading] = useState(true);
+  const [generatedSlides, setGeneratedSlides] = useState([]);
 
   useEffect(() => {
-    console.log("Slides data:", slides); // Debugging: Log slides data
     if (!slides || slides.length === 0) {
-      console.error("No slides data found.");
-      setIsLoading(false); // Stop loading if no slides are found
+      setIsLoading(false);
       return;
     }
-
-    // Simulate loading for slide generation
     const timer = setTimeout(() => {
-      setGeneratedSlides(slides); // Set slides after loading
-      console.log("Generated slides:", slides); // Debugging: Log generated slides
-      setIsLoading(false); // Stop loading
-    }, 2000); // Simulate a 2-second delay
-
-    return () => clearTimeout(timer); // Cleanup timeout
+      setGeneratedSlides(slides);
+      setIsLoading(false);
+    }, 1200);
+    return () => clearTimeout(timer);
   }, [slides]);
 
   const handleDownload = async () => {
-  try {
-    const response = await fetch("http://localhost:5000/download-pptx", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ slides: generatedSlides }),
-    });
-
-    // Check if the response is JSON (error) or a blob (file)
-    const contentType = response.headers.get("content-type");
-    if (!response.ok) {
-      let errorMsg = "Failed to download PowerPoint file.";
-      if (contentType && contentType.includes("application/json")) {
-        const errorData = await response.json();
-        errorMsg = errorData.error || errorMsg;
+    try {
+      const response = await fetch("http://localhost:5000/download-pptx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slides: generatedSlides }),
+      });
+      const contentType = response.headers.get("content-type");
+      if (!response.ok) {
+        let errorMsg = "Failed to download PowerPoint file.";
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await response.json();
+          errorMsg = errorData.error || errorMsg;
+        }
+        throw new Error(errorMsg);
       }
-      throw new Error(errorMsg);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "generated_presentation.pptx";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      alert(error.message || "An error occurred while downloading the PowerPoint file.");
     }
+  };
 
-    if (contentType && contentType.includes("application/json")) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || "Failed to download PowerPoint file.");
-    }
-
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "generated_presentation.pptx";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  } catch (error) {
-    console.error("Error downloading PowerPoint file:", error);
-    alert(error.message || "An error occurred while downloading the PowerPoint file.");
-  }
-};
-
-  // Helper to render slide content robustly
+  // Helper to render slide content as bullet points or sections
   const renderSlideContent = (content) => {
     if (Array.isArray(content)) {
-      return content.join("\n");
+      return (
+        <ul className="slide-bullets">
+          {content.map((item, idx) => (
+            <li key={idx}>{item}</li>
+          ))}
+        </ul>
+      );
     }
     if (typeof content === "string") {
-      return content.replace(/\\n/g, "\n");
+      return <div className="slide-desc">{content}</div>;
     }
-    return "";
+    return null;
   };
 
   return (
-    <div className="slides-generating-container">
-      {isLoading ? (
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>Generating slides... Please wait.</p>
-        </div>
-      ) : (
-        <>
-          <h1>Generated Slides</h1>
-          {generatedSlides && generatedSlides.length > 0 ? (
-            <>
-              {generatedSlides.map((slide, index) => (
-                <div key={index} className="slide">
-                  <h2>{slide.title}</h2>
-                  <p>{renderSlideContent(slide.content)}</p>
+    <div className="slides-preview-root">
+      <h2 className="outline-title">Outline</h2>
+      <div className="slides-outline-list">
+        {isLoading ? (
+          <div className="loading-container">
+            <div className="spinner"></div>
+            <p>Generating slides... Please wait.</p>
+          </div>
+        ) : generatedSlides && generatedSlides.length > 0 ? (
+          generatedSlides.map((slide, index) => (
+            <div key={index} className="slide-split-preview-card">
+              {/* Left: Text */}
+              <div className="slide-split-left">
+                <div className="slide-split-title">{slide.title}</div>
+                <div className="slide-split-content">
+                  {renderSlideContent(slide.content)}
                 </div>
-              ))}
-              <button className="download-btn" onClick={handleDownload}>
-                Download as PowerPoint
-              </button>
-            </>
-          ) : (
-            <p>No slides available. Please try again.</p>
-          )}
-        </>
-      )}
+                {/* Optional: author/subtitle */}
+                {slide.author && (
+                  <div className="slide-split-author">
+                    <span className="slide-split-author-avatar"></span>
+                    <span>
+                      <b>{slide.author}</b>
+                      <br />
+                      <span className="slide-split-author-edit">Last edited just now</span>
+                    </span>
+                  </div>
+                )}
+              </div>
+              {/* Right: Image */}
+              <div className="slide-split-right">
+                {slide.image_url ? (
+                  <img
+                    src={slide.image_url}
+                    alt="Slide visual"
+                    className="slide-split-image"
+                  />
+                ) : (
+                  <div className="slide-split-image-placeholder">No image</div>
+                )}
+              </div>
+            </div>
+          ))
+        ) : (
+          <p>No slides available. Please try again.</p>
+        )}
+      </div>
+      <div className="slides-preview-footer">
+        <span className="slides-count">{generatedSlides.length} cards total</span>
+        <button className="generate-btn" onClick={handleDownload}>
+          Download as PowerPoint
+        </button>
+      </div>
     </div>
   );
 };

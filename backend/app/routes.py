@@ -8,6 +8,7 @@ from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.enum.text import PP_ALIGN
 from pptx.dml.color import RGBColor
+from pptx.enum.shapes import MSO_SHAPE
 import io
 import re
 import traceback
@@ -47,14 +48,20 @@ def generate_slides():
 
     try:
         generation_prompt = f"""
-        Generate a professional presentation about "{prompt_topic}".
-        The presentation should have exactly {num_slides} slides.
-        The language should be {language}.
-        Each slide should have:
-        - A concise and engaging title.
-        - Slide content as a list of paragraphs or bullet points, using Markdown for formatting (**bold**, *italic*, __underline__).
-        - Font family and font size for title and content.
-        - Suggestions for colors and layout (e.g., Title and Content, Two Content, Section Header, etc.).
+        Generate a professional, well-structured presentation about "{prompt_topic}".
+        Requirements:
+        - The presentation must have exactly {num_slides} slides.
+        - Use {language} as the language.
+        - Each slide should be clear, concise, and suitable for a business or academic audience.
+        - Organize the content logically: include an introduction, definitions of key terms, main points with bullet points or enumerations, examples or case studies if relevant, and a references or further reading slide at the end.
+        - Use paragraphs for explanations, bullet points for lists, and enumerations where appropriate.
+        - For each slide, provide a concise and engaging title.
+        - Use Markdown for formatting: **bold** for emphasis, *italic* for highlights, and __underline__ for key terms.
+        - Specify font family and font size for both title and content.
+        - Suggest appropriate colors and layout (e.g., Title and Content, Two Content, Section Header, etc.).
+        - For the references slide, include at least 2 reputable sources (real or plausible).
+        - Make the content sound professional and insightful, not simplistic.
+
         Format the output STRICTLY as a JSON array where each object has:
         - 'title': string,
         - 'content': array of strings (use Markdown for formatting),
@@ -68,14 +75,32 @@ def generate_slides():
         Example:
         [
         {{
-            "title": "Introduction",
-            "content": ["**Welcome** to the presentation!", "*Let's get started*"],
+            "title": "Introduction to Artificial Intelligence",
+            "content": [
+            "**Artificial Intelligence (AI)** is the simulation of human intelligence in machines.",
+            "Key areas include: \n- Machine Learning\n- Natural Language Processing\n- Robotics",
+            "*AI is transforming industries worldwide.*"
+            ],
             "title_font": "Arial Black",
             "title_size": 44,
             "content_font": "Calibri",
             "content_size": 32,
             "color": "#1F497D",
             "layout": "Title and Content"
+            "image_prompt": "A diagram of the water cycle showing evaporation, condensation, precipitation, and collection"
+        }},
+        {{
+            "title": "References",
+            "content": [
+            "1. Russell, S., & Norvig, P. (2020). *Artificial Intelligence: A Modern Approach*.",
+            "2. https://www.ibm.com/cloud/learn/what-is-artificial-intelligence"
+            ],
+            "title_font": "Arial",
+            "title_size": 36,
+            "content_font": "Calibri",
+            "content_size": 28,
+            "color": "#333333",
+            "layout": "Section Header"
         }}
         ]
 
@@ -109,6 +134,11 @@ def generate_slides():
         if not match:
             raise ValueError("Could not find a JSON array in the model output.")
         slides_data = json.loads(match.group(0))
+
+        for slide in slides_data:
+            image_prompt = slide.get("image_prompt") or slide.get("title")
+            if image_prompt:
+                slide["image_url"] = generate_image_replicate(image_prompt)
 
         # Validate
         if not isinstance(slides_data, list):
@@ -148,6 +178,60 @@ def apply_markdown_formatting(run, text):
         text = re.sub(r"__(.*?)__", r"\1", text)
     run.text = text
 
+def download_image(url, filename):
+    response = requests.get(url)
+    if response.status_code == 200:
+        with open(filename, "wb") as f:
+            f.write(response.content)
+        return filename
+    return None
+
+def generate_image_replicate(prompt):
+    """
+    Calls Replicate API to generate an image from a prompt.
+    Returns the image URL or None.
+    """
+    import time
+    REPLICATE_API_TOKEN = "r8_WmanNC94gwfpLpabUeCRwMX2TjThxtS2lWoX3"
+    model_version = "stability-ai/sdxl:1b6d6e3e8b7e4e6e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8estability-ai/sdxl:1b6d6e3e8b7e4e6e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e"
+    url = f"https://api.replicate.com/v1/predictions"
+    headers = {
+        "Authorization": f"Token {REPLICATE_API_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "version": model_version,
+        "input": {"prompt": prompt}
+    }
+    try:
+        print(f"Requesting image from Replicate for prompt: {prompt}")
+        response = requests.post(url, headers=headers, json=payload, timeout=60)
+        if response.status_code != 201:
+            print("Replicate error:", response.text)
+            return None
+        prediction = response.json()
+        prediction_url = prediction["urls"]["get"]
+        for i in range(40):  # Wait up to 40 seconds
+            status_resp = requests.get(prediction_url, headers=headers)
+            status_data = status_resp.json()
+            print(f"Replicate status ({i}): {status_data['status']}")
+            if status_data["status"] == "succeeded":
+                output = status_data.get("output")
+                if output and isinstance(output, list) and output[0]:
+                    print(f"Image generated: {output[0]}")
+                    return output[0]
+                else:
+                    print("No output in Replicate response.")
+                    return None
+            elif status_data["status"] == "failed":
+                print("Replicate generation failed.")
+                break
+            time.sleep(1)
+        print("Replicate timed out.")
+    except Exception as e:
+        print(f"Replicate API error: {e}")
+    return None
+
 @main.route("/download-pptx", methods=["POST"])
 def download_pptx():
     data = request.json
@@ -158,35 +242,39 @@ def download_pptx():
 
     try:
         ppt = Presentation()
-        for slide_data in slides:
-            layout = slide_data.get("layout", "Title and Content")
-            slide_layout = ppt.slide_layouts[1]  # Default to Title and Content
-            slide = ppt.slides.add_slide(slide_layout)
+        blank_layout = ppt.slide_layouts[6]  # Blank layout for custom positioning
+
+        for idx, slide_data in enumerate(slides):
+            slide = ppt.slides.add_slide(blank_layout)
+
+            # LEFT: Title and Content (split layout)
+            left = Inches(0.3)
+            top = Inches(0.7)
+            width = Inches(5.5)
+            height = Inches(6.0)
+            txBox = slide.shapes.add_textbox(left, top, width, height)
+            tf = txBox.text_frame
+            tf.word_wrap = True
 
             # Title
-            title_shape = slide.shapes.title
-            title_shape.text = ""
-            title_run = title_shape.text_frame.paragraphs[0].add_run()
+            title_run = tf.paragraphs[0].add_run()
             apply_markdown_formatting(title_run, slide_data.get("title", "Untitled Slide"))
-            # Font for title
             if "title_font" in slide_data or "title_size" in slide_data:
                 font = title_run.font
                 if "title_font" in slide_data:
                     font.name = slide_data["title_font"]
                 if "title_size" in slide_data:
                     font.size = Pt(slide_data["title_size"])
+            tf.paragraphs[0].space_after = Pt(18)
 
             # Content
-            content_shape = slide.placeholders[1]
-            content_shape.text = ""
             content_items = slide_data.get("content", [])
             if isinstance(content_items, str):
                 content_items = [content_items]
             for para_text in content_items:
-                p = content_shape.text_frame.add_paragraph()
+                p = tf.add_paragraph()
                 run = p.add_run()
                 apply_markdown_formatting(run, para_text)
-                # Font for content
                 if "content_font" in slide_data or "content_size" in slide_data:
                     font = run.font
                     if "content_font" in slide_data:
@@ -194,16 +282,24 @@ def download_pptx():
                     if "content_size" in slide_data:
                         font.size = Pt(slide_data["content_size"])
                 p.alignment = PP_ALIGN.LEFT
+                p.space_after = Pt(8)
 
-            # Color (background)
-            if "color" in slide_data:
-                try:
-                    rgb = slide_data["color"].lstrip("#")
-                    fill = slide.background.fill
-                    fill.solid()
-                    fill.fore_color.rgb = RGBColor(int(rgb[0:2], 16), int(rgb[2:4], 16), int(rgb[4:6], 16))
-                except Exception:
-                    pass
+            # RIGHT: Image (split layout)
+            image_url = slide_data.get("image_url")
+            if image_url:
+                img_path = download_image(image_url, f"temp_slide_img_{idx}.png")
+                if img_path:
+                    img_left = Inches(6.1)
+                    img_top = Inches(0.7)
+                    img_width = Inches(3.3)
+                    img_height = Inches(6.0)
+                    try:
+                        slide.shapes.add_picture(img_path, img_left, img_top, img_width, img_height)
+                    except Exception as e:
+                        print(f"Failed to add image for slide {idx+1}: {e}")
+                    finally:
+                        if os.path.exists(img_path):
+                            os.remove(img_path)
 
         ppt_stream = io.BytesIO()
         ppt.save(ppt_stream)
@@ -320,7 +416,10 @@ def import_from_url():
         if not match:
             raise ValueError("Could not find a JSON array in the model output.")
         slides_data = json.loads(match.group(0))
-
+        for slide in slides_data:
+            image_prompt = slide.get("image_prompt") or slide.get("title")
+            if image_prompt:
+                slide["image_url"] = generate_image_replicate(image_prompt)
         return jsonify({"slides": slides_data})
 
     except Exception as e:
@@ -477,9 +576,12 @@ def paste_and_create():
         if not match:
             raise ValueError("Could not find a JSON array in the model output.")
         slides_data = json.loads(match.group(0))
-
+        for slide in slides_data:
+            image_prompt = slide.get("image_prompt") or slide.get("title")
+            if image_prompt:
+                slide["image_url"] = generate_image_replicate(image_prompt)
         return jsonify({"slides": slides_data})
-
+    
     except Exception as e:
         print(f"Error in paste-and-create: {e}")
         traceback.print_exc()

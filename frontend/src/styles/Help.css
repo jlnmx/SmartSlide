@@ -1,9 +1,30 @@
 .help-page-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 40px 20px;
+  max-width: 100vw;
+  min-height: 100vh;
+  margin: 0;
+  padding: 40px 0 0 0;
   text-align: center;
-  font-family: 'Inter', sans-serif;
+  font-family: Verdana;
+  position: relative;
+  /* Remove the background property here */
+}
+.help-page-container::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: #ffffff url("D:\CAPSTONE\CAPSTONE\frontend\public\SS_Logo_3.png") no-repeat center center fixed;
+  background-size: cover;
+  opacity: 0.2;
+  z-index: 0;
+  pointer-events: none;
+}
+/* Ensure content is above the background logo */
+.help-page-container > * {
+  position: relative;
+  z-index: 1;
 }
 
 .help-title {
@@ -16,22 +37,43 @@
 .help-description {
   font-size: 1rem;
   color: #666;
+  font-style: italic;
   margin-bottom: 40px;
   line-height: 1.6;
 }
 
 .help-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 20px;
+  display: flex;
+  justify-content: center;
+  gap: 24px; /* Space between cards */
+  flex-wrap: wrap; /* Allows wrapping on small screens */
 }
 
 .help-card {
-  background-color: #ffffff;
-  padding: 20px;
+  background: #ffffff;
   border-radius: 10px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  padding: 40px 24px;           /* Increased padding */
+  min-width: 300px;             /* Increased min width */
+  max-width: 400px;             /* Increased max width */
+  flex: 1 1 320px;              /* Adjusted flex basis */
   text-align: center;
+  font-size: 1.1rem;            /* Slightly larger text */
+}
+.help-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 5px 0;
+  font-size: 0.9rem;
+  color: #666;
+  font-family: 'Inter', sans-serif;
+}
+@media (max-width: 900px) {
+  .help-card {
+    max-width: 95vw;
+    min-width: 220px;
+    padding: 24px 12px;
+  }
 }
 
 .help-card h3 {
@@ -59,10 +101,6 @@
 
 .phone-icon::before {
   content: "📞"; /* Replace with an actual icon if using a library */
-}
-
-.fax-icon::before {
-  content: "📠"; /* Replace with an actual icon if using a library */
 }
 
 .email-icon::before {

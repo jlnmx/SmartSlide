@@ -51,7 +51,6 @@ const Dashboard = () => {
 
       {/* Need Help Button */}
       <button className="need-help-btn" onClick={handleHelpClick}>
-        Need Help?
       </button>
     </div>
   );

@@ -41,49 +41,51 @@ const GeneratePage = () => {
   const [language, setLanguage] = useState("English");
   const [numSlides, setNumSlides] = useState("5");
   const [selectedTemplate, setSelectedTemplate] = useState(templates[0].id); // Default to the first template
+  const [presentationType, setPresentationType] = useState("Default"); // Default type
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
- const handleGenerate = async () => {
-  if (!prompt.trim()) {
-    alert("Please enter a topic.");
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    const response = await fetch("http://localhost:5000/generate-slides", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        prompt,
-        language,
-        numSlides: parseInt(numSlides),
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text(); // Read as text to handle non-JSON responses
-      throw new Error(errorData || "Failed to generate slides. Please try again.");
+  const handleGenerate = async () => {
+    if (!prompt.trim()) {
+      alert("Please enter a topic.");
+      return;
     }
 
-    const data = await response.json(); // Parse JSON response
+    setLoading(true);
 
-    navigate("/slides-generating", {
-      state: {
-        slides: data.slides,
-      },
-    });
-  } catch (error) {
-    console.error("Error generating slides:", error);
-    alert(error.message || "An error occurred while generating slides.");
-  } finally {
-    setLoading(false);
-  }
-};
+    try {
+      const response = await fetch("http://localhost:5000/generate-slides", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt,
+          language,
+          numSlides: parseInt(numSlides),
+          presentationType, // Include the selected presentation type
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text(); // Read as text to handle non-JSON responses
+        throw new Error(errorData || "Failed to generate slides. Please try again.");
+      }
+
+      const data = await response.json(); // Parse JSON response
+
+      navigate("/slides-generating", {
+        state: {
+          slides: data.slides,
+        },
+      });
+    } catch (error) {
+      console.error("Error generating slides:", error);
+      alert(error.message || "An error occurred while generating slides.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div>
@@ -115,6 +117,30 @@ const GeneratePage = () => {
               <option>Chinese</option>
               <option>Spanish</option>
               <option>Japanese</option>
+              <option>Russian</option>
+              <option>Italian</option>
+              <option>Portuguese</option>
+              <option>Arabic</option>
+              <option>Hindi</option>
+              <option>Indonesian</option>
+              <option>Vietnamese</option>
+              <option>Thai</option>
+              <option>Turkish</option>
+              <option>Persian</option>
+              <option>Swedish</option>
+              <option>Dutch</option>
+              <option>Norwegian</option>
+              <option>Finnish</option>
+              <option>Polish</option>
+              <option>Czech</option>
+              <option>Hungarian</option>
+              <option>Romanian</option>
+              <option>Bulgarian</option>
+              <option>Ukrainian</option>
+              <option>Greek</option>
+              <option>Hebrew</option>
+              <option>Malay</option>
+              <option>Swahili</option>
             </select>
           </div>
 
@@ -125,6 +151,24 @@ const GeneratePage = () => {
               <option>10</option>
               <option>15</option>
               <option>20</option>
+              <option>25</option>
+              <option>30</option>
+              <option>35</option>
+              <option>40</option>
+              <option>45</option>
+              <option>50</option>
+            </select>
+          </div>
+
+          <div>
+            <label>Presentation Type:</label>
+            <select
+              value={presentationType}
+              onChange={(e) => setPresentationType(e.target.value)}
+            >
+              <option value="Default">Default</option>
+              <option value="Tall">Tall</option>
+              <option value="Traditional">Traditional</option>
             </select>
           </div>
         </div>

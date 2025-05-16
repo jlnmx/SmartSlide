@@ -73,7 +73,7 @@ export default function PasteToCreate() {
           )}
 
           <div className="footer-note">
-            Need help? <a href="#">Contact us</a>
+            <a href="#">Need help? </a>
           </div>
         </motion.div>
       </div>

@@ -1,30 +1,46 @@
 .generate-container {
   display: flex;
   flex-direction: column;
+  font-family: Verdana;
   align-items: center;
-  justify-content: flex-start; /* Align content to the top */
-  min-height: 100vh; /* Full viewport height */
-  background-color: rgb(252, 228, 255); /* Make the container background transparent */
+  justify-content: center;
+  min-height: 100vh;
+  background-color: #ffffff;
   text-align: center;
-  padding: 20px; /* Reduce padding */
-  max-width: 800px; /* Limit width for better readability */
-  margin: auto;
-  border-radius: 10px; /* Slightly rounded corners */
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow */
-  overflow-y: auto; /* Enable vertical scrolling if content overflows */
+  padding: 40px;
+  max-width: 1200px;
+  margin: 40px auto 40px auto;
+  border-radius: 2rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.10);
+  overflow-y: auto;
   box-sizing: border-box;
+  transition: box-shadow 0.3s ease;
+  animation: fadeInUp 0.5s ease; /* Add animation here */
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 40px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .generate-title {
-  font-size: 2rem; /* Adjusted size */
+  font-size: 45px; /* Adjusted size */
   font-weight: bold;
-  color: #4a148c; /* Dark purple */
+  color: #1f2937; /* Dark purple */
   margin-bottom: 10px; /* Reduce spacing */
 }
 
 .generate-subtitle {
-  font-size: 1rem; /* Adjusted size */
-  color: #6a1b9a; /* Medium purple */
+  font-size: 20px; /* Adjusted size */
+  font-family: Verdana;
+  font-style: italic;
+  color: #1f2937; /* Medium purple */
   margin-bottom: 20px; /* Reduce spacing */
 }
 
@@ -38,6 +54,7 @@
 
 .prompt-input {
   width: 100%;
+  font-family: Verdana;
   max-width: 500px; /* Limit input width */
   padding: 10px; /* Reduce padding */
   font-size: 1rem; /* Adjusted size */
@@ -59,7 +76,8 @@
 .options-section label {
   font-size: 0.9rem; /* Adjusted size */
   font-weight: bold;
-  color: #4a148c; /* Dark purple */
+  font-family: Verdana;
+  color: #1f2937; /* Dark purple */
 }
 
 .options-section select {
@@ -71,12 +89,14 @@
 }
 
 .generate-btn {
-  padding: 10px 20px; /* Reduce padding */
+  padding: 20px 20px; /* Reduce padding */
   font-size: 1rem; /* Adjusted size */
   font-weight: bold;
-  background-color: #7e57c2; /* Purple button */
+  font-family: Verdana;
+  background-color: #7b6e91; /* Purple button */
   color: white;
   border: none;
+  padding: 10px;
   border-radius: 8px; /* Slightly rounded corners */
   cursor: pointer;
   transition: all 0.3s ease-in-out;
@@ -94,7 +114,7 @@
 .template-selection-title {
   font-size: 1.2rem; /* Adjusted size */
   font-weight: bold;
-  color: #4a148c; /* Dark purple */
+  color: #1f2937; /* Dark purple */
   margin: 15px 0; /* Reduce spacing */
 }
 
@@ -107,16 +127,16 @@
 }
 
 .template-box {
-  width: 140px; /* Adjusted size */
-  height: 180px; /* Adjusted size */
+  width: 200px;    /* Increased width */
+  height: 200px;   /* Increased height */
   border: 2px solid transparent;
-  border-radius: 8px; /* Slightly rounded corners */
+  border-radius: 12px; /* Slightly more rounded corners */
   overflow: hidden;
   text-align: center;
   cursor: pointer;
   transition: transform 0.3s ease, border-color 0.3s ease;
-  background-color: #f5e6e6;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+  background-color: #eedada;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .template-box:hover {
@@ -130,7 +150,7 @@
 
 .template-preview {
   width: 100%;
-  height: 100px; /* Adjusted size */
+  height: 120px;   /* Increased preview height */
   object-fit: cover;
   border-bottom: 1px solid #ddd;
 }
@@ -166,5 +186,13 @@
 @media (max-width: 480px) {
   .generate-title {
     font-size: 1.5rem;
+  }
+}
+
+
+@media (max-width: 1300px) {
+  .generate-container {
+    max-width: 98vw;
+    padding: 16px;
   }
 }

@@ -91,7 +91,7 @@ const GeneratePage = () => {
     <div>
       <Navbar />
       <div className="generate-container">
-        <h1 className="generate-title">GENERATE SLIDES USING SMARTSLIDE</h1>
+        <h1 className="generate-title">Generate slides using SmartSlide</h1>
         <p className="generate-subtitle">
           Enter a topic and select a template to generate a structured presentation.
         </p>

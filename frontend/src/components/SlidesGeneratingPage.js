@@ -20,37 +20,62 @@ const SlidesGeneratingPage = () => {
     return () => clearTimeout(timer);
   }, [slides]);
 
-  const handleDownload = async () => {
+  const handleEditInGoogleSlides = async () => {
   try {
-    const response = await fetch("http://localhost:5000/generate-presentation", {
+    const response = await fetch("http://localhost:5000/create-google-slides", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slides: generatedSlides }),
+      body: JSON.stringify({
+        slides: generatedSlides,
+        presentationType: "default", // Pass the presentation type (default, tall, traditional)
+      }),
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error || "Failed to generate the presentation.");
+      throw new Error(errorData.error || "Failed to create Google Slides presentation.");
     }
 
-    // Create a blob from the response
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
+    const data = await response.json();
+    const presentationUrl = data.url;
 
-    // Create a temporary link element
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "generated_presentation.pptx"; // This sets the filename in the Downloads folder
-    document.body.appendChild(link);
-    link.click();
-
-    // Clean up the temporary link
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url); // Free up memory
+    window.open(presentationUrl, "_blank");
   } catch (error) {
-    alert(error.message || "An error occurred while generating the presentation.");
+    alert(error.message || "An error occurred while creating the Google Slides presentation.");
   }
 };
+
+  const handleDownload = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/generate-presentation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slides: generatedSlides }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate the presentation.");
+      }
+
+      // Create a blob from the response
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      // Create a temporary link element
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "generated_presentation.pptx"; // This sets the filename in the Downloads folder
+      document.body.appendChild(link);
+      link.click();
+
+      // Clean up the temporary link
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url); // Free up memory
+    } catch (error) {
+      alert(error.message || "An error occurred while generating the presentation.");
+    }
+  };
 
   // Helper to render slide content as bullet points or sections
   const renderSlideContent = (content) => {
@@ -72,6 +97,9 @@ const SlidesGeneratingPage = () => {
   return (
     <div className="slides-preview-root">
       <h2 className="outline-title">Outline</h2>
+      <button className="edit-google-slides-btn" onClick={handleEditInGoogleSlides}>
+        Edit in Google Slides
+      </button>
       <div className="slides-outline-list">
         {isLoading ? (
           <div className="loading-container">

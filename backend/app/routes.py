@@ -2,6 +2,7 @@ import os
 import requests  
 import json
 import subprocess
+import fitz 
 import uuid
 from datetime import datetime
 from flask import Blueprint, jsonify, request, send_file, send_from_directory
@@ -12,8 +13,11 @@ from pptx import Presentation
 from pptx.util import Inches, Pt
 from PIL import Image, ImageDraw
 from pptx.enum.text import PP_ALIGN
+from pdf2image import convert_from_path
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
 import io
 import re
 import os
@@ -28,7 +32,8 @@ except ImportError:
     YouTubeTranscriptApi = None
 
 load_dotenv()
-
+GOOGLE_CREDENTIALS_FILE = "D:/Codes/CAPSTONE/backend/credentials.json"  
+SCOPES = ["https://www.googleapis.com/auth/presentations", "https://www.googleapis.com/auth/drive.file"]
 ALLOWED_EXTENSIONS = {'pdf', 'xlsx', 'xls', 'csv', 'docx'}
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_API_KEY = "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"  # For production, use os.environ.get("GROQ_API_KEY")
@@ -257,8 +262,8 @@ def generate_presentation():
         # Create a unique filename for the Markdown file
         slides_folder = os.path.join(os.getcwd(), "slides")
         os.makedirs(slides_folder, exist_ok=True)  # Ensure the slides folder exists
-        unique_filename = f"presentation_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.md"
-        markdown_file = os.path.join(slides_folder, unique_filename)
+        unique_filename = f"presentation_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+        markdown_file = os.path.join(slides_folder, f"{unique_filename}.md")
 
         # Save Markdown to a file
         with open(markdown_file, "w", encoding="utf-8") as f:
@@ -269,18 +274,43 @@ def generate_presentation():
         marp_executable = "C:\\Users\\saban\\AppData\\Roaming\\npm\\marp.cmd"  # Full path to marp.cmd
         subprocess.run([marp_executable, markdown_file, "--pdf", "-o", pdf_file], check=True, stdin=subprocess.DEVNULL)
 
-        # Convert PDF to PPTX
+        # Convert PDF to PPTX with editable content
         pptx_file = markdown_file.replace(".md", ".pptx")
         ppt = Presentation()
-        with pdfplumber.open(pdf_file) as pdf:
-            for page in pdf.pages:
-                slide = ppt.slides.add_slide(ppt.slide_layouts[1])
-                title = slide.shapes.title
-                content = slide.placeholders[1]
-                title.text = f"Page {pdf.pages.index(page) + 1}"
-                content.text = page.extract_text() or "No content available"
+        pdf_document = fitz.open(pdf_file)  # Open the PDF file
 
-        ppt.save(pptx_file)
+        for page_number in range(len(pdf_document)):
+            page = pdf_document.load_page(page_number)  # Load each page
+            text = page.get_text("text")  # Extract text from the page
+            images = page.get_images(full=True)  # Extract images from the page
+
+            # Create a new slide
+            slide = ppt.slides.add_slide(ppt.slide_layouts[1])  # Title and Content layout
+            title = slide.shapes.title
+            content = slide.placeholders[1]
+
+            # Set the title and content
+            lines = text.split("\n")
+            if lines:
+                title.text = lines[0]  # First line as title
+                content.text = "\n".join(lines[1:])  # Remaining lines as content
+
+            # Add images to the slide
+            for img_index, img in enumerate(images):
+                xref = img[0]
+                base_image = pdf_document.extract_image(xref)
+                image_bytes = base_image["image"]
+                image_path = os.path.join(slides_folder, f"{uuid.uuid4().hex[:8]}.png")
+                with open(image_path, "wb") as img_file:
+                    img_file.write(image_bytes)
+
+                # Add the image to the slide
+                left = Inches(1)
+                top = Inches(2 + img_index * 2)  # Stack images vertically
+                slide.shapes.add_picture(image_path, left, top, width=Inches(4))
+
+        pdf_document.close()  # Close the PDF document
+        ppt.save(pptx_file)  # Save the PowerPoint file
 
         # Send the PPTX file to the client
         return send_from_directory(
@@ -297,7 +327,7 @@ def generate_presentation():
         print(f"Error generating presentation: {e}")
         traceback.print_exc()
         return jsonify({"error": "An error occurred while generating the presentation.", "details": str(e)}), 500
-
+    
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -377,85 +407,177 @@ def upload_file():
         return jsonify({"error": "An error occurred while converting the file.", "details": str(e)}), 500
     
 
-@main.route("/paste-and-create", methods=["POST"])
-def paste_and_create():
-    data = request.json
-    pasted_text = data.get("text")
-    if not pasted_text or not pasted_text.strip():
-        return jsonify({"error": "No text provided."}), 400
-
+@main.route("/create-google-slides", methods=["POST"])
+def create_google_slides():
     try:
-        # Limit text length for LLM prompt
-        text = pasted_text[:4000]
+        # Authenticate using the service account
+        credentials = service_account.Credentials.from_service_account_file(
+            GOOGLE_CREDENTIALS_FILE, scopes=SCOPES
+        )
+        slides_service = build("slides", "v1", credentials=credentials)
+        drive_service = build("drive", "v3", credentials=credentials)
 
-        prompt = f"""
-        The following is content pasted by a user for a presentation:
-        ---
-        {text}
-        ---
-        Please summarize and organize this content into a professional presentation with concise slides.
-        Format the output STRICTLY as a JSON array where each object has:
-        - 'title': string,
-        - 'content': array of strings (use Markdown for formatting),
-        - 'title_font': string,
-        - 'title_size': int,
-        - 'content_font': string,
-        - 'content_size': int,
-        - 'color': string,
-        - 'layout': string
+        data = request.json
+        slides_from_frontend = data.get("slides")
+        # presentation_type = data.get("presentationType", "default") # For future layout variations
 
-        Example:
-        [
-        {{
-            "title": "Introduction",
-            "content": ["**Welcome** to the presentation!", "*Let's get started*"],
-            "title_font": "Arial Black",
-            "title_size": 44,
-            "content_font": "Calibri",
-            "content_size": 32,
-            "color": "#1F497D",
-            "layout": "Title and Content"
-        }}
-        ]
+        # Validate slides_from_frontend input
+        if slides_from_frontend is None:
+            # If you want to allow creating a presentation even if 'slides' key is missing and treat as empty:
+            # slides_from_frontend = [] 
+            # Else, return an error:
+            return jsonify({"error": "Slides data is missing (must be a list, can be empty)."}), 400
+        if not isinstance(slides_from_frontend, list):
+            return jsonify({"error": "Slides data must be a list."}), 400
 
-        Generate the slides now:
-        """
+        # Create a new Google Slides presentation
+        presentation_title = "Generated Presentation"
+        if not slides_from_frontend: # If frontend provides an empty list for slides
+            presentation_title = "New Presentation (Empty)"
+        
+        presentation = slides_service.presentations().create(body={"title": presentation_title}).execute()
+        presentation_id = presentation["presentationId"]
 
-        headers = {
-            "Authorization": f"Bearer {GROQ_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "model": "llama3-8b-8192",
-            "messages": [
-                {"role": "system", "content": "You are a helpful assistant that generates slide content in JSON format."},
-                {"role": "user", "content": prompt}
-            ],
-            "max_tokens": 4096,
-            "temperature": 0.3
-        }
-        response = requests.post(GROQ_API_URL, headers=headers, json=payload)
-        if response.status_code != 200:
-            return jsonify({"error": "Failed to generate slides using Groq API.", "details": response.text}), 500
+        # If slides_from_frontend is an empty list, set permissions and return the empty presentation
+        if not slides_from_frontend:
+            drive_service.permissions().create(
+                fileId=presentation_id, body={"type": "anyone", "role": "writer"}
+            ).execute()
+            presentation_url = f"https://docs.google.com/presentation/d/{presentation_id}/edit"
+            return jsonify({"url": presentation_url})
 
-        result = response.json()
-        model_output = result["choices"][0]["message"]["content"]
+        # --- Batch 1: Delete initial default slide AND Create all new slide pages ---
+        # slides_from_frontend is now guaranteed to be a non-empty list.
+        
+        # Get the initial slide created by default to delete it
+        initial_presentation_data = slides_service.presentations().get(presentationId=presentation_id, fields="slides(objectId)").execute()
+        initial_api_slides = initial_presentation_data.get("slides", [])
+        
+        batch1_requests = []
+        if initial_api_slides: 
+            initial_slide_id = initial_api_slides[0].get("objectId")
+            if initial_slide_id: 
+                batch1_requests.append({"deleteObject": {"objectId": initial_slide_id}})
 
-        # Extract JSON array from the response
-        match = re.search(r'\[\s*{.*}\s*\]', model_output, re.DOTALL)
-        if not match:
-            raise ValueError("Could not find a JSON array in the model output.")
-        slides_data = json.loads(match.group(0))
-        for slide in slides_data:
-            image_prompt = slide.get("image_prompt") or f"An illustration related to {slide['title']}"
-            slide["image_url"] = generate_image_replicate(image_prompt)
-            if image_prompt:
-                slide["image_url"] = generate_image_replicate(image_prompt)
-        return jsonify({"slides": slides_data})
-    
+        # Prepare requests to create new slides based on frontend data
+        # created_page_object_ids = [] # Not strictly needed if we fetch slides again by order
+        for _ in slides_from_frontend: 
+            page_object_id = f"page_{uuid.uuid4().hex}" # Assign unique ID for creation
+            # created_page_object_ids.append(page_object_id)
+            batch1_requests.append({
+                "createSlide": {
+                    "objectId": page_object_id, # Provide an objectId for the new slide
+                    "slideLayoutReference": {
+                        "predefinedLayout": "TITLE_AND_BODY" 
+                    }
+                }
+            })
+
+        if batch1_requests:
+            slides_service.presentations().batchUpdate(
+                presentationId=presentation_id,
+                body={"requests": batch1_requests}
+            ).execute()
+        
+        # --- Retrieve the presentation again. It should now only contain the slides we created. ---
+        fields_to_get = "slides(objectId,pageElements(objectId,shape(placeholder(type))))"
+        presentation_with_slides = slides_service.presentations().get(
+            presentationId=presentation_id,
+            fields=fields_to_get
+        ).execute()
+        # api_slides now contains only the slides created in Batch 1, in order.
+        api_slides = presentation_with_slides.get("slides", [])
+
+        # --- Batch 2: Add content (text and images) to the created slides ---
+        update_content_requests = []
+        
+        # len(api_slides) should now equal len(slides_from_frontend)
+        for i in range(min(len(slides_from_frontend), len(api_slides))): 
+            frontend_slide_content = slides_from_frontend[i]
+            current_api_slide = api_slides[i] # This is the i-th slide we created
+
+            page_elements = current_api_slide.get("pageElements", [])
+            title_placeholder_id = None
+            body_placeholder_id = None
+
+            # Find placeholders by their type in the current slide
+            for element in page_elements:
+                shape = element.get("shape")
+                if shape:
+                    placeholder = shape.get("placeholder")
+                    if placeholder:
+                        placeholder_type = placeholder.get("type")
+                        if placeholder_type == "TITLE":
+                            title_placeholder_id = element.get("objectId")
+                        elif placeholder_type == "BODY": 
+                            body_placeholder_id = element.get("objectId")
+                        
+                        if title_placeholder_id and body_placeholder_id: # Optimization
+                            break 
+            
+            # Add text to title placeholder
+            if title_placeholder_id and frontend_slide_content.get("title"):
+                update_content_requests.append({
+                    "insertText": {
+                        "objectId": title_placeholder_id,
+                        "text": frontend_slide_content["title"]
+                    }
+                })
+            
+            # Add text to body placeholder
+            if body_placeholder_id and frontend_slide_content.get("content"):
+                content_list = frontend_slide_content.get("content", [])
+                content_text = ""
+                if isinstance(content_list, list):
+                    content_text = "\n".join(str(item) for item in content_list)
+                elif isinstance(content_list, str): # If content is already a string
+                    content_text = content_list
+                
+                if content_text: # Only add if there's text
+                    update_content_requests.append({
+                        "insertText": {
+                            "objectId": body_placeholder_id,
+                            "text": content_text
+                        }
+                    })
+
+            # Add image if available
+            if frontend_slide_content.get("image_url"):
+                update_content_requests.append({
+                    "createImage": {
+                        "url": frontend_slide_content["image_url"],
+                        "elementProperties": {
+                            "pageObjectId": current_api_slide.get("objectId"), # ID of the slide page
+                            "size": { 
+                                "width": {"magnitude": 3000000, "unit": "EMU"}, 
+                                "height": {"magnitude": 2250000, "unit": "EMU"} 
+                            },
+                            "transform": { 
+                                "scaleX": 1, "scaleY": 1,
+                                "translateX": 5500000, # Adjust X for right side
+                                "translateY": 1400000, # Adjust Y for vertical position
+                                "unit": "EMU"
+                            }
+                        }
+                    }
+                })
+
+        if update_content_requests:
+            slides_service.presentations().batchUpdate(
+                presentationId=presentation_id,
+                body={"requests": update_content_requests}
+            ).execute()
+
+        # Update sharing permissions
+        drive_service.permissions().create(
+            fileId=presentation_id,
+            body={"type": "anyone", "role": "writer"},
+        ).execute()
+
+        presentation_url = f"https://docs.google.com/presentation/d/{presentation_id}/edit"
+        return jsonify({"url": presentation_url})
+
     except Exception as e:
-        print(f"Error in paste-and-create: {e}")
+        print(f"Error creating Google Slides presentation: {e}")
         traceback.print_exc()
-        return jsonify({"error": "An error occurred while processing the pasted text.", "details": str(e)}), 500
-    
-
+        return jsonify({"error": "An error occurred while creating the Google Slides presentation.", "details": str(e)}), 500

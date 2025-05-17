@@ -100,7 +100,7 @@
   display: inline-block;
   width: 50px;
   height: 50px;
-  background: url("D:\CAPSTONE\CAPSTONE\frontend\public\Location_ICON.png") no-repeat center center;
+  background: url("/public/Location_ICON.png") no-repeat center center;
   background-size: contain;
   margin-bottom: 15px;
   vertical-align: middle;
@@ -110,7 +110,7 @@
   display: inline-block;
   width: 50px;
   height: 50px;
-  background: url("D:\CAPSTONE\CAPSTONE\frontend\public\Phone_ICON.png") no-repeat center center;
+  background: url("/public/Phone_ICON.png") no-repeat center center;
   background-size: contain;
   margin-bottom: 15px;
   vertical-align: middle;
@@ -120,7 +120,7 @@
   display: inline-block;
   width: 50px;
   height: 50px;
-  background: url("D:\CAPSTONE\CAPSTONE\frontend\public\Email_ICON.png") no-repeat center center;
+  background: url("/public/Email_ICON.png") no-repeat center center;
   background-size: contain;
   margin-bottom: 15px;
   vertical-align: middle;

@@ -24,7 +24,7 @@ const CreatePage = () => {
             GENERATE
           </button>
           <button className="upload-btn" onClick={() => navigate("/import")}>
-            UPLOAD DOCUMENT OR URL
+            UPLOAD DOCUMENT
           </button>
           <button className="scratch-btn" onClick={() => navigate("/paste-and-create")}>
             PASTE IN TEXT

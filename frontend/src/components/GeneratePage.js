@@ -7,7 +7,7 @@ const templates = [
   {
     id: "business_template.pptx",
     title: "Business",
-    preview: "/images/business_preview.png", // Replace with actual preview image paths
+    preview: "/images/business_preview.png",
   },
   {
     id: "education_template.pptx",
@@ -40,8 +40,8 @@ const GeneratePage = () => {
   const [prompt, setPrompt] = useState("");
   const [language, setLanguage] = useState("English");
   const [numSlides, setNumSlides] = useState("5");
-  const [selectedTemplate, setSelectedTemplate] = useState(templates[0].id); // Default to the first template
-  const [presentationType, setPresentationType] = useState("Default"); // Default type
+  const [selectedTemplate, setSelectedTemplate] = useState(templates[0].id);
+  const [presentationType, setPresentationType] = useState("Default");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -63,16 +63,16 @@ const GeneratePage = () => {
           prompt,
           language,
           numSlides: parseInt(numSlides),
-          presentationType, // Include the selected presentation type
+          presentationType,
         }),
       });
 
       if (!response.ok) {
-        const errorData = await response.text(); // Read as text to handle non-JSON responses
+        const errorData = await response.text();
         throw new Error(errorData || "Failed to generate slides. Please try again.");
       }
 
-      const data = await response.json(); // Parse JSON response
+      const data = await response.json();
 
       navigate("/slides-generating", {
         state: {
@@ -201,9 +201,13 @@ const GeneratePage = () => {
           {loading ? "Generating..." : "Generate"}
         </button>
 
-        <a href="#" className="help-link">
-          Need help?
-        </a>
+        {/* Help button with Message icon at bottom right */}
+        <button
+          className="need-help-btn"
+          onClick={() => navigate("/help")}
+          title="Need Help?"
+          aria-label="Need Help"
+        />
       </div>
     </div>
   );

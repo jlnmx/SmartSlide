@@ -7,7 +7,9 @@
   "scripts": {
     "start": "concurrently \"npm run start-frontend\" \"npm run start-backend\"",
     "start-frontend": "react-scripts start",
-    "start-backend": "cd ../backend && python run.py"
+    "start-backend": "cd ../backend && python run.py",
+    "build-presentation": "marp slides/presentation.md --pdf"
+
   },
   "keywords": [
     "AI",

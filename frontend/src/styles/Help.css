@@ -15,7 +15,7 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: #ffffff url("D:\CAPSTONE\CAPSTONE\frontend\public\SS_Logo_3.png") no-repeat center center fixed;
+  background: #ffffff url("/public/SS_Logo_3.png") no-repeat center center fixed;
   background-size: cover;
   opacity: 0.2;
   z-index: 0;

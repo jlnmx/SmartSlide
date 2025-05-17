@@ -1,12 +1,16 @@
 import os
 import requests  
 import json
-from flask import Blueprint, jsonify, request, send_file
+import subprocess
+import uuid
+from datetime import datetime
+from flask import Blueprint, jsonify, request, send_file, send_from_directory
 from dotenv import load_dotenv
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from pptx import Presentation
 from pptx.util import Inches, Pt
+from PIL import Image, ImageDraw
 from pptx.enum.text import PP_ALIGN
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
@@ -30,7 +34,14 @@ GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_API_KEY = "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"  # For production, use os.environ.get("GROQ_API_KEY")
 
 main = Blueprint("main", __name__)
-CORS(main, resources={r"/*": {"origins": "*"}})
+CORS(main, resources={r"/*": {"origins": "http://localhost:3000"}})
+
+@main.after_request
+def after_request(response):
+    response.headers.add("Access-Control-Allow-Origin", "http://localhost:3000")
+    response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization")
+    response.headers.add("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+    return response
 
 @main.route("/generate-slides", methods=["POST"])
 def generate_slides():
@@ -49,7 +60,6 @@ def generate_slides():
 
     if not prompt_topic:
         return jsonify({"error": "Prompt topic is required."}), 400
-
     try:
         presentation_type = data.get("presentationType", "Default")
         generation_prompt = f"""
@@ -58,25 +68,21 @@ def generate_slides():
         - The presentation must have exactly {num_slides} slides.
         - Use {language} as the language.
         - The presentation style/type should be: {presentation_type}.
-        - Each slide should be clear, concise, and suitable for a business or academic audience.
-        - Organize the content logically: include an introduction, definitions of key terms, main points with bullet points or enumerations, examples or case studies if relevant, and a references or further reading slide at the end.
-        - Use paragraphs for explanations, bullet points for lists, and enumerations where appropriate.
-        - For each slide, provide a concise and engaging title.
+        - Each slide should have:
+        - A concise and engaging title.
+        - Clear and concise content, formatted as bullet points or short paragraphs.
         - Use Markdown for formatting: **bold** for emphasis, *italic* for highlights, and __underline__ for key terms.
-        - Specify font family and font size for both title and content.
-        - Suggest appropriate colors and layout (e.g., Title and Content, Two Content, Section Header, etc.).
-        - For the references slide, include at least 2 reputable sources (real or plausible).
-        - Make the content sound professional and insightful, not simplistic.
-
-        Format the output STRICTLY as a JSON array where each object has:
+        - If applicable, include a relevant image description for each slide (e.g., "A diagram of the water cycle").
+        - Organize the content logically:
+        - Slide 1: Introduction (overview of the topic).
+        - Slide 2: Key definitions or background information.
+        - Slide 3-{num_slides-1}: Main points, examples, or case studies.
+        - Slide {num_slides}: Conclusion or references.
+        - Ensure the content is professional, insightful, and suitable for a business or academic audience.
+        - Provide a JSON array where each object has:
         - 'title': string,
         - 'content': array of strings (use Markdown for formatting),
-        - 'title_font': string,
-        - 'title_size': int,
-        - 'content_font': string,
-        - 'content_size': int,
-        - 'color': string,
-        - 'layout': string
+        - 'image_prompt': string (optional, for generating relevant images).
 
         Example:
         [
@@ -87,13 +93,7 @@ def generate_slides():
             "Key areas include: \n- Machine Learning\n- Natural Language Processing\n- Robotics",
             "*AI is transforming industries worldwide.*"
             ],
-            "title_font": "Arial Black",
-            "title_size": 44,
-            "content_font": "Calibri",
-            "content_size": 32,
-            "color": "#1F497D",
-            "layout": "Title and Content",
-            "image_prompt": "A diagram of the water cycle showing evaporation, condensation, precipitation, and collection"
+            "image_prompt": "A futuristic image of AI robots working in an office"
         }},
         {{
             "title": "References",
@@ -101,12 +101,7 @@ def generate_slides():
             "1. Russell, S., & Norvig, P. (2020). *Artificial Intelligence: A Modern Approach*.",
             "2. https://www.ibm.com/cloud/learn/what-is-artificial-intelligence"
             ],
-            "title_font": "Arial",
-            "title_size": 36,
-            "content_font": "Calibri",
-            "content_size": 28,
-            "color": "#333333",
-            "layout": "Section Header"
+            "image_prompt": null
         }}
         ]
 
@@ -141,18 +136,16 @@ def generate_slides():
             raise ValueError("Could not find a JSON array in the model output.")
         slides_data = json.loads(match.group(0))
 
+        # Validate the structure of each slide
         for slide in slides_data:
-            image_prompt = slide.get("image_prompt") or slide.get("title")
-            if image_prompt:
-                slide["image_url"] = generate_image_replicate(image_prompt)
-
-        # Validate
-        if not isinstance(slides_data, list):
-            raise ValueError("Invalid JSON structure: Expected a list.")
-        if not all(isinstance(s, dict) and 'title' in s and 'content' in s for s in slides_data):
-            raise ValueError("Invalid JSON structure: Each slide object must have 'title' and 'content' keys.")
-        if len(slides_data) != num_slides:
-            print(f"Warning: Groq returned {len(slides_data)} slides, but {num_slides} were requested.")
+            if not isinstance(slide, dict):
+                raise ValueError("Each slide must be a dictionary.")
+            if 'title' not in slide or not isinstance(slide['title'], str):
+                raise ValueError("Each slide must have a 'title' field of type string.")
+            if 'content' not in slide or not isinstance(slide['content'], list):
+                raise ValueError("Each slide must have a 'content' field of type list.")
+            if not all(isinstance(item, str) for item in slide['content']):
+                raise ValueError("Each item in the 'content' field must be a string.")
 
         print(f"--- Successfully Parsed {len(slides_data)} Slides ---")
         return jsonify({"slides": slides_data})
@@ -243,201 +236,67 @@ def generate_image_replicate(prompt):
         print(f"Replicate API error: {e}")
     return None
 
-@main.route("/download-pptx", methods=["POST"])
-def download_pptx():
-    data = request.json
-    slides = data.get("slides", [])
-
-    if not slides or not isinstance(slides, list):
-        return jsonify({"error": "Invalid slide data provided."}), 400
-
+@main.route("/generate-presentation", methods=["POST"])
+def generate_presentation():
     try:
+        data = request.json
+        slides = data.get("slides")
+        if not slides or not isinstance(slides, list):
+            return jsonify({"error": "Invalid slides data."}), 400
+
+        # Generate Markdown content from slides
+        markdown_content = "---\nmarp: true\npaginate: true\nsize: 16:9\n---\n\n"
+        for slide in slides:
+            markdown_content += f"# {slide['title']}\n\n"
+            if isinstance(slide['content'], list):
+                markdown_content += "\n".join(slide['content']) + "\n\n"
+            else:
+                markdown_content += slide['content'] + "\n\n"
+            markdown_content += "---\n\n"
+
+        # Create a unique filename for the Markdown file
+        slides_folder = os.path.join(os.getcwd(), "slides")
+        os.makedirs(slides_folder, exist_ok=True)  # Ensure the slides folder exists
+        unique_filename = f"presentation_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.md"
+        markdown_file = os.path.join(slides_folder, unique_filename)
+
+        # Save Markdown to a file
+        with open(markdown_file, "w", encoding="utf-8") as f:
+            f.write(markdown_content)
+
+        # Use Marp CLI to generate PDF
+        pdf_file = markdown_file.replace(".md", ".pdf")
+        marp_executable = "C:\\Users\\saban\\AppData\\Roaming\\npm\\marp.cmd"  # Full path to marp.cmd
+        subprocess.run([marp_executable, markdown_file, "--pdf", "-o", pdf_file], check=True, stdin=subprocess.DEVNULL)
+
+        # Convert PDF to PPTX
+        pptx_file = markdown_file.replace(".md", ".pptx")
         ppt = Presentation()
-        blank_layout = ppt.slide_layouts[6]  # Blank layout for custom positioning
+        with pdfplumber.open(pdf_file) as pdf:
+            for page in pdf.pages:
+                slide = ppt.slides.add_slide(ppt.slide_layouts[1])
+                title = slide.shapes.title
+                content = slide.placeholders[1]
+                title.text = f"Page {pdf.pages.index(page) + 1}"
+                content.text = page.extract_text() or "No content available"
 
-        for idx, slide_data in enumerate(slides):
-            slide = ppt.slides.add_slide(blank_layout)
+        ppt.save(pptx_file)
 
-            # LEFT: Title and Content (split layout)
-            left = Inches(0.3)
-            top = Inches(0.7)
-            width = Inches(5.5)
-            height = Inches(6.0)
-            txBox = slide.shapes.add_textbox(left, top, width, height)
-            tf = txBox.text_frame
-            tf.word_wrap = True
-
-            # Title
-            title_run = tf.paragraphs[0].add_run()
-            apply_markdown_formatting(title_run, slide_data.get("title", "Untitled Slide"))
-            if "title_font" in slide_data or "title_size" in slide_data:
-                font = title_run.font
-                if "title_font" in slide_data:
-                    font.name = slide_data["title_font"]
-                if "title_size" in slide_data:
-                    font.size = Pt(slide_data["title_size"])
-            tf.paragraphs[0].space_after = Pt(18)
-
-            # Content
-            content_items = slide_data.get("content", [])
-            if isinstance(content_items, str):
-                content_items = [content_items]
-            for para_text in content_items:
-                p = tf.add_paragraph()
-                run = p.add_run()
-                apply_markdown_formatting(run, para_text)
-                if "content_font" in slide_data or "content_size" in slide_data:
-                    font = run.font
-                    if "content_font" in slide_data:
-                        font.name = slide_data["content_font"]
-                    if "content_size" in slide_data:
-                        font.size = Pt(slide_data["content_size"])
-                p.alignment = PP_ALIGN.LEFT
-                p.space_after = Pt(8)
-
-            # RIGHT: Image (split layout)
-            image_url = slide_data.get("image_url")
-            if image_url:
-                img_path = download_image(image_url, f"temp_slide_img_{idx}.png")
-                if img_path:
-                    img_left = Inches(6.1)
-                    img_top = Inches(0.7)
-                    img_width = Inches(3.3)
-                    img_height = Inches(6.0)
-                    try:
-                        slide.shapes.add_picture(img_path, img_left, img_top, img_width, img_height)
-                    except Exception as e:
-                        print(f"Failed to add image for slide {idx+1}: {e}")
-                    finally:
-                        if os.path.exists(img_path):
-                            os.remove(img_path)
-
-        ppt_stream = io.BytesIO()
-        ppt.save(ppt_stream)
-        ppt_stream.seek(0)
-
-        return send_file(
-            ppt_stream,
+        # Send the PPTX file to the client
+        return send_from_directory(
+            directory=os.path.dirname(pptx_file),
+            path=os.path.basename(pptx_file),
             as_attachment=True,
-            download_name="generated_presentation.pptx",
-            mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            download_name="generated_presentation.pptx",  # This sets the filename in the browser
         )
+
+    except subprocess.CalledProcessError as e:
+        print(f"Error during Marp CLI execution: {e}")
+        return jsonify({"error": "Failed to generate PDF using Marp CLI.", "details": str(e)}), 500
     except Exception as e:
-        print(f"Error generating PowerPoint file: {e}")
+        print(f"Error generating presentation: {e}")
         traceback.print_exc()
-        return jsonify({"error": "An error occurred while generating the PowerPoint file.", "details": str(e)}), 500
-    
-@main.route("/import-from-url", methods=["POST"])
-def import_from_url():
-    data = request.json
-    url = data.get("url")
-    if not url:
-        return jsonify({"error": "No URL provided."}), 400
-
-    try:
-        text = ""
-        # Handle Google Docs
-        doc_match = re.match(r"https://docs\.google\.com/document/d/([a-zA-Z0-9-_]+)", url)
-        if doc_match:
-            doc_id = doc_match.group(1)
-            export_url = f"https://docs.google.com/document/d/{doc_id}/export?format=txt"
-            resp = requests.get(export_url)
-            if resp.status_code == 200:
-                text = resp.text
-            else:
-                return jsonify({"error": "Failed to fetch Google Doc content."}), 400
-
-        # Handle Google Slides
-        slide_match = re.match(r"https://docs\.google\.com/presentation/d/([a-zA-Z0-9-_]+)", url)
-        if slide_match:
-            slide_id = slide_match.group(1)
-            export_url = f"https://docs.google.com/presentation/d/{slide_id}/export/txt"
-            resp = requests.get(export_url)
-            if resp.status_code == 200:
-                text = resp.text
-            else:
-                return jsonify({"error": "Failed to fetch Google Slides content."}), 400
-
-        # Handle YouTube
-        yt_id = None
-        # Match youtu.be short links
-        short_match = re.match(r"https?://youtu\.be/([a-zA-Z0-9_-]+)", url)
-        # Match youtube.com/watch?v=... links
-        long_match = re.match(r"https?://(www\.)?youtube\.com/watch\?v=([a-zA-Z0-9_-]+)", url)
-        if short_match:
-            yt_id = short_match.group(1)
-        elif long_match:
-            yt_id = long_match.group(2)
-        else:
-            # Try to extract v= param from any YouTube URL
-            v_match = re.search(r"[?&]v=([a-zA-Z0-9_-]+)", url)
-            if v_match:
-                yt_id = v_match.group(1)
-        if yt_id and YouTubeTranscriptApi:
-            try:
-                transcript = YouTubeTranscriptApi.get_transcript(yt_id)
-                text = " ".join([item['text'] for item in transcript])
-            except Exception as e:
-                return jsonify({"error": f"Could not fetch YouTube transcript: {str(e)}"}), 400
-        # Fallback: Generic webpage
-        if not text:
-            resp = requests.get(url, timeout=10)
-            if resp.status_code != 200:
-                return jsonify({"error": "Failed to fetch the URL."}), 400
-            soup = BeautifulSoup(resp.text, "html.parser")
-            for tag in soup(["script", "style"]):
-                tag.decompose()
-            text = soup.get_text(separator="\n", strip=True)
-
-        # Limit text length for LLM prompt
-        text = text[:4000]
-
-        # Prompt LLM to structure as slides
-        prompt = f"""
-        The following is content extracted from a URL:
-        ---
-        {text}
-        ---
-        Please summarize and organize this content into a professional presentation with concise slides.
-        Format the output STRICTLY as a JSON array where each object represents a slide and has 'title', 'content', 'font', 'color', and 'layout' keys.
-        """
-
-        headers = {
-            "Authorization": f"Bearer {GROQ_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "model": "llama3-8b-8192",
-            "messages": [
-                {"role": "system", "content": "You are a helpful assistant that generates slide content in JSON format."},
-                {"role": "user", "content": prompt}
-            ],
-            "max_tokens": 4096,
-            "temperature": 0.3
-        }
-        response = requests.post(GROQ_API_URL, headers=headers, json=payload)
-        if response.status_code != 200:
-            return jsonify({"error": "Failed to generate slides using Groq API.", "details": response.text}), 500
-
-        result = response.json()
-        model_output = result["choices"][0]["message"]["content"]
-
-        # Extract JSON array from the response
-        match = re.search(r'\[\s*{.*}\s*\]', model_output, re.DOTALL)
-        if not match:
-            raise ValueError("Could not find a JSON array in the model output.")
-        slides_data = json.loads(match.group(0))
-        for slide in slides_data:
-            image_prompt = slide.get("image_prompt") or slide.get("title")
-            if image_prompt:
-                slide["image_url"] = generate_image_replicate(image_prompt)
-        return jsonify({"slides": slides_data})
-
-    except Exception as e:
-        print(f"Error importing from URL: {e}")
-        traceback.print_exc()
-        return jsonify({"error": "An error occurred while importing from URL.", "details": str(e)}), 500
-    
+        return jsonify({"error": "An error occurred while generating the presentation.", "details": str(e)}), 500
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -588,7 +447,8 @@ def paste_and_create():
             raise ValueError("Could not find a JSON array in the model output.")
         slides_data = json.loads(match.group(0))
         for slide in slides_data:
-            image_prompt = slide.get("image_prompt") or slide.get("title")
+            image_prompt = slide.get("image_prompt") or f"An illustration related to {slide['title']}"
+            slide["image_url"] = generate_image_replicate(image_prompt)
             if image_prompt:
                 slide["image_url"] = generate_image_replicate(image_prompt)
         return jsonify({"slides": slides_data})
@@ -597,3 +457,5 @@ def paste_and_create():
         print(f"Error in paste-and-create: {e}")
         traceback.print_exc()
         return jsonify({"error": "An error occurred while processing the pasted text.", "details": str(e)}), 500
+    
+

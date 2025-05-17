@@ -21,33 +21,36 @@ const SlidesGeneratingPage = () => {
   }, [slides]);
 
   const handleDownload = async () => {
-    try {
-      const response = await fetch("http://localhost:5000/download-pptx", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slides: generatedSlides }),
-      });
-      const contentType = response.headers.get("content-type");
-      if (!response.ok) {
-        let errorMsg = "Failed to download PowerPoint file.";
-        if (contentType && contentType.includes("application/json")) {
-          const errorData = await response.json();
-          errorMsg = errorData.error || errorMsg;
-        }
-        throw new Error(errorMsg);
-      }
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "generated_presentation.pptx";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (error) {
-      alert(error.message || "An error occurred while downloading the PowerPoint file.");
+  try {
+    const response = await fetch("http://localhost:5000/generate-presentation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slides: generatedSlides }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to generate the presentation.");
     }
-  };
+
+    // Create a blob from the response
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+
+    // Create a temporary link element
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "generated_presentation.pptx"; // This sets the filename in the Downloads folder
+    document.body.appendChild(link);
+    link.click();
+
+    // Clean up the temporary link
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url); // Free up memory
+  } catch (error) {
+    alert(error.message || "An error occurred while generating the presentation.");
+  }
+};
 
   // Helper to render slide content as bullet points or sections
   const renderSlideContent = (content) => {

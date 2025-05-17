@@ -4,34 +4,26 @@ html, body {
   background: #e3f2ff;
 }
 
-.page-bg {
-  min-height: 100vh;
-  width: 100vw;
-  background: #e3f2ff;
-  display: flex;
-  flex-direction: column;
-}
-
 .generate-container {
   display: flex;
   flex-direction: column;
   font-family: Verdana;
   align-items: center;
-  justify-content: flex-start; /* Changed from center to flex-start */
+  justify-content: flex-start;
   min-height: 100vh;
   background-color: #ffffff;
   text-align: center;
-  padding: 80px;
+  padding: 60px;
   max-width: 1200px;
-  margin: 40px auto 40px auto;
+  /* Add extra space at the bottom */
+  margin: 40px auto 120px auto; /* Increased bottom margin to 100px */
   border-radius: 2rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.10);
   overflow-y: auto;
   box-sizing: border-box;
-  margin: 40px auto 80px auto;
   transition: box-shadow 0.3s ease;
   animation: fadeInUp 0.5s ease;
-  flex: 1; /* Allow container to stretch and fill vertical space */
+  flex: 1;
 }
 
 @keyframes fadeInUp {

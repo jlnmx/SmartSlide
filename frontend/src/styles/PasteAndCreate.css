@@ -1,7 +1,8 @@
+
 body {
-  background: linear-gradient(to bottom right, #ffe4e6, #fef3c7);
+  background: #e3f2ff;
   margin: 0;
-  font-family: 'Inter', sans-serif;
+  font-family: Verdana;
 }
 
 .page-wrapper {
@@ -16,14 +17,13 @@ body {
   background-color: #ffffff;
   border-radius: 2rem;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
-  padding: 3rem;
-  max-width: 42rem;
+  padding: 2rem;              /* Increased padding */
+  max-width: 56rem;           /* Increased max-width */
   width: 100%;
   border: 1px solid #e5e7eb;
   animation: fadeInUp 0.5s ease;
   transition: box-shadow 0.3s ease;
 }
-
 .container:hover {
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.1);
 }
@@ -31,6 +31,7 @@ body {
 h1 {
   font-size: 2.5rem;
   font-weight: 800;
+  font-family: Verdana; 
   text-align: center;
   color: #1f2937;
   margin-bottom: 1rem;
@@ -39,6 +40,8 @@ h1 {
 p {
   color: #6b7280;
   text-align: center;
+  font-style: italic;
+  font-family: Verdana; 
   margin-bottom: 2rem;
   font-size: 1.125rem;
   line-height: 1.6;
@@ -52,6 +55,7 @@ textarea {
   border-radius: 1.5rem;
   background-color: #fafafa;
   font-size: 1rem;
+  font-family: Verdana;
   color: #111827;
   resize: vertical;
   font-family: inherit;
@@ -61,7 +65,7 @@ textarea {
 }
 
 textarea:focus {
-  border-color: #c084fc;
+  border-color: #84aefc;
 }
 
 textarea::placeholder {
@@ -70,7 +74,7 @@ textarea::placeholder {
 
 button {
   width: 100%;
-  background-color: #a78bfa;
+  background-color: #588dd1;
   color: white;
   padding: 0.875rem 1.5rem;
   border: none;
@@ -83,8 +87,8 @@ button {
 }
 
 button:hover {
-  background-color: #7c3aed;
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+  background-color: #7caaff;
+  box-shadow: 0 4px 12px rgba(58, 115, 237, 0.4);
 }
 
 button:disabled {
@@ -104,18 +108,36 @@ button:disabled {
   white-space: pre-wrap;
   line-height: 1.5;
 }
-
-.footer-note {
-  text-align: center;
-  font-size: 0.875rem;
-  color: #6b7280;
-  margin-top: 1.5rem;
+.need-help-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: url("D:\CAPSTONE\CAPSTONE\frontend\public\Message_ICON.png") no-repeat center center, #fff;
+  background-size: 60% 60%;
+  border: 2px solid #253371;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  cursor: pointer;
+  z-index: 1000;
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.footer-note a {
-  text-decoration: underline;
-  font-weight: 500;
-  color: #4f46e5;
+.need-help-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.22);
+  background-color: #f5f5f5;
+}
+
+@media (max-width: 600px) {
+  .need-help-btn {
+    width: 48px;
+    height: 48px;
+    bottom: 16px;
+    right: 16px;
+    background-size: 65% 65%;
+  }
 }
 
 @keyframes fadeInUp {

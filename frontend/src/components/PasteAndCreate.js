@@ -1,82 +1,73 @@
 import React, { useState } from "react";
-import Navbar from "./Navbar";
-import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import Navbar from "./Navbar";
 import "../styles/PasteAndCreate.css";
 
-export default function PasteToCreate() {
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+const PasteAndCreate = () => {
+  const [text, setText] = useState("");
+  const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const navigate = useNavigate();
 
-  const handleGenerate = async () => {
-    if (!input.trim()) {
-      alert("Please paste some content.");
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!text.trim()) {
+      alert("Please paste or type some text.");
       return;
     }
-    setIsLoading(true);
+    setLoading(true);
+    setResult(null);
     try {
       const response = await fetch("http://localhost:5000/paste-and-create", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: input }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text }),
       });
-      const data = await response.json();
-      if (response.ok) {
-        // Redirect to slide preview/generation page
-        navigate("/slides-generating", { state: { slides: data.slides } });
-      } else {
-        setResult(data.error || "Failed to generate slides.");
+      if (!response.ok) {
+        throw new Error("Failed to generate slides.");
       }
+      const data = await response.json();
+      setResult(data.result || "Slides generated successfully!");
     } catch (error) {
-      setResult("Error generating slides.");
+      setResult(error.message || "An error occurred.");
+    } finally {
+      setLoading(false);
     }
-    setIsLoading(false);
   };
 
   return (
     <div>
       <Navbar />
       <div className="page-wrapper">
-        <motion.div
-          className="container"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <h1>Paste your content</h1>
+        <div className="container">
+          <h1 className="paste-title">Paste or Type Your Content</h1>
           <p>
-            Drop in your notes, ideas, or outlines. We’ll help you turn it into
-            something beautiful.
+            Paste your text below and SmartSlide will generate a presentation for you.
           </p>
-
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Paste your content here..."
-          />
-
-          <button onClick={handleGenerate} disabled={isLoading || input.trim() === ""}>
-            {isLoading ? "Generating..." : "Generate"}
-          </button>
-
-          {result && (
-            <motion.div
-              className="result"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
-            >
-              {result}
-            </motion.div>
-          )}
-
-          <div className="footer-note">
-            Need help? <a href="#">Contact us</a>
-          </div>
-        </motion.div>
+          <form onSubmit={handleSubmit}>
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Paste or type your content here..."
+            />
+            <button type="submit" disabled={loading}>
+              {loading ? "Generating..." : "Generate Slides"}
+            </button>
+          </form>
+          {result && <div className="result">{result}</div>}
+        </div>
+        {/* Help button with Message icon at bottom right */}
+        <button
+          className="need-help-btn"
+          onClick={() => navigate("/help")}
+          title="Need Help?"
+          aria-label="Need Help"
+        />
       </div>
     </div>
   );
-}
+};
+
+export default PasteAndCreate;

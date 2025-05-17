@@ -4,7 +4,7 @@
   flex-direction: row; /* Sidebar and main content side by side */
   height: 100vh; /* Full viewport height */
   font-family: 'Inter', sans-serif;
-  background-color: #eefff1;
+  background-color: #ffffff;
   overflow: hidden;
 }
 
@@ -158,7 +158,7 @@
 }
 
 .account-btn:hover {
-  background-color: #41744e; /* Darker green on hover */
+  background-color: #CFF5D2; /* Darker green on hover */
 }
 
 .dashboard-header {

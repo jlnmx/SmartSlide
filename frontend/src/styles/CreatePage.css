@@ -1,6 +1,7 @@
 .create-container {
   display: flex;
   flex-direction: column;
+  font-family: Verdana;
   align-items: center;
   justify-content: center;
   height: 100vh;
@@ -20,6 +21,8 @@
 
 .subtitle {
   font-size: 1.2rem;
+  font-style: italic;
+  font-family: Verdana;
   color: #666666; /* Gray */
   margin-bottom: 30px;
 }
@@ -28,33 +31,64 @@
   display: flex;
   gap: 20px;
 }
+.button-group button {
+  background-color: #0d2357;
+  color: #fff;
+}
+.button-group button:hover {
+  background-color: #13306e;
+}
 
 button {
   padding: 12px 25px;
   font-size: 1rem;
+  font-family: Verdana;
   font-weight: bold;
-  border: 1px solid #1a1a1a; /* Border for buttons */
+  border: 1px solid #1a1a1a;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s ease-in-out;
-  background-color: #ffffff; /* White background */
-  color: #1a1a1a; /* Dark gray text */
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Subtle shadow for buttons */
+  background-color: #0d2357;   /* Dark blue background */
+  color: #fff;                 /* White text */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 button:hover {
-  background-color: #d6e4f0; /* Slightly darker blue on hover */
+  background-color: #13306e;   /* Slightly lighter dark blue on hover */
 }
 
-.help-link {
-  margin-top: 20px;
-  font-size: 0.9rem;
-  color: #1a1a1a; /* Dark gray */
-  text-decoration: none;
+/* Need Help button styles */
+.need-help-btn {
+  position: fixed; /* Fix the button to the bottom-right corner */
+  bottom: 20px; /* Distance from the bottom */
+  right: 20px; /* Distance from the right */
+  width: 60px; /* Button width */
+  height: 60px; /* Button height */
+  background: url("/public/Message_ICON.png") no-repeat center center; /* Replace with your image path */
+  background-size: cover; /* Ensure the image covers the button */
+  border: none;
+  border-radius:80%; /* Make the button circular */
+  cursor: pointer;
+  padding: 30px;
+  box-shadow: 0 4px 8px rgb(255, 255, 255); /* Add a subtle shadow */
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  z-index: 1000; /* Ensure it appears above other elements */
 }
 
-.help-link:hover {
-  text-decoration: underline;
+.need-help-btn:hover {
+  transform: scale(1.1); /* Slight zoom effect on hover */
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3); /* Enhance shadow on hover */
+  background-color: rgba(255, 255, 255, 0.8); /* Add a semi-transparent white overlay */
+}
+
+@media (max-width: 600px) {
+  .need-help-btn {
+    width: 48px;
+    height: 48px;
+    bottom: 16px;
+    right: 16px;
+    background-size: 65% 65%;
+  }
 }
 
 @media (max-width: 768px) {

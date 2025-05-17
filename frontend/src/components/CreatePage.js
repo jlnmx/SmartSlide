@@ -6,13 +6,14 @@ import "../styles/CreatePage.css";
 const CreatePage = () => {
   const navigate = useNavigate();
 
+  const handleHelpClick = () => {
+    navigate("/help");
+  };
+
   return (
     <div>
       <Navbar />
       <div className="create-container">
-       
-        
-
         <h1 className="title">CREATE A NEW PRESENTATION</h1>
         <p className="subtitle">
           Start with a prompt, upload a document, or create from scratch.
@@ -23,15 +24,20 @@ const CreatePage = () => {
             GENERATE
           </button>
           <button className="upload-btn" onClick={() => navigate("/import")}>
-            UPLOAD DOCUMENT OR URL
+            UPLOAD DOCUMENT
           </button>
           <button className="scratch-btn" onClick={() => navigate("/paste-and-create")}>
             PASTE IN TEXT
           </button>
         </div>
-
-        <a href="#" className="help-link">Need help?</a>
       </div>
+      {/* Help button with Message icon at bottom right */}
+      <button
+        className="need-help-btn"
+        onClick={handleHelpClick}
+        title="Need Help?"
+        aria-label="Need Help"
+      />
     </div>
   );
 };

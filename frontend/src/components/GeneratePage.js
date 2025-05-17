@@ -88,7 +88,7 @@ const GeneratePage = () => {
   };
 
   return (
-    <div>
+    <div style={{ background: "#e3f2ff", minHeight: "100vh" }}>
       <Navbar />
       <div className="generate-container">
         <h1 className="generate-title">Generate slides using SmartSlide</h1>

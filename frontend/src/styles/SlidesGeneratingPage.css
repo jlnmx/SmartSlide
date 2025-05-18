@@ -83,6 +83,24 @@
   font-size: 1.2rem;
 }
 
+.selected-template-info {
+  margin-bottom: 1rem;
+  padding: 0.5rem 1rem;
+  background: #f5f7fa;
+  border-left: 4px solid #0078d4;
+  font-size: 1.1rem;
+}
+.selected-template-label {
+  color: #555;
+  margin-right: 0.5rem;
+}
+.selected-template-desc {
+  display: block;
+  color: #888;
+  font-size: 0.95rem;
+  margin-top: 0.2rem;
+}
+
 @media (max-width: 900px) {
   .slide-split-preview-card {
     flex-direction: column;

@@ -1,16 +1,16 @@
 import os
 import requests  
 import json
-import subprocess
-import fitz 
 import uuid
+from app.templates_config import TEMPLATES
 from datetime import datetime
 from flask import Blueprint, jsonify, request, send_file, send_from_directory
 from dotenv import load_dotenv
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from pptx import Presentation
-from pptx.util import Inches, Pt
+from pptx.util import Pt, Inches
+from pptx.dml.color import RGBColor
 from PIL import Image, ImageDraw
 from pptx.enum.text import PP_ALIGN
 from pdf2image import convert_from_path
@@ -32,11 +32,14 @@ except ImportError:
     YouTubeTranscriptApi = None
 
 load_dotenv()
-GOOGLE_CREDENTIALS_FILE = "D:/Codes/CAPSTONE/backend/credentials.json"  
+GOOGLE_CREDENTIALS_FILE = os.path.join(os.path.dirname(__file__), '..', 'credentials.json')
+GOOGLE_CREDENTIALS_FILE = os.path.abspath(GOOGLE_CREDENTIALS_FILE)
 SCOPES = ["https://www.googleapis.com/auth/presentations", "https://www.googleapis.com/auth/drive.file"]
 ALLOWED_EXTENSIONS = {'pdf', 'xlsx', 'xls', 'csv', 'docx'}
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_API_KEY = "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"  # For production, use os.environ.get("GROQ_API_KEY")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+if not GROQ_API_KEY:
+    raise RuntimeError("GROQ_API_KEY environment variable is not set. Please set it in your environment or .env file.")
 
 main = Blueprint("main", __name__)
 CORS(main, resources={r"/*": {"origins": "http://localhost:3000"}})
@@ -61,8 +64,7 @@ def generate_slides():
         if num_slides <= 0:
             raise ValueError("Number of slides must be positive.")
     except (ValueError, TypeError):
-        return jsonify({"error": "Invalid number of slides specified."}), 400
-
+        return jsonify({"error": "Invalid number of slides."}), 400
     if not prompt_topic:
         return jsonify({"error": "Prompt topic is required."}), 400
     try:
@@ -190,139 +192,136 @@ def download_image(url, filename):
         return filename
     return None
 
-def generate_image_replicate(prompt):
+def generate_image_huggingface(prompt):
     """
-    Calls Replicate API to generate an image from a prompt.
+    Calls Hugging Face API to generate an image from a prompt.
     Returns the image URL or None.
     """
     import time
-    REPLICATE_API_TOKEN = os.environ.get("REPLICATE_API_TOKEN")  # Fetch token from .env
-    if not REPLICATE_API_TOKEN:
-        print("Error: REPLICATE_API_TOKEN is not set in the environment.")
+
+    HUGGINGFACE_API_TOKEN = os.environ.get("HUGGINGFACE_API_TOKEN")  # Fetch token from .env
+    if not HUGGINGFACE_API_TOKEN:
+        print("Error: HUGGINGFACE_API_TOKEN is not set in the environment.")
         return None
 
-    # Use a valid SDXL version string from Replicate
-    model_version = "fdcf65a5b427c3c6b9b7d6c8b7c3c6b9b7d6c8b7c3c6b9b7d6c8b7c3c6b9b7"  # Example version
-    url = f"https://api.replicate.com/v1/predictions"
+    url = "https://api-inference.huggingface.co/models/CompVis/stable-diffusion-v1-4"
     headers = {
-        "Authorization": f"Token {REPLICATE_API_TOKEN}",
+        "Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}",
         "Content-Type": "application/json"
     }
     payload = {
-        "version": model_version,
-        "input": {"prompt": prompt}
+        "inputs": prompt,
+        "options": {"wait_for_model": True}
     }
+
     try:
-        print(f"Requesting image from Replicate for prompt: {prompt}")
+        print(f"Requesting image from Hugging Face for prompt: {prompt}")
         response = requests.post(url, headers=headers, json=payload, timeout=60)
-        if response.status_code != 201:
-            print("Replicate error:", response.text)
+        if response.status_code != 200:
+            print("Hugging Face error:", response.text)
             return None
-        prediction = response.json()
-        prediction_url = prediction["urls"]["get"]
-        for i in range(40):  # Wait up to 40 seconds
-            status_resp = requests.get(prediction_url, headers=headers)
-            status_data = status_resp.json()
-            print(f"Replicate status ({i}): {status_data['status']}")
-            if status_data["status"] == "succeeded":
-                output = status_data.get("output")
-                if output and isinstance(output, list) and output[0]:
-                    print(f"Image generated: {output[0]}")
-                    return output[0]
-                else:
-                    print("No output in Replicate response.")
-                    return None
-            elif status_data["status"] == "failed":
-                print("Replicate generation failed.")
-                break
-            time.sleep(1)
-        print("Replicate timed out.")
+
+        # Hugging Face returns the image as binary data
+        image_bytes = response.content
+        image_path = os.path.join(os.getcwd(), f"{uuid.uuid4().hex[:8]}.png")
+        with open(image_path, "wb") as img_file:
+            img_file.write(image_bytes)
+
+        print(f"Image generated and saved at: {image_path}")
+        return image_path
     except Exception as e:
-        print(f"Replicate API error: {e}")
+        print(f"Hugging Face API error: {e}")
     return None
+
+def apply_template_to_slide(slide, template, slide_data):
+    # Set background color
+    fill = slide.background.fill
+    fill.solid()
+    fill.fore_color.rgb = RGBColor(*template["background_color"])
+
+    # Title
+    title_shape = slide.shapes.title
+    if title_shape:
+        title_shape.text = slide_data.get("title", "Untitled Slide")
+        p = title_shape.text_frame.paragraphs[0]
+        font = p.font
+        font.name = template["title_font"]["name"]
+        font.size = Pt(template["title_font"]["size"])
+        font.color.rgb = RGBColor(*template["title_font"]["color"])
+        font.bold = template.get("title_bold", False)
+
+    content_shape = slide.placeholders[1] if len(slide.placeholders) > 1 else None
+    if content_shape:
+        content_shape.text_frame.clear()
+        content_list = slide_data.get("content", [])
+        # If too many items, reduce font size
+        font_size = template["content_font"]["size"]
+        if isinstance(content_list, list) and len(content_list) > 6:
+            font_size = max(16, font_size - 4)
+        for idx, item in enumerate(content_list):
+            p = content_shape.text_frame.add_paragraph()
+            p.text = item
+            font = p.font
+            font.name = template["content_font"]["name"]
+            font.size = Pt(font_size)
+            font.color.rgb = RGBColor(*template["content_font"]["color"])
+            font.bold = template.get("content_bold", False)
+            if idx == 0:
+                p.level = 0
+            else:
+                p.level = 1
+    else:
+        left = Pt(50)
+        top = Pt(150)
+        width = Pt(600)
+        height = Pt(350)
+        textbox = slide.shapes.add_textbox(left, top, width, height)
+        tf = textbox.text_frame
+        tf.clear()
+        content_list = slide_data.get("content", [])
+        font_size = template["content_font"]["size"]
+        if isinstance(content_list, list) and len(content_list) > 6:
+            font_size = max(16, font_size - 4)
+        for item in content_list:
+            p = tf.add_paragraph()
+            p.text = item
+            font = p.font
+            font.name = template["content_font"]["name"]
+            font.size = Pt(font_size)
+            font.color.rgb = RGBColor(*template["content_font"]["color"])
+            font.bold = template.get("content_bold", False)
+
 
 @main.route("/generate-presentation", methods=["POST"])
 def generate_presentation():
     try:
         data = request.json
         slides = data.get("slides")
+        template_id = data.get("template")
+        template = TEMPLATES.get(template_id)
+        presentation_type = data.get("presentationType", "Default")
         if not slides or not isinstance(slides, list):
             return jsonify({"error": "Invalid slides data."}), 400
+        if not template:
+            return jsonify({"error": "Invalid or missing template."}), 400
 
-        # Generate Markdown content from slides
-        markdown_content = "---\nmarp: true\npaginate: true\nsize: 16:9\n---\n\n"
-        for slide in slides:
-            markdown_content += f"# {slide['title']}\n\n"
-            if isinstance(slide['content'], list):
-                markdown_content += "\n".join(slide['content']) + "\n\n"
-            else:
-                markdown_content += slide['content'] + "\n\n"
-            markdown_content += "---\n\n"
-
-        # Create a unique filename for the Markdown file
-        slides_folder = os.path.join(os.getcwd(), "slides")
-        os.makedirs(slides_folder, exist_ok=True)  # Ensure the slides folder exists
-        unique_filename = f"presentation_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
-        markdown_file = os.path.join(slides_folder, f"{unique_filename}.md")
-
-        # Save Markdown to a file
-        with open(markdown_file, "w", encoding="utf-8") as f:
-            f.write(markdown_content)
-
-        # Use Marp CLI to generate PDF
-        pdf_file = markdown_file.replace(".md", ".pdf")
-        marp_executable = "C:\\Users\\saban\\AppData\\Roaming\\npm\\marp.cmd"  # Full path to marp.cmd
-        subprocess.run([marp_executable, markdown_file, "--pdf", "-o", pdf_file], check=True, stdin=subprocess.DEVNULL)
-
-        # Convert PDF to PPTX with editable content
-        pptx_file = markdown_file.replace(".md", ".pptx")
         ppt = Presentation()
-        pdf_document = fitz.open(pdf_file)  # Open the PDF file
+        set_presentation_size(ppt, presentation_type)  # Set slide size based on type
 
-        for page_number in range(len(pdf_document)):
-            page = pdf_document.load_page(page_number)  # Load each page
-            text = page.get_text("text")  # Extract text from the page
-            images = page.get_images(full=True)  # Extract images from the page
+        for slide_data in slides:
+            slide = ppt.slides.add_slide(ppt.slide_layouts[1])
+            apply_template_to_slide(slide, template, slide_data)
 
-            # Create a new slide
-            slide = ppt.slides.add_slide(ppt.slide_layouts[1])  # Title and Content layout
-            title = slide.shapes.title
-            content = slide.placeholders[1]
+        ppt_stream = io.BytesIO()
+        ppt.save(ppt_stream)
+        ppt_stream.seek(0)
 
-            # Set the title and content
-            lines = text.split("\n")
-            if lines:
-                title.text = lines[0]  # First line as title
-                content.text = "\n".join(lines[1:])  # Remaining lines as content
-
-            # Add images to the slide
-            for img_index, img in enumerate(images):
-                xref = img[0]
-                base_image = pdf_document.extract_image(xref)
-                image_bytes = base_image["image"]
-                image_path = os.path.join(slides_folder, f"{uuid.uuid4().hex[:8]}.png")
-                with open(image_path, "wb") as img_file:
-                    img_file.write(image_bytes)
-
-                # Add the image to the slide
-                left = Inches(1)
-                top = Inches(2 + img_index * 2)  # Stack images vertically
-                slide.shapes.add_picture(image_path, left, top, width=Inches(4))
-
-        pdf_document.close()  # Close the PDF document
-        ppt.save(pptx_file)  # Save the PowerPoint file
-
-        # Send the PPTX file to the client
-        return send_from_directory(
-            directory=os.path.dirname(pptx_file),
-            path=os.path.basename(pptx_file),
+        return send_file(
+            ppt_stream,
             as_attachment=True,
-            download_name="generated_presentation.pptx",  # This sets the filename in the browser
+            download_name="generated_presentation.pptx",
+            mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         )
-
-    except subprocess.CalledProcessError as e:
-        print(f"Error during Marp CLI execution: {e}")
-        return jsonify({"error": "Failed to generate PDF using Marp CLI.", "details": str(e)}), 500
     except Exception as e:
         print(f"Error generating presentation: {e}")
         traceback.print_exc()
@@ -410,7 +409,6 @@ def upload_file():
 @main.route("/create-google-slides", methods=["POST"])
 def create_google_slides():
     try:
-        # Authenticate using the service account
         credentials = service_account.Credentials.from_service_account_file(
             GOOGLE_CREDENTIALS_FILE, scopes=SCOPES
         )
@@ -419,26 +417,34 @@ def create_google_slides():
 
         data = request.json
         slides_from_frontend = data.get("slides")
-        # presentation_type = data.get("presentationType", "default") # For future layout variations
+        template_id = data.get("template")
+        template = TEMPLATES.get(template_id)
+        presentation_type = data.get("presentationType", "Default")
 
-        # Validate slides_from_frontend input
         if slides_from_frontend is None:
-            # If you want to allow creating a presentation even if 'slides' key is missing and treat as empty:
-            # slides_from_frontend = [] 
-            # Else, return an error:
             return jsonify({"error": "Slides data is missing (must be a list, can be empty)."}), 400
         if not isinstance(slides_from_frontend, list):
             return jsonify({"error": "Slides data must be a list."}), 400
+        if not template:
+            return jsonify({"error": "Invalid or missing template."}), 400
 
-        # Create a new Google Slides presentation
         presentation_title = "Generated Presentation"
-        if not slides_from_frontend: # If frontend provides an empty list for slides
+        if not slides_from_frontend:
             presentation_title = "New Presentation (Empty)"
-        
-        presentation = slides_service.presentations().create(body={"title": presentation_title}).execute()
+
+        # Set slide size based on presentation type
+        if presentation_type == "Tall":
+            page_size = {"width": {"magnitude": 6858000, "unit": "EMU"}, "height": {"magnitude": 12192000, "unit": "EMU"}}
+        elif presentation_type == "Traditional":
+            page_size = {"width": {"magnitude": 9144000, "unit": "EMU"}, "height": {"magnitude": 6858000, "unit": "EMU"}}
+        else:  # Default (Widescreen)
+            page_size = {"width": {"magnitude": 12192000, "unit": "EMU"}, "height": {"magnitude": 6858000, "unit": "EMU"}}
+
+        presentation = slides_service.presentations().create(
+            body={"title": presentation_title, "pageSize": page_size}
+        ).execute()
         presentation_id = presentation["presentationId"]
 
-        # If slides_from_frontend is an empty list, set permissions and return the empty presentation
         if not slides_from_frontend:
             drive_service.permissions().create(
                 fileId=presentation_id, body={"type": "anyone", "role": "writer"}
@@ -447,28 +453,24 @@ def create_google_slides():
             return jsonify({"url": presentation_url})
 
         # --- Batch 1: Delete initial default slide AND Create all new slide pages ---
-        # slides_from_frontend is now guaranteed to be a non-empty list.
-        
-        # Get the initial slide created by default to delete it
         initial_presentation_data = slides_service.presentations().get(presentationId=presentation_id, fields="slides(objectId)").execute()
         initial_api_slides = initial_presentation_data.get("slides", [])
-        
+
         batch1_requests = []
-        if initial_api_slides: 
+        if initial_api_slides:
             initial_slide_id = initial_api_slides[0].get("objectId")
-            if initial_slide_id: 
+            if initial_slide_id:
                 batch1_requests.append({"deleteObject": {"objectId": initial_slide_id}})
 
-        # Prepare requests to create new slides based on frontend data
-        # created_page_object_ids = [] # Not strictly needed if we fetch slides again by order
-        for _ in slides_from_frontend: 
-            page_object_id = f"page_{uuid.uuid4().hex}" # Assign unique ID for creation
-            # created_page_object_ids.append(page_object_id)
+        page_object_ids = []
+        for _ in slides_from_frontend:
+            page_object_id = f"page_{uuid.uuid4().hex}"
+            page_object_ids.append(page_object_id)
             batch1_requests.append({
                 "createSlide": {
-                    "objectId": page_object_id, # Provide an objectId for the new slide
+                    "objectId": page_object_id,
                     "slideLayoutReference": {
-                        "predefinedLayout": "TITLE_AND_BODY" 
+                        "predefinedLayout": "TITLE_AND_BODY"
                     }
                 }
             })
@@ -478,29 +480,26 @@ def create_google_slides():
                 presentationId=presentation_id,
                 body={"requests": batch1_requests}
             ).execute()
-        
+
         # --- Retrieve the presentation again. It should now only contain the slides we created. ---
         fields_to_get = "slides(objectId,pageElements(objectId,shape(placeholder(type))))"
         presentation_with_slides = slides_service.presentations().get(
             presentationId=presentation_id,
             fields=fields_to_get
         ).execute()
-        # api_slides now contains only the slides created in Batch 1, in order.
         api_slides = presentation_with_slides.get("slides", [])
 
-        # --- Batch 2: Add content (text and images) to the created slides ---
+        # --- Batch 2: Add content (text and images) and apply template styles ---
         update_content_requests = []
-        
-        # len(api_slides) should now equal len(slides_from_frontend)
-        for i in range(min(len(slides_from_frontend), len(api_slides))): 
-            frontend_slide_content = slides_from_frontend[i]
-            current_api_slide = api_slides[i] # This is the i-th slide we created
 
+        for i in range(min(len(slides_from_frontend), len(api_slides))):
+            frontend_slide_content = slides_from_frontend[i]
+            current_api_slide = api_slides[i]
+            page_id = current_api_slide.get("objectId")
             page_elements = current_api_slide.get("pageElements", [])
             title_placeholder_id = None
             body_placeholder_id = None
 
-            # Find placeholders by their type in the current slide
             for element in page_elements:
                 shape = element.get("shape")
                 if shape:
@@ -509,12 +508,11 @@ def create_google_slides():
                         placeholder_type = placeholder.get("type")
                         if placeholder_type == "TITLE":
                             title_placeholder_id = element.get("objectId")
-                        elif placeholder_type == "BODY": 
+                        elif placeholder_type == "BODY":
                             body_placeholder_id = element.get("objectId")
-                        
-                        if title_placeholder_id and body_placeholder_id: # Optimization
-                            break 
-            
+                        if title_placeholder_id and body_placeholder_id:
+                            break
+
             # Add text to title placeholder
             if title_placeholder_id and frontend_slide_content.get("title"):
                 update_content_requests.append({
@@ -523,21 +521,65 @@ def create_google_slides():
                         "text": frontend_slide_content["title"]
                     }
                 })
-            
+                # Apply title font style if template is provided
+                update_content_requests.append({
+                    "updateTextStyle": {
+                        "objectId": title_placeholder_id,
+                        "style": {
+                            "fontFamily": template["title_font"]["name"],
+                            "fontSize": {"magnitude": template["title_font"]["size"], "unit": "PT"},
+                            "bold": template.get("title_bold", False),
+                            "foregroundColor": {
+                                "opaqueColor": {
+                                    "rgbColor": {
+                                        "red": template["title_font"]["color"][0] / 255.0,
+                                        "green": template["title_font"]["color"][1] / 255.0,
+                                        "blue": template["title_font"]["color"][2] / 255.0
+                                    }
+                                }
+                            }
+                        },
+                        "fields": "fontFamily,fontSize,bold,foregroundColor",
+                        "textRange": {"type": "ALL"}
+                    }
+                })
+
             # Add text to body placeholder
             if body_placeholder_id and frontend_slide_content.get("content"):
                 content_list = frontend_slide_content.get("content", [])
                 content_text = ""
                 if isinstance(content_list, list):
                     content_text = "\n".join(str(item) for item in content_list)
-                elif isinstance(content_list, str): # If content is already a string
+                elif isinstance(content_list, str):
                     content_text = content_list
-                
-                if content_text: # Only add if there's text
+
+                if content_text:
                     update_content_requests.append({
                         "insertText": {
                             "objectId": body_placeholder_id,
                             "text": content_text
+                        }
+                    })
+                    # Apply content font style if template is provided
+                    update_content_requests.append({
+                        "updateTextStyle": {
+                            "objectId": body_placeholder_id,
+                            "style": {
+                                "fontFamily": template["content_font"]["name"],
+                                "fontSize": {"magnitude": template["content_font"]["size"], "unit": "PT"},
+                                "bold": template.get("content_bold", False),
+                                "foregroundColor": {
+                                    "opaqueColor": {
+                                        "rgbColor": {
+                                            "red": template["content_font"]["color"][0] / 255.0,
+                                            "green": template["content_font"]["color"][1] / 255.0,
+                                            "blue": template["content_font"]["color"][2] / 255.0
+                                        }
+                                    }
+                                }
+                            },
+                            "fields": "fontFamily,fontSize,bold,foregroundColor",
+                            "textRange": {"type": "ALL"}
                         }
                     })
 
@@ -547,20 +589,41 @@ def create_google_slides():
                     "createImage": {
                         "url": frontend_slide_content["image_url"],
                         "elementProperties": {
-                            "pageObjectId": current_api_slide.get("objectId"), # ID of the slide page
-                            "size": { 
-                                "width": {"magnitude": 3000000, "unit": "EMU"}, 
-                                "height": {"magnitude": 2250000, "unit": "EMU"} 
+                            "pageObjectId": page_id,
+                            "size": {
+                                "width": {"magnitude": 3000000, "unit": "EMU"},
+                                "height": {"magnitude": 2250000, "unit": "EMU"}
                             },
-                            "transform": { 
+                            "transform": {
                                 "scaleX": 1, "scaleY": 1,
-                                "translateX": 5500000, # Adjust X for right side
-                                "translateY": 1400000, # Adjust Y for vertical position
+                                "translateX": 5500000,
+                                "translateY": 1400000,
                                 "unit": "EMU"
                             }
                         }
                     }
                 })
+
+            # Apply background color if template is provided
+            update_content_requests.append({
+                "updatePageProperties": {
+                    "objectId": page_id,
+                    "pageProperties": {
+                        "pageBackgroundFill": {
+                            "solidFill": {
+                                "color": {
+                                    "rgbColor": {
+                                        "red": template["background_color"][0] / 255.0,
+                                        "green": template["background_color"][1] / 255.0,
+                                        "blue": template["background_color"][2] / 255.0
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "fields": "pageBackgroundFill"
+                }
+            })
 
         if update_content_requests:
             slides_service.presentations().batchUpdate(
@@ -581,3 +644,14 @@ def create_google_slides():
         print(f"Error creating Google Slides presentation: {e}")
         traceback.print_exc()
         return jsonify({"error": "An error occurred while creating the Google Slides presentation.", "details": str(e)}), 500
+    
+def set_presentation_size(ppt, presentation_type):
+    if presentation_type == "Tall":
+        ppt.slide_width = Inches(7.5)
+        ppt.slide_height = Inches(13.33)
+    elif presentation_type == "Traditional":
+        ppt.slide_width = Inches(10)
+        ppt.slide_height = Inches(7.5)
+    else:  # Default (Widescreen)
+        ppt.slide_width = Inches(13.33)
+        ppt.slide_height = Inches(7.5)

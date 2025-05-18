@@ -5,33 +5,45 @@ import "../styles/GeneratePage.css";
 
 const templates = [
   {
-    id: "business_template.pptx",
+    id: "business_template",
     title: "Business",
+    name: "Business",
+    description: "A professional, clean template for business presentations.",
     preview: "/images/business_preview.png",
   },
   {
-    id: "education_template.pptx",
+    id: "education_template",
     title: "Education",
+    name: "Education",
+    description: "A template designed for school or academic presentations.",
     preview: "/images/education_preview.png",
   },
   {
-    id: "creative_template.pptx",
+    id: "creative_template",
     title: "Creative",
+    name: "Creative",
+    description: "A vibrant, visually engaging template for creative presentations.",
     preview: "/images/creative_preview.png",
   },
   {
-    id: "modern_template.pptx",
+    id: "modern_template",
     title: "Modern",
+    name: "Modern",
+    description: "A sleek, minimal template for modern presentations.",
     preview: "/images/modern_preview.png",
   },
   {
-    id: "abstract_template.pptx",
+    id: "abstract_template",
     title: "Abstract",
+    name: "Abstract",
+    description: "A template with artistic and unique color combinations.",
     preview: "/images/abstract_preview.png",
   },
   {
-    id: "minimal_template.pptx",
+    id: "minimal_template",
     title: "Minimal",
+    name: "Minimal",
+    description: "A simple, elegant template for minimal presentations.",
     preview: "/images/minimal_preview.png",
   },
 ];
@@ -43,76 +55,58 @@ const GeneratePage = () => {
   const [selectedTemplate, setSelectedTemplate] = useState(templates[0].id);
   const [presentationType, setPresentationType] = useState("Default");
   const [loading, setLoading] = useState(false);
+  const selectedTemplateObj = templates.find(t => t.id === selectedTemplate);
+
   const navigate = useNavigate();
 
-  const handleEditInGoogleSlides = async (slides) => {
-  try {
-    const response = await fetch("http://localhost:5000/create-google-slides", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ slides }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      throw new Error(errorData || "Failed to create Google Slides presentation.");
-    }
-
-    const data = await response.json();
-    const presentationUrl = data.url;
-
-    // Open the Google Slides presentation in a new tab
-    window.open(presentationUrl, "_blank");
-  } catch (error) {
-    console.error("Error creating Google Slides presentation:", error);
-    alert(error.message || "An error occurred while creating the Google Slides presentation.");
-  }
-};
-
   const handleGenerate = async () => {
-  if (!prompt.trim()) {
-    alert("Please enter a topic.");
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    const response = await fetch("http://localhost:5000/generate-slides", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        prompt,
-        language,
-        numSlides: parseInt(numSlides),
-        presentationType,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      throw new Error(errorData || "Failed to generate slides. Please try again.");
+    if (!prompt.trim()) {
+      alert("Please enter a topic.");
+      return;
     }
 
-    const data = await response.json();
+    setLoading(true);
 
-    // Navigate to the slides-generating page and pass the slides
-    navigate("/slides-generating", {
-      state: {
-        slides: data.slides, // Only pass serializable data
-      },
-    });
-  } catch (error) {
-    console.error("Error generating slides:", error);
-    alert(error.message || "An error occurred while generating slides.");
-  } finally {
-    setLoading(false);
-  }
-};
+    try {
+      const response = await fetch("http://localhost:5000/generate-slides", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+          body: JSON.stringify({
+            prompt,
+            language,
+            numSlides: parseInt(numSlides),
+            presentationType,
+            template: selectedTemplate, // <-- send only the id, not the object
+          }),
+        });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(errorData || "Failed to generate slides. Please try again.");
+      }
+
+      const data = await response.json();
+
+      // Persist template in localStorage for refresh/direct navigation
+      localStorage.setItem("selectedTemplate", JSON.stringify(selectedTemplateObj));
+
+      navigate("/slides-generating", {
+        state: {
+          slides: data.slides,
+          template: selectedTemplate,
+          presentationType,
+        },
+      });
+
+    } catch (error) {
+      console.error("Error generating slides:", error);
+      alert(error.message || "An error occurred while generating slides.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div style={{ background: "#e3f2ff", minHeight: "100vh" }}>

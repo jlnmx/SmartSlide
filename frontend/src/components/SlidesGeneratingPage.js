@@ -4,7 +4,20 @@ import "../styles/SlidesGeneratingPage.css";
 
 const SlidesGeneratingPage = () => {
   const location = useLocation();
-  const { slides } = location.state || {};
+  let { slides, template, presentationType } = location.state || {};
+
+  // Fallback: Load template and presentationType from localStorage if missing (for refresh/direct nav)
+  if (!template) {
+    try {
+      template = JSON.parse(localStorage.getItem("selectedTemplate"));
+    } catch {
+      template = null;
+    }
+  }
+  if (!presentationType) {
+    presentationType = localStorage.getItem("presentationType") || "Default";
+  }
+
   const [isLoading, setIsLoading] = useState(true);
   const [generatedSlides, setGeneratedSlides] = useState([]);
 
@@ -21,36 +34,49 @@ const SlidesGeneratingPage = () => {
   }, [slides]);
 
   const handleEditInGoogleSlides = async () => {
-  try {
-    const response = await fetch("http://localhost:5000/create-google-slides", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        slides: generatedSlides,
-        presentationType: "default", // Pass the presentation type (default, tall, traditional)
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || "Failed to create Google Slides presentation.");
+    if (!template) {
+      alert("Template information is missing. Please go back and select a template.");
+      return;
     }
+    try {
+      const response = await fetch("http://localhost:5000/create-google-slides", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slides: generatedSlides,
+          template: typeof template === "object" ? template.id : template,
+          presentationType,
+        }),
+      });
 
-    const data = await response.json();
-    const presentationUrl = data.url;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create Google Slides presentation.");
+      }
 
-    window.open(presentationUrl, "_blank");
-  } catch (error) {
-    alert(error.message || "An error occurred while creating the Google Slides presentation.");
-  }
-};
+      const data = await response.json();
+      const presentationUrl = data.url;
+
+      window.open(presentationUrl, "_blank");
+    } catch (error) {
+      alert(error.message || "An error occurred while creating the Google Slides presentation.");
+    }
+  };
 
   const handleDownload = async () => {
+    if (!template) {
+      alert("Template information is missing. Please go back and select a template.");
+      return;
+    }
     try {
       const response = await fetch("http://localhost:5000/generate-presentation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slides: generatedSlides }),
+        body: JSON.stringify({
+          slides: generatedSlides,
+          template: typeof template === "object" ? template.id : template,
+          presentationType,
+        }),
       });
 
       if (!response.ok) {
@@ -58,26 +84,43 @@ const SlidesGeneratingPage = () => {
         throw new Error(errorData.error || "Failed to generate the presentation.");
       }
 
-      // Create a blob from the response
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
 
-      // Create a temporary link element
       const link = document.createElement("a");
       link.href = url;
-      link.download = "generated_presentation.pptx"; // This sets the filename in the Downloads folder
+      link.download = "generated_presentation.pptx";
       document.body.appendChild(link);
       link.click();
 
-      // Clean up the temporary link
       document.body.removeChild(link);
-      window.URL.revokeObjectURL(url); // Free up memory
+      window.URL.revokeObjectURL(url);
     } catch (error) {
       alert(error.message || "An error occurred while generating the presentation.");
     }
   };
 
-  // Helper to render slide content as bullet points or sections
+  const getTemplateInfo = () => {
+    if (!template) return null;
+    if (typeof template === "object") {
+      return (
+        <div className="selected-template-info">
+          <span className="selected-template-label">Selected Template:</span>
+          <b>{template.name || template.title}</b>
+          {template.description && (
+            <span className="selected-template-desc">{template.description}</span>
+          )}
+        </div>
+      );
+    }
+    return (
+      <div className="selected-template-info">
+        <span className="selected-template-label">Selected Template:</span>
+        <b>{template}</b>
+      </div>
+    );
+  };
+
   const renderSlideContent = (content) => {
     if (Array.isArray(content)) {
       return (
@@ -96,6 +139,7 @@ const SlidesGeneratingPage = () => {
 
   return (
     <div className="slides-preview-root">
+      {getTemplateInfo()}
       <h2 className="outline-title">Outline</h2>
       <button className="edit-google-slides-btn" onClick={handleEditInGoogleSlides}>
         Edit in Google Slides
@@ -109,13 +153,11 @@ const SlidesGeneratingPage = () => {
         ) : generatedSlides && generatedSlides.length > 0 ? (
           generatedSlides.map((slide, index) => (
             <div key={index} className="slide-split-preview-card">
-              {/* Left: Text */}
               <div className="slide-split-left">
                 <div className="slide-split-title">{slide.title}</div>
                 <div className="slide-split-content">
                   {renderSlideContent(slide.content)}
                 </div>
-                {/* Optional: author/subtitle */}
                 {slide.author && (
                   <div className="slide-split-author">
                     <span className="slide-split-author-avatar"></span>
@@ -127,7 +169,6 @@ const SlidesGeneratingPage = () => {
                   </div>
                 )}
               </div>
-              {/* Right: Image */}
               <div className="slide-split-right">
                 {slide.image_url ? (
                   <img

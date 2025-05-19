@@ -5,11 +5,10 @@ import "react-slideshow-image/dist/styles.css"; // Import default styles
 import axios from "axios";
 import "../styles/Auth.css";
 
-// --- Slideshow Images ---
 const slideImages = [
-  "/images/preview1.png", // Example path - MAKE SURE THESE EXIST in public/images
-  "/images/preview2.png", // Example path
-  "/images/preview3.png", // Example path
+  "/images/preview1.png",
+  "/images/preview2.png",
+  "/images/preview3.png",
 ];
 
 // --- Slideshow Properties ---

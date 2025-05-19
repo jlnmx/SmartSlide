@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import "../styles/SlidesGeneratingPage.css";
 
 const SlidesGeneratingPage = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   let { slides, template, presentationType } = location.state || {};
 
   // Fallback: Load template and presentationType from localStorage if missing (for refresh/direct nav)
@@ -100,6 +101,42 @@ const SlidesGeneratingPage = () => {
     }
   };
 
+  const handleGenerateQuiz = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/generate-quiz", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slides: generatedSlides }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate quiz.");
+      }
+      const data = await response.json();
+      navigate("/generated-quiz", { state: { quiz: data.quiz } });
+    } catch (error) {
+      alert(error.message || "An error occurred while generating the quiz.");
+    }
+  };
+
+  const handleGenerateScript = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/generate-script", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slides: generatedSlides }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate script.");
+      }
+      const data = await response.json();
+      navigate("/generated-script", { state: { script: data.script } });
+    } catch (error) {
+      alert(error.message || "An error occurred while generating the script.");
+    }
+  };
+
   const getTemplateInfo = () => {
     if (!template) return null;
     if (typeof template === "object") {
@@ -141,9 +178,17 @@ const SlidesGeneratingPage = () => {
     <div className="slides-preview-root">
       {getTemplateInfo()}
       <h2 className="outline-title">Outline</h2>
-      <button className="edit-google-slides-btn" onClick={handleEditInGoogleSlides}>
-        Edit in Google Slides
-      </button>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.2rem" }}>
+        <button className="edit-google-slides-btn" onClick={handleEditInGoogleSlides} style={{ fontSize: "1rem", padding: "0.4rem 1.1rem" }}>
+          Edit in Google Slides
+        </button>
+        <button className="generate-btn" style={{ fontSize: "0.95rem", padding: "0.35rem 0.9rem" }} onClick={handleGenerateQuiz}>
+          Generate Quiz
+        </button>
+        <button className="generate-btn" style={{ fontSize: "0.95rem", padding: "0.35rem 0.9rem" }} onClick={handleGenerateScript}>
+          Generate Script
+        </button>
+      </div>
       <div className="slides-outline-list">
         {isLoading ? (
           <div className="loading-container">

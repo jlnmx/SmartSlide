@@ -6,7 +6,10 @@ import "../styles/AccountProfile.css";
 const AccountProfile = () => {
   const [email, setEmail] = useState("user@example.com");
   const [password, setPassword] = useState("");
-  const [theme, setTheme] = useState("Light");
+  const [theme, setTheme] = useState(() => {
+    // Load theme from localStorage or default to Light
+    return localStorage.getItem("theme") || "Light";
+  });
 
   const navigate = useNavigate(); // Initialize useNavigate
 
@@ -17,11 +20,21 @@ const AccountProfile = () => {
 
   const handleThemeChange = (selectedTheme) => {
     setTheme(selectedTheme);
-    // Add logic to update theme preference
+    localStorage.setItem("theme", selectedTheme);
+    // Optionally, update a CSS class on body for global theming
+    document.body.classList.remove("theme-light", "theme-dark");
+    document.body.classList.add(selectedTheme === "Dark" ? "theme-dark" : "theme-light");
   };
 
+  React.useEffect(() => {
+    document.body.classList.add(theme === "Dark" ? "theme-dark" : "theme-light");
+    return () => {
+      document.body.classList.remove("theme-light", "theme-dark");
+    };
+  }, [theme]);
+
   const handleShowStatistics = () => {
-    navigate("/analytics"); // Navigate to the Analytics page
+    navigate("/analytics"); 
   };
 
   return (

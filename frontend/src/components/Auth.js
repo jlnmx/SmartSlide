@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Slide } from "react-slideshow-image"; // Import the Slide component
 import "react-slideshow-image/dist/styles.css"; // Import default styles
+import axios from "axios";
 import "../styles/Auth.css";
 
 // --- Slideshow Images ---
@@ -24,15 +25,28 @@ const properties = {
 const AuthPage = ({ isLogin }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Attempting:", isLogin ? "Login" : "Sign Up");
-    console.log("Email:", email);
-    console.log("Password:", password);
-    // On successful login/signup:
-    navigate("/dashboard");
+    if (!email || !password || (!isLogin && password !== confirmPassword)) {
+      alert("Please fill all fields correctly.");
+      return;
+    }
+    try {
+      if (isLogin) {
+        const res = await axios.post("http://localhost:5000/login", { email, password });
+        localStorage.setItem("user", JSON.stringify(res.data.user));
+        navigate("/dashboard");
+      } else {
+        await axios.post("http://localhost:5000/register", { email, password });
+        alert("Registration successful! Please log in.");
+        navigate("/auth");
+      }
+    } catch (err) {
+      alert(err.response?.data?.error || "Authentication failed.");
+    }
   };
 
   return (
@@ -96,6 +110,8 @@ const AuthPage = ({ isLogin }) => {
               <input
                 type="password"
                 placeholder="Confirm password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 aria-label="Confirm Password"
               />

@@ -1,13 +1,17 @@
 import os
-import requests  
+import re
 import json
+import traceback
 import uuid
+import requests
+from app.models import db, User, Analytics
 from app.templates_config import TEMPLATES
 from datetime import datetime
 from flask import Blueprint, jsonify, request, send_file, send_from_directory
 from dotenv import load_dotenv
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
+from io import BytesIO
 from pptx import Presentation
 from pptx.util import Pt, Inches
 from pptx.dml.color import RGBColor
@@ -18,7 +22,7 @@ from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-import io
+import io 
 import re
 import os
 import traceback
@@ -59,6 +63,7 @@ def generate_slides():
 
     prompt_topic = data.get("prompt")
     language = data.get("language", "English")
+    user_id = data.get("user_id")  # Expect user_id from frontend
     try:
         num_slides = int(data.get("numSlides", 5))
         if num_slides <= 0:
@@ -70,16 +75,19 @@ def generate_slides():
     try:
         presentation_type = data.get("presentationType", "Default")
         generation_prompt = f"""
-        Generate a professional, well-structured presentation about "{prompt_topic}".
+        Generate a professional, well-structured presentation about \"{prompt_topic}\".
         Requirements:
         - The presentation must have exactly {num_slides} slides.
         - Use {language} as the language.
         - The presentation style/type should be: {presentation_type}.
         - Each slide should have:
         - A concise and engaging title.
+        - Remove the unnecessary characters from the texts like the ** or __. 
+        - Make the structure of the sentences or paragraph clean
+        - Generate the best answers possible for the given topic and do not be frugal with the content.
         - Clear and concise content, formatted as bullet points or short paragraphs.
         - Use Markdown for formatting: **bold** for emphasis, *italic* for highlights, and __underline__ for key terms.
-        - If applicable, include a relevant image description for each slide (e.g., "A diagram of the water cycle").
+        - If applicable, include a relevant image description for each slide (e.g., \"A diagram of the water cycle\").
         - Organize the content logically:
         - Slide 1: Introduction (overview of the topic).
         - Slide 2: Key definitions or background information.
@@ -155,6 +163,15 @@ def generate_slides():
                 raise ValueError("Each item in the 'content' field must be a string.")
 
         print(f"--- Successfully Parsed {len(slides_data)} Slides ---")
+        
+        for slide in slides_data:
+            prompt = slide.get("image_prompt") or f"{slide['title']} illustration, high quality, professional"
+            image_url = generate_image_cloudflare(prompt)
+            slide["image_url"] = image_url
+
+        # After successful slide generation:
+        if user_id:
+            update_analytics_on_slide(user_id, topic=prompt_topic)
         return jsonify({"slides": slides_data})
 
     except json.JSONDecodeError as e:
@@ -192,48 +209,7 @@ def download_image(url, filename):
         return filename
     return None
 
-def generate_image_huggingface(prompt):
-    """
-    Calls Hugging Face API to generate an image from a prompt.
-    Returns the image URL or None.
-    """
-    import time
-
-    HUGGINGFACE_API_TOKEN = os.environ.get("HUGGINGFACE_API_TOKEN")  # Fetch token from .env
-    if not HUGGINGFACE_API_TOKEN:
-        print("Error: HUGGINGFACE_API_TOKEN is not set in the environment.")
-        return None
-
-    url = "https://api-inference.huggingface.co/models/CompVis/stable-diffusion-v1-4"
-    headers = {
-        "Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "inputs": prompt,
-        "options": {"wait_for_model": True}
-    }
-
-    try:
-        print(f"Requesting image from Hugging Face for prompt: {prompt}")
-        response = requests.post(url, headers=headers, json=payload, timeout=60)
-        if response.status_code != 200:
-            print("Hugging Face error:", response.text)
-            return None
-
-        # Hugging Face returns the image as binary data
-        image_bytes = response.content
-        image_path = os.path.join(os.getcwd(), f"{uuid.uuid4().hex[:8]}.png")
-        with open(image_path, "wb") as img_file:
-            img_file.write(image_bytes)
-
-        print(f"Image generated and saved at: {image_path}")
-        return image_path
-    except Exception as e:
-        print(f"Hugging Face API error: {e}")
-    return None
-
-def apply_template_to_slide(slide, template, slide_data):
+def apply_template_to_slide(slide, template, slide_data, ppt=None):
     # Set background color
     fill = slide.background.fill
     fill.solid()
@@ -254,10 +230,22 @@ def apply_template_to_slide(slide, template, slide_data):
     if content_shape:
         content_shape.text_frame.clear()
         content_list = slide_data.get("content", [])
-        # If too many items, reduce font size
-        font_size = template["content_font"]["size"]
-        if isinstance(content_list, list) and len(content_list) > 6:
-            font_size = max(16, font_size - 4)
+
+        # --- AUTO FONT SIZE LOGIC ---
+        base_font_size = template["content_font"]["size"]
+        font_size = base_font_size
+        if template.get("auto_font_size", False):
+            # Reduce font size if content is long (e.g. > 6 lines)
+            n_items = len(content_list) if isinstance(content_list, list) else 1
+            if n_items > 12:
+                font_size = max(14, base_font_size - 8)
+            elif n_items > 9:
+                font_size = max(16, base_font_size - 6)
+            elif n_items > 6:
+                font_size = max(18, base_font_size - 4)
+            else:
+                font_size = base_font_size
+
         for idx, item in enumerate(content_list):
             p = content_shape.text_frame.add_paragraph()
             p.text = item
@@ -266,11 +254,9 @@ def apply_template_to_slide(slide, template, slide_data):
             font.size = Pt(font_size)
             font.color.rgb = RGBColor(*template["content_font"]["color"])
             font.bold = template.get("content_bold", False)
-            if idx == 0:
-                p.level = 0
-            else:
-                p.level = 1
+            p.level = 0 if idx == 0 else 1
     else:
+        # fallback: add a textbox if placeholder not found
         left = Pt(50)
         top = Pt(150)
         width = Pt(600)
@@ -279,9 +265,18 @@ def apply_template_to_slide(slide, template, slide_data):
         tf = textbox.text_frame
         tf.clear()
         content_list = slide_data.get("content", [])
-        font_size = template["content_font"]["size"]
-        if isinstance(content_list, list) and len(content_list) > 6:
-            font_size = max(16, font_size - 4)
+        base_font_size = template["content_font"]["size"]
+        font_size = base_font_size
+        if template.get("auto_font_size", False):
+            n_items = len(content_list) if isinstance(content_list, list) else 1
+            if n_items > 12:
+                font_size = max(14, base_font_size - 8)
+            elif n_items > 9:
+                font_size = max(16, base_font_size - 6)
+            elif n_items > 6:
+                font_size = max(18, base_font_size - 4)
+            else:
+                font_size = base_font_size
         for item in content_list:
             p = tf.add_paragraph()
             p.text = item
@@ -290,6 +285,54 @@ def apply_template_to_slide(slide, template, slide_data):
             font.size = Pt(font_size)
             font.color.rgb = RGBColor(*template["content_font"]["color"])
             font.bold = template.get("content_bold", False)
+
+    if slide_data.get("image_url"):
+        try:
+            image_url = slide_data["image_url"]
+            img_data = requests.get(image_url).content
+            img_path = f"/tmp/{uuid.uuid4().hex}.png"
+            with open(img_path, "wb") as f:
+                f.write(img_data)
+            # Place image on right half of slide, filling it edge-to-edge
+            if ppt is not None:
+                slide_width = ppt.slide_width
+                slide_height = ppt.slide_height
+                # Right half
+                left = slide_width // 2
+                top = 0
+                width = slide_width // 2
+                height = slide_height
+                # Open image and crop/resize to fit right half
+                with Image.open(img_path) as im:
+                    # Calculate aspect ratios
+                    target_ratio = width / height
+                    img_ratio = im.width / im.height
+                    # Crop image to match target aspect ratio (center crop)
+                    if img_ratio > target_ratio:
+                        # Image is wider than target: crop sides
+                        new_width = int(im.height * target_ratio)
+                        offset = (im.width - new_width) // 2
+                        box = (offset, 0, offset + new_width, im.height)
+                        im_cropped = im.crop(box)
+                    else:
+                        # Image is taller than target: crop top/bottom
+                        new_height = int(im.width / target_ratio)
+                        offset = (im.height - new_height) // 2
+                        box = (0, offset, im.width, offset + new_height)
+                        im_cropped = im.crop(box)
+                    # Save cropped image
+                    im_cropped.save(img_path)
+                slide.shapes.add_picture(img_path, left, top, width, height)
+            else:
+                # fallback values if ppt is not provided
+                left = Pt(400)
+                top = Pt(0)
+                width = Pt(300)
+                height = Pt(225)
+                slide.shapes.add_picture(img_path, left, top, width, height)
+            os.remove(img_path)
+        except Exception as e:
+            print(f"Failed to add image to slide: {e}")
 
 
 @main.route("/generate-presentation", methods=["POST"])
@@ -300,8 +343,6 @@ def generate_presentation():
         template_id = data.get("template")
         template = TEMPLATES.get(template_id)
         presentation_type = data.get("presentationType", "Default")
-        if not slides or not isinstance(slides, list):
-            return jsonify({"error": "Invalid slides data."}), 400
         if not template:
             return jsonify({"error": "Invalid or missing template."}), 400
 
@@ -310,7 +351,7 @@ def generate_presentation():
 
         for slide_data in slides:
             slide = ppt.slides.add_slide(ppt.slide_layouts[1])
-            apply_template_to_slide(slide, template, slide_data)
+            apply_template_to_slide(slide, template, slide_data, ppt)
 
         ppt_stream = io.BytesIO()
         ppt.save(ppt_stream)
@@ -591,20 +632,19 @@ def create_google_slides():
                         "elementProperties": {
                             "pageObjectId": page_id,
                             "size": {
-                                "width": {"magnitude": 3000000, "unit": "EMU"},
-                                "height": {"magnitude": 2250000, "unit": "EMU"}
+                                "width": {"magnitude": 6096000, "unit": "EMU"},  # Half of 12192000
+                                "height": {"magnitude": 6858000, "unit": "EMU"}
                             },
                             "transform": {
                                 "scaleX": 1, "scaleY": 1,
-                                "translateX": 5500000,
-                                "translateY": 1400000,
+                                "translateX": 6096000,  # Start at middle of slide
+                                "translateY": 0,
                                 "unit": "EMU"
                             }
                         }
                     }
                 })
 
-            # Apply background color if template is provided
             update_content_requests.append({
                 "updatePageProperties": {
                     "objectId": page_id,
@@ -655,3 +695,381 @@ def set_presentation_size(ppt, presentation_type):
     else:  # Default (Widescreen)
         ppt.slide_width = Inches(13.33)
         ppt.slide_height = Inches(7.5)
+
+@main.route("/paste-and-create", methods=["POST", "OPTIONS"])
+def paste_and_create():
+    if request.method == "OPTIONS":
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
+        response.headers["Access-Control-Allow-Methods"] = "POST,OPTIONS"
+        return response, 200
+
+    data = request.json
+    if not data or "text" not in data:
+        return jsonify({"error": "No text provided."}), 400
+
+    pasted_text = data["text"].strip()
+    if not pasted_text:
+        return jsonify({"error": "No text provided."}), 400
+
+    import re
+
+    # Split by double newlines or Markdown headings
+    raw_sections = re.split(r'(?:\n\s*\n|^#+\s+)', pasted_text)
+    slides = []
+    for section in raw_sections:
+        section = section.strip()
+        if not section:
+            continue
+        # Try to extract a title: first line, or first sentence if no clear heading
+        lines = section.splitlines()
+        first_line = lines[0].strip()
+        # If the first line is long, use only the first sentence as title
+        if len(first_line.split()) > 12:
+            match = re.match(r"(.+?[.!?])(\s|$)", first_line)
+            title = match.group(1).strip() if match else first_line[:40] + "..."
+            content_lines = [first_line] + lines[1:]
+        else:
+            title = first_line
+            content_lines = lines[1:] if len(lines) > 1 else []
+
+        # If content is empty, use the rest of the section
+        if not content_lines:
+            content_lines = [l for l in section.split('\n')[1:] if l.strip()]
+        # If still empty, use the section minus the title
+        if not content_lines:
+            content_lines = [section[len(title):].strip()]
+
+        # Clean up content
+        content_lines = [l.strip() for l in content_lines if l.strip()]
+        if not content_lines:
+            continue
+
+        slides.append({
+            "title": title,
+            "content": content_lines
+        })
+
+    # Fallback: if no slides detected, chunk by 100 words as before
+    if not slides:
+        words = pasted_text.split()
+        chunk_size = 100
+        for i in range(0, len(words), chunk_size):
+            chunk = words[i:i+chunk_size]
+            slide_text = " ".join(chunk)
+            slides.append({
+                "title": f"Slide {len(slides)+1}",
+                "content": [slide_text]
+            })
+
+    return jsonify({"slides": slides, "result": f"Generated {len(slides)} slides."})
+
+def generate_image_cloudflare(prompt):
+    """
+    Generate an image using Cloudflare Workers AI and return a data URL (base64-encoded PNG).
+    """
+    CLOUDFLARE_WORKERS_AI_KEY = os.environ.get("CLOUDFLARE_WORKERS_AI_KEY")
+    CLOUDFLARE_ACCOUNT_ID = os.environ.get("CLOUDFLARE_ACCOUNT_ID")
+    if not CLOUDFLARE_WORKERS_AI_KEY:
+        print("Error: CLOUDFLARE_WORKERS_AI_KEY is not set in the environment.")
+        return None
+    if not CLOUDFLARE_ACCOUNT_ID:
+        print("Error: CLOUDFLARE_ACCOUNT_ID is not set in the environment.")
+        return None
+
+    url = f"https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/run/@cf/stabilityai/stable-diffusion-xl-base-1.0"
+    headers = {
+        "Authorization": f"Bearer {CLOUDFLARE_WORKERS_AI_KEY}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "prompt": prompt,
+        "num_steps": 20,  # Cloudflare API requires <= 20
+        "width": 768,
+        "height": 512
+    }
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        if response.status_code != 200:
+            print(f"Cloudflare Workers AI error: status={response.status_code}")
+            print(f"Response content: {response.content}")
+            return None
+        if not response.content:
+            print("Cloudflare Workers AI error: Empty response body.")
+            return None
+        try:
+            result = response.json()
+        except Exception as e:
+            print(f"Cloudflare Workers AI error: Could not parse JSON. Raw response: {response.content}")
+            return None
+        # The result should contain a base64-encoded image string
+        image_base64 = result.get("result", {}).get("image")
+        if image_base64:
+            return f"data:image/png;base64,{image_base64}"
+    except Exception as e:
+        print(f"Cloudflare Workers AI exception: {e}")
+    return None
+
+@main.route("/generate-quiz", methods=["POST"])
+def generate_quiz():
+    data = request.json
+    slides = data.get("slides")
+    user_id = data.get("user_id")  # Expect user_id from frontend
+    if not slides or not isinstance(slides, list):
+        return jsonify({"error": "Slides data is required."}), 400
+    try:
+        # Compose a prompt for quiz generation
+        slide_text = "\n".join(
+            f"Title: {slide.get('title', '')}\nContent: {' '.join(slide.get('content', []))}" for slide in slides
+        )
+        prompt = f"""
+        Based on the following presentation slides, generate a structured quiz questionnaire. 
+        - Include a mix of multiple choice, true/false, and short answer questions.
+        - For each question, provide 3-4 choices if applicable, and indicate the correct answer.
+        - Make sure the quiz covers all key points from the slides.
+        - Return as a JSON array: [{{question, choices (optional), answer}}]
+        Slides:\n{slide_text}
+        """
+        headers = {
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "llama3-8b-8192",
+            "messages": [
+                {"role": "system", "content": "You are a helpful assistant that generates quiz questions in JSON format."},
+                {"role": "user", "content": prompt}
+            ],
+            "max_tokens": 2048,
+            "temperature": 0.3
+        }
+        response = requests.post(GROQ_API_URL, headers=headers, json=payload)
+        if response.status_code != 200:
+            return jsonify({"error": "Failed to generate quiz.", "details": response.text}), 500
+        result = response.json()
+        model_output = result["choices"][0]["message"]["content"]
+        # Try to extract JSON array
+        import re, json
+        match = re.search(r'\[.*\]', model_output, re.DOTALL)
+        if match:
+            try:
+                quiz = json.loads(match.group(0))
+            except Exception:
+                quiz = model_output
+        else:
+            quiz = model_output
+        # Update analytics for quiz generation
+        if user_id:
+            update_analytics_on_quiz(user_id)
+        return jsonify({"quiz": quiz})
+    except Exception as e:
+        print(f"Quiz generation error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@main.route("/generate-script", methods=["POST"])
+def generate_script():
+    data = request.json
+    slides = data.get("slides")
+    user_id = data.get("user_id")  # Expect user_id from frontend
+    if not slides or not isinstance(slides, list):
+        return jsonify({"error": "Slides data is required."}), 400
+    try:
+        # Compose a prompt for script generation
+        slide_text = "\n".join(
+            f"Title: {slide.get('title', '')}\nContent: {' '.join(slide.get('content', []))}" for slide in slides
+        )
+        prompt = f"""
+        You are a professional speaker. Write a detailed speaker script for the following presentation slides.
+        - The script should be engaging, clear, and follow the slide order.
+        - For each slide, provide what the speaker should say, including transitions.
+        Slides:\n{slide_text}
+        """
+        headers = {
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "llama3-8b-8192",
+            "messages": [
+                {"role": "system", "content": "You are a helpful assistant that generates speaker scripts."},
+                {"role": "user", "content": prompt}
+            ],
+            "max_tokens": 3072,
+            "temperature": 0.3
+        }
+        response = requests.post(GROQ_API_URL, headers=headers, json=payload)
+        if response.status_code != 200:
+            return jsonify({"error": "Failed to generate script.", "details": response.text}), 500
+        result = response.json()
+        model_output = result["choices"][0]["message"]["content"]
+        # Update analytics for script generation
+        if user_id:
+            update_analytics_on_script(user_id)
+        return jsonify({"script": model_output.strip()})
+    except Exception as e:
+        print(f"Script generation error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@main.route("/export-quiz-word", methods=["POST"])
+def export_quiz_word():
+    data = request.json
+    quiz = data.get("quiz")
+    if not quiz:
+        return jsonify({"error": "No quiz data provided."}), 400
+    try:
+        doc = Document()
+        doc.add_heading("Generated Quiz", 0)
+        if isinstance(quiz, list):
+            for idx, q in enumerate(quiz, 1):
+                doc.add_paragraph(f"Q{idx}: {q.get('question', '')}", style="List Number")
+                choices = q.get("choices")
+                if choices:
+                    for c in choices:
+                        doc.add_paragraph(c, style="List Bullet")
+                answer = q.get("answer")
+                if answer:
+                    doc.add_paragraph(f"Answer: {answer}", style="Intense Quote")
+                doc.add_paragraph("")
+        else:
+            doc.add_paragraph(str(quiz))
+        buf = BytesIO()
+        doc.save(buf)
+        buf.seek(0)
+        return send_file(buf, as_attachment=True, download_name="generated_quiz.docx", mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    except Exception as e:
+        print(f"Quiz Word export error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@main.route("/export-script-word", methods=["POST"])
+def export_script_word():
+    data = request.json
+    script = data.get("script")
+    if not script:
+        return jsonify({"error": "No script data provided."}), 400
+    try:
+        doc = Document()
+        doc.add_heading("Speaker Script", 0)
+        if isinstance(script, str):
+            for para in script.split("\n"):
+                doc.add_paragraph(para)
+        else:
+            doc.add_paragraph(str(script))
+        buf = BytesIO()
+        doc.save(buf)
+        buf.seek(0)
+        return send_file(buf, as_attachment=True, download_name="script.docx", mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    except Exception as e:
+        print(f"Script Word export error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# --- AUTH ROUTES ---
+@main.route('/register', methods=['POST'])
+def register():
+    data = request.json
+    email = data.get('email')
+    password = data.get('password')
+    if not email or not password:
+        return jsonify({'error': 'Email and password required.'}), 400
+    if User.query.filter_by(email=email).first():
+        return jsonify({'error': 'Email already registered.'}), 400
+    user = User(email=email)
+    user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+    # Create analytics row for this user (one for general usage)
+    analytics = Analytics(user_id=user.id)
+    db.session.add(analytics)
+    db.session.commit()
+    return jsonify({'message': 'Registration successful.'})
+
+@main.route('/login', methods=['POST'])
+def login():
+    data = request.json
+    email = data.get('email')
+    password = data.get('password')
+    user = User.query.filter_by(email=email).first()
+    if not user or not user.check_password(password):
+        return jsonify({'error': 'Invalid email or password.'}), 401
+    return jsonify({'message': 'Login successful.', 'user': {'id': user.id, 'email': user.email}})
+
+@main.route('/user/<int:user_id>', methods=['GET'])
+def get_user(user_id):
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found.'}), 404
+    return jsonify({'id': user.id, 'email': user.email, 'created_at': user.created_at})
+
+@main.route('/user/<int:user_id>', methods=['PUT'])
+def update_user(user_id):
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found.'}), 404
+    data = request.json
+    if 'email' in data:
+        user.email = data['email']
+    if 'password' in data and data['password']:
+        user.set_password(data['password'])
+    db.session.commit()
+    return jsonify({'message': 'User updated.'})
+
+# --- ANALYTICS ROUTES ---
+@main.route('/analytics/<int:user_id>', methods=['GET'])
+def get_analytics(user_id):
+    # Fetch general usage analytics
+    analytics = Analytics.query.filter_by(user_id=user_id, month=None, topic=None).first()
+    if not analytics:
+        return jsonify({'error': 'No analytics found.'}), 404
+    # Fetch monthly slide creation
+    monthly = Analytics.query.filter_by(user_id=user_id).filter(Analytics.month != None).all()
+    month_stats = {a.month: a.slides_created for a in monthly}
+    # Fetch topic stats
+    topics = Analytics.query.filter_by(user_id=user_id).filter(Analytics.topic != None).all()
+    topic_stats = {a.topic: a.topic_count for a in topics}
+    return jsonify({
+        'slides_generated': analytics.slides_created,
+        'quizzes_generated': analytics.quizzes_generated,
+        'scripts_generated': analytics.scripts_generated,
+        'last_active': analytics.last_active,
+        'monthly': month_stats,
+        'topics': topic_stats
+    })
+
+# --- ANALYTICS UPDATES (to be called in slide/quiz/script generation endpoints) ---
+def update_analytics_on_slide(user_id, topic=None):
+    # General usage
+    analytics = Analytics.query.filter_by(user_id=user_id, month=None, topic=None).first()
+    if analytics:
+        analytics.slides_created += 1
+        analytics.last_active = datetime.utcnow()
+    # Monthly
+    month_str = datetime.utcnow().strftime('%Y-%m')
+    monthly = Analytics.query.filter_by(user_id=user_id, month=month_str).first()
+    if not monthly:
+        monthly = Analytics(user_id=user_id, month=month_str, slides_created=1)
+        db.session.add(monthly)
+    else:
+        monthly.slides_created += 1
+    # Topic
+    if topic:
+        topic_row = Analytics.query.filter_by(user_id=user_id, topic=topic).first()
+        if not topic_row:
+            topic_row = Analytics(user_id=user_id, topic=topic, topic_count=1)
+            db.session.add(topic_row)
+        else:
+            topic_row.topic_count += 1
+    db.session.commit()
+
+def update_analytics_on_quiz(user_id):
+    analytics = Analytics.query.filter_by(user_id=user_id, month=None, topic=None).first()
+    if analytics:
+        analytics.quizzes_generated += 1
+        analytics.last_active = datetime.utcnow()
+        db.session.commit()
+
+def update_analytics_on_script(user_id):
+    analytics = Analytics.query.filter_by(user_id=user_id, month=None, topic=None).first()
+    if analytics:
+        analytics.scripts_generated += 1
+        analytics.last_active = datetime.utcnow()
+        db.session.commit()
+

@@ -12,6 +12,8 @@ import Templates from "./Templates";
 import SlidesGeneratingPage from "./SlidesGeneratingPage";
 import AccountProfile from "./AccountProfile";
 import Help from "./Help";
+import GeneratedQuiz from "./GeneratedQuiz";
+import GeneratedScript from "./GeneratedScript";
 
 
 
@@ -50,6 +52,12 @@ const MainRouter = () => {
         <Route path="/account" element={<AccountProfile />} />
 
         <Route path="/slides-generating" element={<SlidesGeneratingPage />} />
+
+        {/* Generated Quiz Page */}
+        <Route path="/generated-quiz" element={<GeneratedQuiz />} />
+
+        {/* Generated Script Page */}   
+        <Route path="/generated-script" element={<GeneratedScript />} />
 
         {/* Help Page */}
         <Route path="/help" element={<Help />} />

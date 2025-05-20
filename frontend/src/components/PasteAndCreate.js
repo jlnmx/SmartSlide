@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import Navbar from "./Navbar";
 import "../styles/PasteAndCreate.css";
 
@@ -98,13 +98,22 @@ const templates = [
 ];
 
 const PasteAndCreate = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const passedTemplate = location.state && location.state.selectedTemplate;
+  const [selectedTemplate, setSelectedTemplate] = useState(passedTemplate || null);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [slides, setSlides] = useState(null);
   const [result, setResult] = useState(null);
   const [showTemplatePopup, setShowTemplatePopup] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState(templates[0].id);
-  const navigate = useNavigate();
+  const selectedTemplateObj = templates.find(t => t.id === selectedTemplate);
+
+  useEffect(() => {
+    if (passedTemplate) {
+      setSelectedTemplate(passedTemplate);
+    }
+  }, [passedTemplate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -116,12 +125,20 @@ const PasteAndCreate = () => {
     setResult(null);
     setSlides(null);
     try {
+      // Get user and pass user_id, template, and presentationType to backend
+      const user = JSON.parse(localStorage.getItem("user"));
+      const user_id = user && user.id ? user.id : null;
       const response = await fetch("http://localhost:5000/paste-and-create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({
+          text,
+          user_id,
+          template: selectedTemplate,
+          presentationType: "Default",
+        }),
       });
       if (!response.ok) {
         throw new Error("Failed to generate slides.");
@@ -129,6 +146,20 @@ const PasteAndCreate = () => {
       const data = await response.json();
       setSlides(data.slides || []);
       setResult(data.result || "Slides generated successfully!");
+      // Save pasted presentation to backend if user_id is available and slides exist
+      if (user_id && data.slides) {
+        await fetch("http://localhost:5000/save-presentation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id,
+            title: text.substring(0, 50) || "Pasted Presentation",
+            slides: data.slides,
+            template: selectedTemplate,
+            presentationType: "Default"
+          })
+        });
+      }
     } catch (error) {
       setResult(error.message || "An error occurred.");
     } finally {
@@ -156,8 +187,6 @@ const PasteAndCreate = () => {
     setShowTemplatePopup(false);
   };
 
-  const selectedTemplateObj = templates.find(t => t.id === selectedTemplate);
-
   return (
     <div>
       <Navbar />
@@ -177,26 +206,43 @@ const PasteAndCreate = () => {
               <button type="submit" disabled={loading}>
                 {loading ? "Generating..." : "Generate Slides"}
               </button>
-              <button
-                type="button"
-                className="template-select-btn"
-                onClick={handleOpenTemplatePopup}
-                style={{
-                  background: "#e3f2ff",
-                  border: "1px solid #1976d2",
-                  color: "#1976d2",
-                  borderRadius: "4px",
-                  padding: "0.5rem 1rem",
-                  cursor: "pointer",
-                }}
-              >
-                Choose Template
-              </button>
-              <span style={{ fontSize: "0.95rem" }}>
-                <b>Selected:</b> {selectedTemplateObj ? selectedTemplateObj.name : ""}
-              </span>
+              {/* Hide template selection if passedTemplate is present */}
+              {!passedTemplate && (
+                <>
+                  <button
+                    type="button"
+                    className="template-select-btn"
+                    onClick={handleOpenTemplatePopup}
+                    style={{
+                      background: "#e3f2ff",
+                      border: "1px solid #1976d2",
+                      color: "#1976d2",
+                      borderRadius: "4px",
+                      padding: "0.5rem 1rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Choose Template
+                  </button>
+                  <span style={{ fontSize: "0.95rem" }}>
+                    <b>Selected:</b> {selectedTemplateObj ? selectedTemplateObj.name : ""}
+                  </span>
+                </>
+              )}
             </div>
           </form>
+          {/* Show only the selected template if passed from Templates.js */}
+          {passedTemplate && (
+            <div className="selected-template-info" style={{ margin: "2rem 0", textAlign: "center" }}>
+              <img
+                src={passedTemplate.preview || "/images/default_preview.png"}
+                alt={passedTemplate.title || passedTemplate.name}
+                style={{ width: 180, borderRadius: 8, marginBottom: 8 }}
+              />
+              <div style={{ fontWeight: "bold", fontSize: "1.2rem" }}>{passedTemplate.title || passedTemplate.name}</div>
+              <div style={{ color: "#555" }}>{passedTemplate.description}</div>
+            </div>
+          )}
           {result && <div className="result">{result}</div>}
           {slides && slides.length > 0 && (
             <div className="slides-preview">
@@ -220,7 +266,7 @@ const PasteAndCreate = () => {
           )}
         </div>
         {/* Template Selection Popup */}
-        {showTemplatePopup && (
+        {!passedTemplate && showTemplatePopup && (
           <div className="template-popup-overlay">
             <div className="template-popup">
               <h2>Select a Template</h2>

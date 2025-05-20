@@ -1,13 +1,25 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import Navbar from "./Navbar";
 import "../styles/CreatePage.css";
 
 const CreatePage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const selectedTemplate = location.state && location.state.selectedTemplate;
 
   const handleHelpClick = () => {
     navigate("/help");
+  };
+
+  const handleGenerate = () => {
+    navigate("/generate", { state: { selectedTemplate } });
+  };
+  const handleUpload = () => {
+    navigate("/import", { state: { selectedTemplate } });
+  };
+  const handlePaste = () => {
+    navigate("/paste-and-create", { state: { selectedTemplate } });
   };
 
   return (
@@ -20,13 +32,13 @@ const CreatePage = () => {
         </p>
 
         <div className="button-group">
-          <button className="create-btn" onClick={() => navigate("/generate")}>
+          <button className="create-btn" onClick={handleGenerate}>
             GENERATE
           </button>
-          <button className="upload-btn" onClick={() => navigate("/import")}>
+          <button className="upload-btn" onClick={handleUpload}>
             UPLOAD DOCUMENT
           </button>
-          <button className="scratch-btn" onClick={() => navigate("/paste-and-create")}>
+          <button className="scratch-btn" onClick={handlePaste}>
             PASTE IN TEXT
           </button>
         </div>

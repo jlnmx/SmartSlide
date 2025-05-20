@@ -16,11 +16,12 @@ const Analytics = () => {
     // Get user id from localStorage (set at login)
     const user = JSON.parse(localStorage.getItem("user"));
     if (!user || !user.id) return;
+    setLoading(true);
     fetch(`http://localhost:5000/analytics/${user.id}`)
       .then(res => res.json())
       .then(data => {
         // Monthly slides
-        const months = Object.keys(data.monthly || {});
+        const months = Object.keys(data.monthly || {}).sort();
         const slidesPerMonth = months.map(m => data.monthly[m]);
         setSlideData({
           labels: months.length ? months : ["No Data"],
@@ -64,14 +65,19 @@ const Analytics = () => {
           ],
         });
         setSummary({
-          slides_generated: data.slides_generated,
-          quizzes_generated: data.quizzes_generated,
-          scripts_generated: data.scripts_generated,
-          last_active: data.last_active,
+          slides_generated: data.slides_generated ?? 0,
+          quizzes_generated: data.quizzes_generated ?? 0,
+          scripts_generated: data.scripts_generated ?? 0,
+          last_active: data.last_active ?? null,
         });
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        setSlideData({ labels: ["No Data"], datasets: [{ label: "Number of Slides Created", data: [0], backgroundColor: "rgba(75, 192, 192, 0.6)", borderColor: "rgba(75, 192, 192, 1)", borderWidth: 1 }] });
+        setTopicData({ labels: ["No Data"], datasets: [{ label: "Most Common Topics", data: [0], backgroundColor: ["rgba(255, 99, 132, 0.6)"], borderColor: ["rgba(255, 99, 132, 1)"], borderWidth: 1 }] });
+        setSummary({ slides_generated: 0, quizzes_generated: 0, scripts_generated: 0, last_active: null });
+        setLoading(false);
+      });
   }, []);
 
   return (

@@ -4,7 +4,7 @@ import json
 import traceback
 import uuid
 import requests
-from app.models import db, User, Analytics
+from app.models import db, User, Analytics, Presentation
 from app.templates_config import TEMPLATES
 from datetime import datetime
 from flask import Blueprint, jsonify, request, send_file, send_from_directory
@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from io import BytesIO
-from pptx import Presentation
+from pptx import Presentation as PptxPresentation
 from pptx.util import Pt, Inches
 from pptx.dml.color import RGBColor
 from PIL import Image, ImageDraw
@@ -52,28 +52,46 @@ CORS(main, resources={r"/*": {"origins": "http://localhost:3000"}})
 def after_request(response):
     response.headers.add("Access-Control-Allow-Origin", "http://localhost:3000")
     response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization")
-    response.headers.add("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+    response.headers.add("Access-Control-Allow-Methods", "GET,POST,OPTIONS,DELETE")
     return response
+
+@main.route('/presentations/<int:user_id>', methods=['GET'])
+def get_recent_presentations(user_id):
+    """Return the most recent presentations for a user (limit 10)."""
+    presentations = Presentation.query.filter_by(user_id=user_id).order_by(Presentation.created_at.desc()).limit(10).all()
+    result = [
+        {
+            'id': p.id,
+            'title': p.title,
+            'created_at': p.created_at.isoformat(),
+            'template': p.template,
+            'presentation_type': p.presentation_type
+        }
+        for p in presentations
+    ]
+    return jsonify({'presentations': result})
 
 @main.route("/generate-slides", methods=["POST"])
 def generate_slides():
     data = request.json
     if not data:
-        return jsonify({"error": "Invalid JSON payload."}), 400
+        return
 
     prompt_topic = data.get("prompt")
     language = data.get("language", "English")
     user_id = data.get("user_id")  # Expect user_id from frontend
+    template = data.get("template")
+    presentation_type = data.get("presentationType", "Default")
     try:
         num_slides = int(data.get("numSlides", 5))
         if num_slides <= 0:
-            raise ValueError("Number of slides must be positive.")
+            return jsonify({"error": "Invalid number of slides."}), 400
     except (ValueError, TypeError):
         return jsonify({"error": "Invalid number of slides."}), 400
     if not prompt_topic:
         return jsonify({"error": "Prompt topic is required."}), 400
     try:
-        presentation_type = data.get("presentationType", "Default")
+        import requests, json, re, traceback
         generation_prompt = f"""
         Generate a professional, well-structured presentation about \"{prompt_topic}\".
         Requirements:
@@ -123,8 +141,6 @@ def generate_slides():
         Generate the slides now:
         """
 
-        print(f"--- Sending prompt to Groq (Topic: {prompt_topic}, Slides: {num_slides}, Lang: {language}) ---")
-
         headers = {
             "Authorization": f"Bearer {GROQ_API_KEY}",
             "Content-Type": "application/json"
@@ -140,7 +156,7 @@ def generate_slides():
         }
         response = requests.post(GROQ_API_URL, headers=headers, json=payload)
         if response.status_code != 200:
-            return jsonify({"error": "Failed to generate slides using Groq API.", "details": response.text}), 500
+            return jsonify({"error": "Failed to generate slides."}), 500
 
         result = response.json()
         model_output = result["choices"][0]["message"]["content"]
@@ -148,39 +164,39 @@ def generate_slides():
         # Extract JSON array from the response
         match = re.search(r'\[\s*{.*}\s*\]', model_output, re.DOTALL)
         if not match:
-            raise ValueError("Could not find a JSON array in the model output.")
+            return jsonify({"error": "Failed to parse slides output."}), 500
         slides_data = json.loads(match.group(0))
 
         # Validate the structure of each slide
         for slide in slides_data:
-            if not isinstance(slide, dict):
-                raise ValueError("Each slide must be a dictionary.")
-            if 'title' not in slide or not isinstance(slide['title'], str):
-                raise ValueError("Each slide must have a 'title' field of type string.")
-            if 'content' not in slide or not isinstance(slide['content'], list):
-                raise ValueError("Each slide must have a 'content' field of type list.")
-            if not all(isinstance(item, str) for item in slide['content']):
-                raise ValueError("Each item in the 'content' field must be a string.")
+            pass
 
         print(f"--- Successfully Parsed {len(slides_data)} Slides ---")
-        
         for slide in slides_data:
-            prompt = slide.get("image_prompt") or f"{slide['title']} illustration, high quality, professional"
-            image_url = generate_image_cloudflare(prompt)
-            slide["image_url"] = image_url
+            pass
 
-        # After successful slide generation:
+        # After successful slide generation, store presentation metadata and slides in DB
         if user_id:
-            update_analytics_on_slide(user_id, topic=prompt_topic)
+            new_presentation = Presentation(
+                user_id=user_id,
+                title=prompt_topic,
+                template=template,
+                presentation_type=presentation_type,
+                slides_json=json.dumps(slides_data)
+            )
+            db.session.add(new_presentation)
+            db.session.commit()
+
         return jsonify({"slides": slides_data})
 
     except json.JSONDecodeError as e:
         print(f"JSON Decode Error: {e}")
-        return jsonify({"error": "Failed to parse response from Groq API.", "details": str(e)}), 500
+        return jsonify({"error": "JSON decode error."}), 500
     except Exception as e:
         print(f"Error during slide generation: {e}")
+        import traceback
         traceback.print_exc()
-        return jsonify({"error": "An error occurred during slide generation.", "details": str(e)}), 500
+        return jsonify({"error": "Internal server error."}), 500
 
 def apply_markdown_formatting(run, text):
     import re
@@ -346,7 +362,7 @@ def generate_presentation():
         if not template:
             return jsonify({"error": "Invalid or missing template."}), 400
 
-        ppt = Presentation()
+        ppt = PptxPresentation()
         set_presentation_size(ppt, presentation_type)  # Set slide size based on type
 
         for slide_data in slides:
@@ -374,77 +390,88 @@ def allowed_file(filename):
 @main.route("/upload-file", methods=["POST"])
 def upload_file():
     if 'file' not in request.files:
-        return jsonify({"error": "No file part in the request."}), 400
+        return jsonify({'error': 'No file part'}), 400
     file = request.files['file']
     if file.filename == '':
-        return jsonify({"error": "No selected file."}), 400
+        return jsonify({'error': 'No selected file'}), 400
     if not allowed_file(file.filename):
-        return jsonify({"error": "File type not allowed."}), 400
+        return jsonify({'error': 'File type not allowed'}), 400
 
     filename = secure_filename(file.filename)
     ext = filename.rsplit('.', 1)[1].lower()
     slides_content = []
 
     try:
+        import re
+        import string
+        text = ""
+        topic = os.path.splitext(filename)[0].replace('_', ' ').replace('-', ' ').title()
         if ext == 'pdf':
-            with pdfplumber.open(file) as pdf:
-                for i, page in enumerate(pdf.pages):
-                    text = page.extract_text() or ""
-                    slides_content.append({"title": f"Page {i+1}", "content": text})
-        elif ext in ['xlsx', 'xls']:
-            df = pd.read_excel(file)
-            for i, col in enumerate(df.columns):
-                content = df[col].astype(str).tolist()
-                slides_content.append({"title": str(col), "content": "\n".join(content)})
-        elif ext == 'csv':
-            df = pd.read_csv(file)
-            for i, col in enumerate(df.columns):
-                content = df[col].astype(str).tolist()
-                slides_content.append({"title": str(col), "content": "\n".join(content)})
+            from PyPDF2 import PdfReader
+            reader = PdfReader(file)
+            for page in reader.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text + "\n"
         elif ext == 'docx':
             doc = Document(file)
-            content = []
             for para in doc.paragraphs:
-                if para.text.strip():
-                    content.append(para.text.strip())
-            # Split into slides every ~200 words
-            chunk = []
-            word_count = 0
-            for para in content:
-                chunk.append(para)
-                word_count += len(para.split())
-                if word_count > 200:
-                    slides_content.append({"title": f"Slide {len(slides_content)+1}", "content": "\n".join(chunk)})
-                    chunk = []
-                    word_count = 0
-            if chunk:
-                slides_content.append({"title": f"Slide {len(slides_content)+1}", "content": "\n".join(chunk)})
+                if para.text:
+                    text += para.text + "\n"
+        elif ext in ['csv', 'xls', 'xlsx']:
+            import pandas as pd
+            if ext == 'csv':
+                df = pd.read_csv(file)
+            else:
+                df = pd.read_excel(file)
+            text = df.to_string(index=False)
         else:
-            return jsonify({"error": "Unsupported file type."}), 400
+            text = file.read().decode(errors='ignore')
 
-        # Generate PowerPoint
-        ppt = Presentation()
-        for slide_data in slides_content:
-            slide = ppt.slides.add_slide(ppt.slide_layouts[1])
-            title = slide.shapes.title
-            content = slide.placeholders[1]
-            title.text = slide_data.get("title", "Untitled Slide")
-            content.text = slide_data.get("content", "")
-
-        ppt_stream = io.BytesIO()
-        ppt.save(ppt_stream)
-        ppt_stream.seek(0)
-
-        return send_file(
-            ppt_stream,
-            as_attachment=True,
-            download_name="converted_presentation.pptx",
-            mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        )
+        # --- Slide splitting logic ---
+        # Split by double newlines or headings
+        sections = re.split(r'\n\s*\n|(?=^#+ )', text)
+        slides = []
+        for idx, section in enumerate(sections):
+            if not section or not isinstance(section, str):
+                continue
+            section = section.strip()
+            if not section:
+                continue
+            # Try to extract a title: first line if it's short and not generic
+            lines = [l for l in section.split('\n') if l and l.strip()]
+            first_line = lines[0].strip() if lines else ''
+            # Heuristic: if first line is long or generic, generate a title
+            generic_titles = [f"Slide {idx+1}", "Untitled", "Introduction", "Overview", "Summary"]
+            if (not first_line or len(first_line) > 80 or first_line.lower() in [g.lower() for g in generic_titles]):
+                # Use first 5-8 words of section as title, or fallback to topic
+                words = section.split()
+                if len(words) > 8:
+                    title = " ".join(words[:8]) + "..."
+                elif len(words) > 0:
+                    title = " ".join(words[:min(8, len(words))])
+                else:
+                    title = topic
+                # Capitalize first letter
+                title = title[0].upper() + title[1:] if title else topic
+            else:
+                title = first_line
+                # Remove title from content if it's the first line
+                lines = lines[1:]
+            # Remove any duplicate/overlapping content
+            content = [l.strip() for l in lines if l.strip() and l.strip() != title]
+            # If content is empty, use the section minus the title
+            if not content:
+                content = [section[len(title):].strip()] if section[len(title):].strip() else [section]
+            slides.append({
+                'title': title,
+                'content': content
+            })
+        if not slides:
+            return jsonify({'error': 'Could not extract slides from file.'}), 400
+        return jsonify({'slides': slides})
     except Exception as e:
-        print(f"Error converting file: {e}")
-        traceback.print_exc()
-        return jsonify({"error": "An error occurred while converting the file.", "details": str(e)}), 500
+        return jsonify({'error': f'Failed to process file: {str(e)}'}), 500
     
 
 @main.route("/create-google-slides", methods=["POST"])
@@ -706,14 +733,13 @@ def paste_and_create():
 
     data = request.json
     if not data or "text" not in data:
-        return jsonify({"error": "No text provided."}), 400
+        return
 
     pasted_text = data["text"].strip()
     if not pasted_text:
-        return jsonify({"error": "No text provided."}), 400
+        return
 
-    import re
-
+    import json
     # Split by double newlines or Markdown headings
     raw_sections = re.split(r'(?:\n\s*\n|^#+\s+)', pasted_text)
     slides = []
@@ -721,30 +747,21 @@ def paste_and_create():
         section = section.strip()
         if not section:
             continue
-        # Try to extract a title: first line, or first sentence if no clear heading
         lines = section.splitlines()
         first_line = lines[0].strip()
-        # If the first line is long, use only the first sentence as title
         if len(first_line.split()) > 12:
-            match = re.match(r"(.+?[.!?])(\s|$)", first_line)
-            title = match.group(1).strip() if match else first_line[:40] + "..."
-            content_lines = [first_line] + lines[1:]
+            title = first_line.split('.')[0] if '.' in first_line else first_line[:50]
+            content_lines = lines
         else:
             title = first_line
-            content_lines = lines[1:] if len(lines) > 1 else []
-
-        # If content is empty, use the rest of the section
+            content_lines = lines[1:]
         if not content_lines:
-            content_lines = [l for l in section.split('\n')[1:] if l.strip()]
-        # If still empty, use the section minus the title
+            content_lines = lines[1:]
         if not content_lines:
             content_lines = [section[len(title):].strip()]
-
-        # Clean up content
         content_lines = [l.strip() for l in content_lines if l.strip()]
         if not content_lines:
             continue
-
         slides.append({
             "title": title,
             "content": content_lines
@@ -756,11 +773,25 @@ def paste_and_create():
         chunk_size = 100
         for i in range(0, len(words), chunk_size):
             chunk = words[i:i+chunk_size]
-            slide_text = " ".join(chunk)
             slides.append({
-                "title": f"Slide {len(slides)+1}",
-                "content": [slide_text]
+                "title": f"Slide {i//chunk_size+1}",
+                "content": [' '.join(chunk)]
             })
+
+    # Store presentation metadata in DB if user_id is provided
+    user_id = data.get("user_id")
+    template = data.get("template")
+    presentation_type = data.get("presentationType", "Default")
+    if user_id:
+        new_presentation = Presentation(
+            user_id=user_id,
+            title=slides[0]["title"] if slides else "Untitled Presentation",
+            template=template,
+            presentation_type=presentation_type,
+            slides_json=json.dumps(slides)
+        )
+        db.session.add(new_presentation)
+        db.session.commit()
 
     return jsonify({"slides": slides, "result": f"Generated {len(slides)} slides."})
 
@@ -1034,6 +1065,31 @@ def get_analytics(user_id):
         'topics': topic_stats
     })
 
+@main.route('/presentation/<int:presentation_id>', methods=['GET'])
+def get_presentation_slides(presentation_id):
+    presentation = Presentation.query.get(presentation_id)
+    if not presentation or not presentation.slides_json:
+        return jsonify({'error': 'Presentation not found or no slides stored.'}), 404
+    try:
+        import json
+        slides = json.loads(presentation.slides_json)
+    except Exception:
+        slides = []
+    return jsonify({
+        'slides': slides,
+        'template': presentation.template,
+        'presentationType': presentation.presentation_type
+    })
+
+@main.route('/presentation/<int:presentation_id>', methods=['DELETE'])
+def delete_presentation(presentation_id):
+    presentation = Presentation.query.get(presentation_id)
+    if not presentation:
+        return jsonify({'error': 'Presentation not found.'}), 404
+    db.session.delete(presentation)
+    db.session.commit()
+    return jsonify({'message': 'Presentation deleted.'})
+
 # --- ANALYTICS UPDATES (to be called in slide/quiz/script generation endpoints) ---
 def update_analytics_on_slide(user_id, topic=None):
     # General usage
@@ -1072,4 +1128,43 @@ def update_analytics_on_script(user_id):
         analytics.scripts_generated += 1
         analytics.last_active = datetime.utcnow()
         db.session.commit()
+
+@main.route('/save-presentation', methods=['POST'])
+def save_presentation():
+    import json
+    data = request.json
+    user_id = data.get('user_id')
+    title = data.get('title') or 'Untitled Presentation'
+    slides = data.get('slides')
+    template = data.get('template')
+    presentation_type = data.get('presentationType', 'Default')
+    if not user_id or not slides:
+        return jsonify({'error': 'Missing user_id or slides'}), 400
+    try:
+        slides_json = json.dumps(slides)
+        presentation = Presentation(
+            user_id=user_id,
+            title=title,
+            slides_json=slides_json,
+            template=template,
+            presentation_type=presentation_type
+        )
+        db.session.add(presentation)
+        db.session.commit()
+        return jsonify({'message': 'Presentation saved', 'id': presentation.id})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@main.route('/templates-list', methods=['GET'])
+def templates_list():
+    # Return all templates as a list of dicts with id, name, description, etc.
+    templates = []
+    for tpl_id, tpl in TEMPLATES.items():
+        templates.append({
+            'id': tpl_id,
+            'name': tpl.get('name', tpl_id),
+            'description': tpl.get('description', ''),
+            'preview': f"/images/{tpl_id}_preview.png"  # convention for preview images
+        })
+    return jsonify({'templates': templates})
 

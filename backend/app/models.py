@@ -8,7 +8,7 @@ class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def set_password(self, password):
@@ -32,3 +32,15 @@ class Analytics(db.Model):
     scripts_generated = db.Column(db.Integer, default=0)
     last_active = db.Column(db.DateTime, default=datetime.utcnow)
     user = db.relationship('User', backref=db.backref('analytics', lazy=True))
+
+class Presentation(db.Model):
+    __tablename__ = 'presentations'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # Optionally store more metadata (e.g., template, type)
+    template = db.Column(db.String(100), nullable=True)
+    presentation_type = db.Column(db.String(100), nullable=True)
+    slides_json = db.Column(db.Text, nullable=True)  # Store slides as JSON string
+    user = db.relationship('User', backref=db.backref('presentations', lazy=True))

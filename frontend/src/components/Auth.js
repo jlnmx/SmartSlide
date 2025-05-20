@@ -40,8 +40,11 @@ const AuthPage = ({ isLogin }) => {
         navigate("/dashboard");
       } else {
         await axios.post("http://localhost:5000/register", { email, password });
-        alert("Registration successful! Please log in.");
-        navigate("/auth");
+        alert("Registration successful!");
+        // Directly log in after registration
+        const res = await axios.post("http://localhost:5000/login", { email, password });
+        localStorage.setItem("user", JSON.stringify(res.data.user));
+        navigate("/dashboard");
       }
     } catch (err) {
       alert(err.response?.data?.error || "Authentication failed.");

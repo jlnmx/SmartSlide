@@ -10,13 +10,12 @@ html, body {
   font-family: Verdana;
   align-items: center;
   justify-content: flex-start;
-  min-height: 100vh;
+  min-height: 60vh;
   background-color: #ffffff;
   text-align: center;
   padding: 60px;
   max-width: 1200px;
-  /* Add extra space at the bottom */
-  margin: 40px auto 120px auto; /* Increased bottom margin to 100px */
+  margin: 40px auto 120px auto;
   border-radius: 2rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.10);
   overflow-y: auto;
@@ -38,18 +37,18 @@ html, body {
 }
 
 .generate-title {
-  font-size: 45px; /* Adjusted size */
+  font-size: 45px;
   font-weight: bold;
-  color: #1f2937; /* Dark purple */
-  margin-bottom: 10px; /* Reduce spacing */
+  color: #1f2937;
+  margin-bottom: 10px;
 }
 
 .generate-subtitle {
-  font-size: 20px; /* Adjusted size */
+  font-size: 20px;
   font-family: Verdana;
   font-style: italic;
-  color: #1f2937; /* Medium purple */
-  margin-bottom: 20px; /* Reduce spacing */
+  color: #1f2937;
+  margin-bottom: 20px;
 }
 
 .input-section {
@@ -57,17 +56,17 @@ html, body {
   flex-direction: column;
   align-items: center;
   width: 100%;
-  margin-bottom: 15px; /* Reduce spacing */
+  margin-bottom: 15px;
 }
 
 .prompt-input {
   width: 100%;
   font-family: Verdana;
-  max-width: 500px; /* Limit input width */
-  padding: 10px; /* Reduce padding */
-  font-size: 1rem; /* Adjusted size */
+  max-width: 500px;
+  padding: 10px;
+  font-size: 1rem;
   border: 1px solid #ccc;
-  border-radius: 8px; /* Slightly rounded corners */
+  border-radius: 8px;
   outline: none;
   text-align: center;
 }
@@ -77,37 +76,38 @@ html, body {
   flex-direction: row;
   justify-content: center;
   align-items: center;
-  gap: 15px; /* Reduce spacing */
-  margin-bottom: 15px; /* Reduce spacing */
+  gap: 15px;
+  margin-bottom: 15px;
 }
 
 .options-section label {
-  font-size: 0.9rem; /* Adjusted size */
+  font-size: 0.9rem;
   font-weight: bold;
   font-family: Verdana;
-  color: #1f2937; /* Dark purple */
+  color: #1f2937;
 }
 
 .options-section select {
-  padding: 8px; /* Reduce padding */
-  font-size: 0.9rem; /* Adjusted size */
+  padding: 8px;
+  font-size: 0.9rem;
   border: 1px solid #ccc;
-  border-radius: 6px; /* Slightly rounded corners */
+  border-radius: 6px;
   outline: none;
 }
 
 .generate-btn {
-  padding: 20px 20px; /* Reduce padding */
-  font-size: 1rem; /* Adjusted size */
+  padding: 10px 24px;
+  font-size: 1rem;
   font-weight: bold;
   font-family: Verdana;
-  background-color: #7b6e91; /* Purple button */
+  background-color: #0d2357;
   color: white;
   border: none;
-  padding: 10px;
-  border-radius: 8px; /* Slightly rounded corners */
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s ease-in-out;
+  margin: 0 auto;
+  display: block;
 }
 
 .generate-btn:disabled {
@@ -116,29 +116,29 @@ html, body {
 }
 
 .generate-btn:hover:not(:disabled) {
-  background-color: #5e35b1; /* Darker purple on hover */
+  background-color: #13306e;
 }
 
 .template-selection-title {
-  font-size: 1.2rem; /* Adjusted size */
+  font-size: 1.2rem;
   font-weight: bold;
-  color: #1f2937; /* Dark purple */
-  margin: 15px 0; /* Reduce spacing */
+  color: #1f2937;
+  margin: 15px 0;
 }
 
 .template-selection {
   display: grid;
-  grid-template-columns: repeat(3, 1fr); /* 3 columns */
-  gap: 15px; /* Reduce spacing */
-  justify-items: center; /* Center items horizontally */
-  margin-bottom: 15px; /* Reduce spacing */
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  justify-items: center;
+  margin-bottom: 15px;
 }
 
 .template-box {
-  width: 200px;    /* Increased width */
-  height: 200px;   /* Increased height */
+  width: 200px;
+  height: 200px;
   border: 2px solid transparent;
-  border-radius: 12px; /* Slightly more rounded corners */
+  border-radius: 12px;
   overflow: hidden;
   text-align: center;
   cursor: pointer;
@@ -149,26 +149,28 @@ html, body {
 
 .template-box:hover {
   transform: scale(1.05);
-  border-color: #7e57c2; /* Purple border on hover */
+  border-color: #7e57c2;
 }
 
 .template-box.selected {
-  border-color: #4a148c; /* Dark purple border for selected template */
+  border: 2px solid #1976d2 !important;
+  box-shadow: 0 0 8px #1976d2;
 }
 
 .template-preview {
   width: 100%;
-  height: 120px;   /* Increased preview height */
+  height: 120px;
   object-fit: cover;
   border-bottom: 1px solid #ddd;
 }
 
 .template-title {
-  font-size: 0.9rem; /* Adjusted size */
+  font-size: 0.9rem;
   font-weight: bold;
-  color: #4a148c; /* Dark purple */
-  margin-top: 8px; /* Reduce spacing */
+  color: #4a148c;
+  margin-top: 8px;
 }
+
 .need-help-btn {
   position: fixed;
   bottom: 24px;
@@ -191,6 +193,37 @@ html, body {
   background-color: #f5f5f5;
 }
 
+/* Popup overlay and modal (matches PasteAndCreate) */
+.template-popup-overlay {
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.12);
+}
+
+.template-popup {
+  background: #fff;
+  padding: 2rem;
+  border-radius: 10px;
+  z-index: 101;
+  max-width: 700px;
+  min-width: 350px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+}
+
+.template-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+  max-height: 350px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
 @media (max-width: 600px) {
   .need-help-btn {
     width: 48px;
@@ -206,7 +239,7 @@ html, body {
   }
 
   .template-selection {
-    grid-template-columns: 1fr; /* Single column layout */
+    grid-template-columns: 1fr;
   }
 }
 
@@ -215,7 +248,6 @@ html, body {
     font-size: 1.5rem;
   }
 }
-
 
 @media (max-width: 1300px) {
   .generate-container {

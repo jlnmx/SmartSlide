@@ -74,7 +74,7 @@ textarea::placeholder {
 
 button {
   width: 100%;
-  background-color: #588dd1;
+  background-color: #0d2357;
   color: white;
   padding: 0.875rem 1.5rem;
   border: none;
@@ -87,7 +87,7 @@ button {
 }
 
 button:hover {
-  background-color: #7caaff;
+  background-color: #13306e;
   box-shadow: 0 4px 12px rgba(58, 115, 237, 0.4);
 }
 

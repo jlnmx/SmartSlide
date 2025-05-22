@@ -10,6 +10,7 @@ export default function ImportPage() {
   const passedTemplate = location.state && location.state.selectedTemplate;
   const [selectedTemplate, setSelectedTemplate] = useState(passedTemplate || null);
   const [templates, setTemplates] = useState([]);
+  const [showTemplatePopup, setShowTemplatePopup] = useState(false);
 
   // Fetch templates from backend if not passed
   useEffect(() => {
@@ -18,12 +19,12 @@ export default function ImportPage() {
         .then((res) => res.json())
         .then((data) => {
           setTemplates(data.templates || []);
-          if (data.templates && data.templates.length > 0) {
+          if (data.templates && data.templates.length > 0 && !selectedTemplate) {
             setSelectedTemplate(data.templates[0]);
           }
         });
     }
-  }, [passedTemplate]);
+  }, [passedTemplate, selectedTemplate]);
 
   // Handle Upload button click for File
   const handleImportFile = async () => {
@@ -96,56 +97,62 @@ export default function ImportPage() {
           <p className="subtitle">
             Upload a document to create a presentation.
           </p>
-          {/* Template selection UI if not passed */}
-          {!passedTemplate && templates.length > 0 && (
-            <div style={{ margin: "1.5rem 0", textAlign: "center" }}>
-              <h3 style={{ marginBottom: 8 }}>Select a Template</h3>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 16, justifyContent: "center" }}>
-                {templates.map((tpl) => (
-                  <div
-                    key={tpl.id}
-                    className={`template-box${selectedTemplate && selectedTemplate.id === tpl.id ? " selected" : ""}`}
-                    style={{
-                      border: selectedTemplate && selectedTemplate.id === tpl.id ? "2px solid #007bff" : "1px solid #ccc",
-                      borderRadius: 8,
-                      padding: 8,
-                      cursor: "pointer",
-                      width: 140,
-                      background: "#fff",
-                    }}
-                    onClick={() => setSelectedTemplate(tpl)}
-                  >
-                    <img
-                      src={tpl.preview || "/images/default_preview.png"}
-                      alt={tpl.name}
-                      style={{ width: 120, height: 90, objectFit: "cover", borderRadius: 6, marginBottom: 6 }}
-                    />
-                    <div style={{ fontWeight: "bold", fontSize: 15 }}>{tpl.name}</div>
-                    <div style={{ color: "#555", fontSize: 13 }}>{tpl.description}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {/* Show only the selected template if passed from Templates.js or selected */}
-          {selectedTemplate && (
-            <div
-              className="selected-template-info"
-              style={{ margin: "1.5rem 0", textAlign: "center" }}
+
+          {/* Template selection button and popup */}
+          <div style={{
+            margin: "1.5rem 0",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "18px"
+          }}>
+            <button
+              type="button"
+              className="generate-btn"
+              onClick={() => setShowTemplatePopup(true)}
             >
-              <img
-                src={selectedTemplate.preview || "/images/default_preview.png"}
-                alt={selectedTemplate.title || selectedTemplate.name}
-                style={{ width: 180, borderRadius: 8, marginBottom: 8 }}
-              />
-              <div style={{ fontWeight: "bold", fontSize: "1.2rem" }}>
-                {selectedTemplate.title || selectedTemplate.name}
+              Choose Template
+            </button>
+            {selectedTemplate && (
+              <div style={{ textAlign: "left", lineHeight: 1.2 }}>
+                <span style={{ fontWeight: "bold", color: "#000" }}>Selected:</span>
+                <div style={{ color: "#222" }}>
+                  {selectedTemplate.title || selectedTemplate.name}
+                </div>
               </div>
-              <div style={{ color: "#555" }}>
-                {selectedTemplate.description}
+            )}
+          </div>
+          {showTemplatePopup && (
+            <div className="template-popup-overlay" onClick={() => setShowTemplatePopup(false)}>
+              <div
+                className="template-popup"
+                onClick={e => e.stopPropagation()}
+              >
+                <h2 style={{ marginBottom: 16 }}>Select a Template</h2>
+                <div className="template-list">
+                  {templates.map((template) => (
+                    <div
+                      key={template.id}
+                      className={`template-box${selectedTemplate && selectedTemplate.id === template.id ? " selected" : ""}`}
+                      onClick={() => {
+                        setSelectedTemplate(template);
+                        setShowTemplatePopup(false);
+                      }}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <img
+                        src={template.preview || "/images/default_preview.png"}
+                        alt={template.title || template.name}
+                        className="template-preview"
+                      />
+                      <p className="template-title">{template.title || template.name}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
+
           <div className="import-paste-form">
             <input
               type="file"

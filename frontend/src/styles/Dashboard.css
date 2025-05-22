@@ -114,7 +114,7 @@
 
 .presentation-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Responsive grid */
+  grid-template-columns: repeat(3, 1fr); /* Always 3 columns */
   gap: 20px;
 }
 
@@ -123,18 +123,21 @@
   border: 2px solid #257136;
   border-radius: 8px;
   display: flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 1.2rem; /* Slightly larger font size */
+  flex-direction: column;      /* Stack content vertically */
+  justify-content: center;     /* Center content vertically */
+  align-items: center;         /* Center content horizontally */
+  font-size: 1.2rem;
   font-weight: 400;
   font-family: Verdana;
   color: #257136;
   text-align: center;
-  padding: 30px; /* Increased padding for more space */
-  width: 80%; /* Ensure cards take full width of grid column */
-  height: 150px; /* Increased height */
+  padding: 30px;
+  width: 80%;
+  height: 150px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s ease;
+  position: relative;
+  gap: 12px;                   /* Space between title and button */
 }
 
 .presentation-card:hover {
@@ -251,4 +254,15 @@
     font-size: 0.9rem;
     padding: 15px;
   }
+
+  @media (max-width: 900px) {
+  .presentation-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 600px) {
+  .presentation-list {
+    grid-template-columns: 1fr;
+  }
+}
 }

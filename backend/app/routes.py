@@ -1168,3 +1168,7 @@ def templates_list():
         })
     return jsonify({'templates': templates})
 
+@main.route("/", methods=["GET"])
+def root():
+    return jsonify({"message": "Welcome to the SmartSlide API!"})
+

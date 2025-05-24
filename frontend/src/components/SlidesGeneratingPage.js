@@ -5,7 +5,8 @@ import "../styles/SlidesGeneratingPage.css";
 const SlidesGeneratingPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  let { slides, template, presentationType } = location.state || {};
+  // Prioritize slides from editor if available
+  let { slides: initialSlides, template, presentationType, fromEditor } = location.state || {};
 
   // Fallback: Load template and presentationType from localStorage if missing (for refresh/direct nav)
   if (!template) {
@@ -20,19 +21,58 @@ const SlidesGeneratingPage = () => {
   }
 
   const [isLoading, setIsLoading] = useState(true);
-  const [generatedSlides, setGeneratedSlides] = useState([]);
+  // Use initialSlides from navigation state if coming from editor, otherwise use slides from props or empty array
+  const [generatedSlides, setGeneratedSlides] = useState(fromEditor ? initialSlides : (location.state?.slides || []));
 
+  // Always load slides from localStorage if available
   useEffect(() => {
-    if (!slides || slides.length === 0) {
-      setIsLoading(false);
-      return;
+    let latestSlides = null;
+    // If slides are present in navigation state (from editor), update localStorage
+    if (fromEditor && initialSlides && initialSlides.length > 0) {
+      localStorage.setItem('latestEditedSlides', JSON.stringify(initialSlides));
+      latestSlides = initialSlides;
+    } else if (location.state?.slides && location.state.slides.length > 0) {
+      // If slides are present in navigation state (not from editor), update localStorage
+      localStorage.setItem('latestEditedSlides', JSON.stringify(location.state.slides));
+      latestSlides = location.state.slides;
+    } else {
+      // Try to load from localStorage
+      const stored = localStorage.getItem('latestEditedSlides');
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          // Ensure parsed data is a non-empty array before considering it valid
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            latestSlides = parsed;
+          }
+        } catch (e) {
+          console.error("Error parsing slides from localStorage in useEffect:", e);
+        }
+      }
     }
-    const timer = setTimeout(() => {
-      setGeneratedSlides(slides);
-      setIsLoading(false);
-    }, 1200);
-    return () => clearTimeout(timer);
-  }, [slides]);
+
+    if (latestSlides) {
+      setGeneratedSlides(latestSlides);
+    }
+    // If no latestSlides are found, generatedSlides will retain its value from useState,
+    // which should be an empty array or slides from initial nav state if applicable.
+    setIsLoading(false);
+  }, [fromEditor, initialSlides, location.state?.slides]);
+
+  // Always pass the latest slides from localStorage to the editor
+  const handleEditSlides = () => {
+    let slidesToEdit = generatedSlides;
+    const stored = localStorage.getItem('latestEditedSlides');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          slidesToEdit = parsed;
+        }
+      } catch {}
+    }
+    navigate("/slide-editor", { state: { slides: slidesToEdit, template, presentationType } });
+  };
 
   const handleEditInGoogleSlides = async () => {
     if (!template) {
@@ -168,8 +208,9 @@ const SlidesGeneratingPage = () => {
         </ul>
       );
     }
-    if (typeof content === "string") {
-      return <div className="slide-desc">{content}</div>;
+    if (typeof content === 'string') {
+      
+      return <div className="slide-desc">{content.split('\\n').map((line, i) => <div key={i}>{line || <br />}</div>)}</div>;
     }
     return null;
   };
@@ -179,8 +220,8 @@ const SlidesGeneratingPage = () => {
       {getTemplateInfo()}
       <h2 className="outline-title">Outline</h2>
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.2rem" }}>
-        <button className="edit-google-slides-btn" onClick={handleEditInGoogleSlides} style={{ fontSize: "1rem", padding: "0.4rem 1.1rem" }}>
-          Edit in Google Slides
+        <button className="edit-google-slides-btn" onClick={handleEditSlides} style={{ fontSize: "1rem", padding: "0.4rem 1.1rem" }}>
+          Edit Slides
         </button>
         <button className="generate-btn" style={{ fontSize: "0.95rem", padding: "0.35rem 0.9rem" }} onClick={handleGenerateQuiz}>
           Generate Quiz
@@ -196,37 +237,66 @@ const SlidesGeneratingPage = () => {
             <p>Generating slides... Please wait.</p>
           </div>
         ) : generatedSlides && generatedSlides.length > 0 ? (
-          generatedSlides.map((slide, index) => (
-            <div key={index} className="slide-split-preview-card">
-              <div className="slide-split-left">
-                <div className="slide-split-title">{slide.title}</div>
-                <div className="slide-split-content">
-                  {renderSlideContent(slide.content)}
-                </div>
-                {slide.author && (
-                  <div className="slide-split-author">
-                    <span className="slide-split-author-avatar"></span>
-                    <span>
-                      <b>{slide.author}</b>
-                      <br />
-                      <span className="slide-split-author-edit">Last edited just now</span>
-                    </span>
+          generatedSlides.map((slideData, index) => {
+            let title, contentForRender, imageUrl;
+
+            // Check if the slide is in editor format or original format
+            if (slideData.textboxes && Array.isArray(slideData.textboxes)) {
+              // Editor format
+              const titleBox = slideData.textboxes.find(tb => tb.type === 'title');
+              const bodyBox = slideData.textboxes.find(tb => tb.type === 'body');
+              
+              title = titleBox ? titleBox.text : 'Untitled';
+              
+              if (bodyBox) {
+                if (bodyBox.bullets) {
+                  contentForRender = bodyBox.text.split('\\n'); // Pass as array for bullet rendering
+                } else {
+                  contentForRender = bodyBox.text; // Pass as string
+                }
+              } else {
+                contentForRender = '';
+              }
+              imageUrl = slideData.image ? slideData.image.src : null;
+            } else {
+              // Original format
+              title = slideData.title;
+              contentForRender = slideData.content;
+              imageUrl = slideData.image_url;
+            }
+
+            return (
+              <div key={index} className="slide-split-preview-card">
+                <div className="slide-split-left">
+                  <div className="slide-split-title">{title}</div>
+                  <div className="slide-split-content">
+                    {renderSlideContent(contentForRender)}
                   </div>
-                )}
+                  {slideData.author && ( // Assuming author might not be in editor format
+                    <div className="slide-split-author">
+                      <span className="slide-split-author-avatar"></span>
+                      <span>
+                        <b>{slideData.author}</b>
+                        <br />
+                        <span className="slide-split-author-edit">Last edited just now</span>
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="slide-split-right">
+                  {imageUrl ? (
+                    <img
+                      src={imageUrl}
+                      alt="Slide visual"
+                      className="slide-split-image"
+                    />
+                  ) : (
+                    <div className="slide-split-image-placeholder">No image</div>
+                  )}
+                </div>
               </div>
-              <div className="slide-split-right">
-                {slide.image_url ? (
-                  <img
-                    src={slide.image_url}
-                    alt="Slide visual"
-                    className="slide-split-image"
-                  />
-                ) : (
-                  <div className="slide-split-image-placeholder">No image</div>
-                )}
-              </div>
-            </div>
-          ))
+            );
+          })
         ) : (
           <p>No slides available. Please try again.</p>
         )}

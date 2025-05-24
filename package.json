@@ -10,6 +10,7 @@
     "react-konva": "^19.0.3",
     "react-redux": "^9.2.0",
     "react-slideshow-image": "^4.3.2",
-    "redux": "^5.0.1"
+    "redux": "^5.0.1",
+    "use-image": "^1.1.2"
   }
 }

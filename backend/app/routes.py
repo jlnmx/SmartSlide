@@ -3,6 +3,7 @@ import re
 import json
 import traceback
 import uuid
+import base64
 import requests
 from app.models import db, User, Analytics, Presentation
 from app.templates_config import TEMPLATES
@@ -16,18 +17,12 @@ from pptx import Presentation as PptxPresentation
 from pptx.util import Pt, Inches
 from pptx.dml.color import RGBColor
 from PIL import Image, ImageDraw
-from pptx.enum.text import PP_ALIGN
+from pptx.enum.text import PP_ALIGN, MSO_ANCHOR, MSO_AUTO_SIZE # Ensure MSO_AUTO_SIZE is imported
 from pdf2image import convert_from_path
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-import io 
-import re
-import os
-import traceback
-import pdfplumber
-import pandas as pd
 from docx import Document
 from bs4 import BeautifulSoup
 try:
@@ -186,6 +181,8 @@ def generate_slides():
             )
             db.session.add(new_presentation)
             db.session.commit()
+            # Update analytics after successful slide generation and saving
+            update_analytics_on_slide(user_id, topic=prompt_topic)
 
         return jsonify({"slides": slides_data})
 
@@ -353,39 +350,240 @@ def apply_template_to_slide(slide, template, slide_data, ppt=None):
 
 @main.route("/generate-presentation", methods=["POST"])
 def generate_presentation():
-    try:
-        data = request.json
-        slides = data.get("slides")
-        template_id = data.get("template")
-        template = TEMPLATES.get(template_id)
-        presentation_type = data.get("presentationType", "Default")
-        if not template:
-            return jsonify({"error": "Invalid or missing template."}), 400
+    # Define slide and editor dimensions (in inches and pixels)
+    PPTX_SLIDE_WIDTH_INCHES = 13.33
+    PPTX_SLIDE_HEIGHT_INCHES = 7.5
+    EDITOR_SLIDE_WIDTH_PX = 1280
+    EDITOR_SLIDE_HEIGHT_PX = 720
 
-        ppt = PptxPresentation()
-        set_presentation_size(ppt, presentation_type)  # Set slide size based on type
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
 
-        for slide_data in slides:
-            slide = ppt.slides.add_slide(ppt.slide_layouts[1])
-            apply_template_to_slide(slide, template, slide_data, ppt)
+    slides_data = data.get("slides")
+    if not slides_data or not isinstance(slides_data, list):
+        return jsonify({"error": "Invalid slides data"}), 400
 
-        ppt_stream = io.BytesIO()
-        ppt.save(ppt_stream)
-        ppt_stream.seek(0)
+    prs = PptxPresentation()
+    prs.slide_width = Inches(PPTX_SLIDE_WIDTH_INCHES)
+    prs.slide_height = Inches(PPTX_SLIDE_HEIGHT_INCHES)
 
-        return send_file(
-            ppt_stream,
-            as_attachment=True,
-            download_name="generated_presentation.pptx",
-            mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        )
-    except Exception as e:
-        print(f"Error generating presentation: {e}")
-        traceback.print_exc()
-        return jsonify({"error": "An error occurred while generating the presentation.", "details": str(e)}), 500
+    px_to_in_x = PPTX_SLIDE_WIDTH_INCHES / EDITOR_SLIDE_WIDTH_PX
+    px_to_in_y = PPTX_SLIDE_HEIGHT_INCHES / EDITOR_SLIDE_HEIGHT_PX
+
+    def parse_span_style(style_str):
+        """
+        Parse a CSS-like style string into a dictionary.
+        Example: "font-family: Arial; font-size: 24px; color: #FF0000; bold: true;"
+        Returns: {'fontfamily': 'Arial', 'fontsize': '24px', 'color': '#FF0000', 'bold': 'true'}
+        """
+        styles = {}
+        if not style_str:
+            return styles
+        for part in style_str.split(';'):
+            if ':' in part:
+                key, value = part.split(':', 1)
+                key = key.strip().replace('-', '').lower()
+                value = value.strip()
+                styles[key] = value
+        return styles
+
+    for slide_item_data in slides_data:
+        slide_layout = prs.slide_layouts[6] # BLANK layout
+        ppt_slide = prs.slides.add_slide(slide_layout)
+
+        background_data = slide_item_data.get("background", {})
+        bg_fill_hex = background_data.get("fill", "#FFFFFF")
+        if bg_fill_hex:
+            fill = ppt_slide.background.fill
+            fill.solid()
+            fill.fore_color.rgb = hex_to_rgb(bg_fill_hex)
+
+        textboxes_data = slide_item_data.get("textboxes", [])
+        for tb_data in textboxes_data:
+            x_px = float(tb_data.get("x", 0))
+            y_px = float(tb_data.get("y", 0))
+            width_px = float(tb_data.get("width", 100))
+            height_px = float(tb_data.get("height", 50))
+
+            left = Inches(x_px * px_to_in_x)
+            top = Inches(y_px * px_to_in_y)
+            width = Inches(width_px * px_to_in_x)
+            height = Inches(height_px * px_to_in_y)
+            
+            if width <= 0 or height <= 0: # Skip if dimensions are invalid
+                print(f"Skipping textbox with invalid dimensions: w={width_px}, h={height_px}")
+                continue
+
+            shape = ppt_slide.shapes.add_textbox(left, top, width, height)
+            tf = shape.text_frame
+            tf.word_wrap = True
+            tf.auto_size = MSO_AUTO_SIZE.NONE # Respect explicit height
+            tf.margin_bottom = Inches(0.05)
+            tf.margin_left = Inches(0.1)
+            tf.margin_right = Inches(0.1)
+            tf.margin_top = Inches(0.05)
+            tf.clear()
+
+            text_content = tb_data.get("text", "")
+            
+            default_font_family = tb_data.get("fontFamily", "Arial")
+            default_font_size_pt = float(tb_data.get("fontSize", 18))
+            default_font_color_hex = tb_data.get("fill", "#000000")
+            default_font_color_rgb = hex_to_rgb(default_font_color_hex)
+            
+            default_font_style = tb_data.get("fontStyle", {})
+            default_bold = default_font_style.get("bold", False)
+            default_italic = default_font_style.get("italic", False)
+            default_underline = default_font_style.get("underline", False)
+            
+            default_align_str = tb_data.get("align", "left").upper()
+            # Mapping for PP_ALIGN: LEFT, CENTER, RIGHT, JUSTIFY, DISTRIBUTE, THAI_DISTRIBUTE
+            align_map = {
+                "LEFT": PP_ALIGN.LEFT,
+                "CENTER": PP_ALIGN.CENTER,
+                "RIGHT": PP_ALIGN.RIGHT,
+                "JUSTIFY": PP_ALIGN.JUSTIFY, # Or DISTRIBUTE, JUSTIFY is usually better for western text
+            }
+            default_alignment = align_map.get(default_align_str, PP_ALIGN.LEFT)
+            
+            default_line_height_multiplier = tb_data.get("lineHeight") # e.g., 1, 1.15, 1.5
+            default_paragraph_spacing_pt = float(tb_data.get("paragraphSpacing", 0))
+            is_bulleted = tb_data.get("bullets", False)
+
+            # Use BeautifulSoup to parse text_content which might contain spans and newlines as <br/>
+            # The frontend text property of a textbox is innerText, but handleToolbarChange injects spans.
+            # And the frontend rendering of textboxes splits by \\n.
+            # For simplicity, we assume text_content is a string where \\n are paragraph breaks.
+            
+            paragraphs_text = text_content.split('\\n')
+            
+            for para_idx, para_text_html in enumerate(paragraphs_text):
+                p = tf.add_paragraph()
+                p.alignment = default_alignment
+                if default_line_height_multiplier and isinstance(default_line_height_multiplier, (int, float)):
+                    p.line_spacing = default_line_height_multiplier
+                
+                # space_before for first para, space_after for the rest (or just space_after for all)
+                if para_idx > 0 : # Add paragraph spacing before if not the first paragraph
+                     p.space_before = Pt(default_paragraph_spacing_pt)
+                # p.space_after = Pt(default_paragraph_spacing_pt) # Or apply after always
+
+                if is_bulleted and para_text_html.strip(): # Add bullet if line is not empty
+                    p.level = 0 # Basic bullet
+                
+                # Now parse this paragraph's HTML-like content (spans)
+                # Wrap in a div for proper parsing by BeautifulSoup
+                soup = BeautifulSoup(f"<div>{para_text_html}</div>", "html.parser")
+                
+                for element in soup.div.contents:
+                    run = p.add_run()
+                    text_to_add = ""
+                    
+                    run_font_family = default_font_family
+                    run_font_size_pt = default_font_size_pt
+                    run_font_color_rgb = default_font_color_rgb
+                    run_bold = default_bold # Start with textbox defaults
+                    run_italic = default_italic
+                    run_underline = default_underline
+
+                    if element.name == 'span':
+                        text_to_add = element.get_text()
+                        span_style_str = element.get('style', '')
+                        span_styles = parse_span_style(span_style_str)
+                        
+                        if 'fontfamily' in span_styles: run_font_family = span_styles['fontfamily'] # Matched lowercase
+                        if 'fontsize' in span_styles: # e.g. "24px" or "24"
+                            try: run_font_size_pt = float(str(span_styles['fontsize']).replace('pt','').replace('px',''))
+                            except ValueError: pass
+                        if 'color' in span_styles: run_font_color_rgb = hex_to_rgb(span_styles['color'])
+                        
+                        # Handling for custom bold/italic/underline styles from frontend spans
+                        # style="bold: true;" or style="italic: false;"
+                        if 'bold' in span_styles: run_bold = str(span_styles['bold']).lower() == 'true'
+                        if 'italic' in span_styles: run_italic = str(span_styles['italic']).lower() == 'true'
+                        if 'underline' in span_styles: run_underline = str(span_styles['underline']).lower() == 'true'
+
+                    elif element.name is None: # Plain text node
+                        text_to_add = str(element)
+                    
+                    if text_to_add:
+                        run.text = text_to_add
+                        run.font.name = run_font_family
+                        run.font.size = Pt(run_font_size_pt)
+                        run.font.color.rgb = run_font_color_rgb
+                        run.font.bold = run_bold
+                        run.font.italic = run_italic
+                        run.font.underline = run_underline
+                
+                if not p.runs and not (is_bulleted and para_text_html.strip()): # If paragraph is empty and not a placeholder for a bullet point
+                    # Add a non-breaking space to make empty lines take up space if needed,
+                    # or ensure paragraph formatting is applied.
+                    # However, python-pptx usually handles empty paragraphs okay.
+                    # If bulleted and empty, it should still show the bullet.
+                    pass
+
+
+            if not tf.paragraphs: # Ensure at least one paragraph if textbox was empty
+                p = tf.add_paragraph()
+                run = p.add_run()
+                run.text = " " # Add a space to make the textbox selectable
+                run.font.size = Pt(1)
+
+
+        image_data = slide_item_data.get("image")
+        if image_data and isinstance(image_data, dict):
+            img_src_base64 = image_data.get("src")
+            if img_src_base64 and img_src_base64.startswith('data:image'):
+                try:
+                    header, encoded = img_src_base64.split(',', 1)
+                    img_bytes = base64.b64decode(encoded)
+                    img_stream = BytesIO(img_bytes)
+
+                    img_x_px = float(image_data.get("x", 0))
+                    img_y_px = float(image_data.get("y", 0))
+                    img_width_px = float(image_data.get("width", 100))
+                    img_height_px = float(image_data.get("height", 100))
+                    
+                    if img_width_px <=0 or img_height_px <=0:
+                        print(f"Skipping image with invalid dimensions: w={img_width_px}, h={img_height_px}")
+                        continue
+
+                    img_left = Inches(img_x_px * px_to_in_x)
+                    img_top = Inches(img_y_px * px_to_in_y)
+                    img_width = Inches(img_width_px * px_to_in_x)
+                    img_height = Inches(img_height_px * px_to_in_y)
+
+                    ppt_slide.shapes.add_picture(img_stream, img_left, img_top, width=img_width, height=img_height)
+                except Exception as e:
+                    print(f"Error processing image: {e}")
+
+    file_stream = BytesIO()
+    prs.save(file_stream)
+    file_stream.seek(0)
+
+    return send_file(
+        file_stream,
+        as_attachment=True,
+        download_name="edited_presentation.pptx",
+        mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    )
     
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def hex_to_rgb(hex_color):
+    """Convert hex color string (e.g. '#FF00AA' or 'FF00AA') to RGBColor tuple."""
+    hex_color = hex_color.lstrip('#')
+    if len(hex_color) == 6:
+        r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+        return RGBColor(r, g, b)
+    elif len(hex_color) == 3:
+        r, g, b = tuple(int(hex_color[i]*2, 16) for i in range(3))
+        return RGBColor(r, g, b)
+    else:
+        # fallback to black
+        return RGBColor(0, 0, 0)
 
 @main.route("/upload-file", methods=["POST"])
 def upload_file():
@@ -403,7 +601,6 @@ def upload_file():
 
     try:
         import re
-        import string
         text = ""
         topic = os.path.splitext(filename)[0].replace('_', ' ').replace('-', ' ').title()
         if ext == 'pdf':
@@ -792,6 +989,8 @@ def paste_and_create():
         )
         db.session.add(new_presentation)
         db.session.commit()
+        # Update analytics after successful paste-and-create and saving
+        update_analytics_on_slide(user_id, topic=slides[0]["title"] if slides else "Pasted Content")
 
     return jsonify({"slides": slides, "result": f"Generated {len(slides)} slides."})
 
@@ -845,57 +1044,143 @@ def generate_image_cloudflare(prompt):
 def generate_quiz():
     data = request.json
     slides = data.get("slides")
-    user_id = data.get("user_id")  # Expect user_id from frontend
+    user_id = data.get("user_id")
+
     if not slides or not isinstance(slides, list):
-        return jsonify({"error": "Slides data is required."}), 400
+        return jsonify({"error": "No slides provided or invalid format."}), 400
+
+    slide_text_content = extract_text_from_slides(slides)
+
+    if not slide_text_content.strip():
+        return jsonify({"error": "No text content found in slides."}), 400
+
     try:
-        # Compose a prompt for quiz generation
-        slide_text = "\n".join(
-            f"Title: {slide.get('title', '')}\nContent: {' '.join(slide.get('content', []))}" for slide in slides
-        )
         prompt = f"""
-        Based on the following presentation slides, generate a structured quiz questionnaire. 
-        - Include a mix of multiple choice, true/false, and short answer questions.
-        - For each question, provide 3-4 choices if applicable, and indicate the correct answer.
-        - Make sure the quiz covers all key points from the slides.
-        - Return as a JSON array: [{{question, choices (optional), answer}}]
-        Slides:\n{slide_text}
+        Based on the following presentation content, generate a structured quiz questionnaire.
+        The content is extracted from presentation slides.
+        
+        Presentation Content:
+        ---
+        {slide_text_content}
+        ---
+
+        Quiz Requirements:
+        1.  Generate a variety of question types:
+            *   Multiple Choice Questions (MCQ): Provide 3-4 distinct choices. Clearly indicate the correct answer.
+            *   True/False Questions: State a fact and ask if it\\\\\'s true or false. Provide the correct answer.
+            *   Short Answer Questions: Ask a question that requires a brief written response. Provide the ideal answer.
+        2.  Ensure the quiz comprehensively covers the key information and concepts from the provided content.
+        3.  The difficulty should be appropriate for someone who has just reviewed the presentation material.
+        4.  The tone should be educational and neutral.
+        5.  Output Format: STRICTLY a JSON object. This object MUST contain a single key named "quiz". The value of this "quiz" key MUST be a JSON array of question objects. Each question object must have the following fields:
+            *   `question` (string): The question text.
+            *   `type` (string): Can be "MCQ", "True/False", or "Short Answer".
+            *   `choices` (array of strings, optional): Required for "MCQ" type. List of possible answers.
+            *   `answer` (string): The correct answer. For "MCQ", this should be one of the strings from the `choices` array. For "Short Answer", this is the ideal response. For "True/False", it\\\\\'s "True" or "False".
+            *   `explanation` (string, optional): A brief explanation for why the answer is correct, especially for tricky questions.
+
+        Example of a single question object (which would be an element in the "quiz" array):
+        {{{{  // Escaped curly brace
+          "question": "What is the capital of France?",
+          "type": "MCQ",
+          "choices": ["Berlin", "Madrid", "Paris", "Rome"],
+          "answer": "Paris",
+          "explanation": "Paris is the capital and most populous city of France."
+        }}}}  // Escaped curly brace
+        
+        Generate at least 5 questions if the content allows, but no more than 10.
+        Ensure the entire output is a single valid JSON object as described (e.g., {{{{ "quiz": [ ...questions... ] }}}}). Do not include any text before or after this JSON object.
         """
+        
         headers = {
             "Authorization": f"Bearer {GROQ_API_KEY}",
             "Content-Type": "application/json"
         }
         payload = {
-            "model": "llama3-8b-8192",
+            "model": "llama3-70b-8192",
             "messages": [
-                {"role": "system", "content": "You are a helpful assistant that generates quiz questions in JSON format."},
+                {"role": "system", "content": "You are an expert quiz generation assistant. Your output MUST be a single valid JSON object. This object must contain a key named 'quiz', and its value must be an array of question objects, as per the user\\'s detailed instructions. Do not add any introductory or concluding text outside the JSON object itself."},
                 {"role": "user", "content": prompt}
             ],
-            "max_tokens": 2048,
-            "temperature": 0.3
+            "max_tokens": 3000,
+            "temperature": 0.2,
+            "response_format": {"type": "json_object"}
         }
+
         response = requests.post(GROQ_API_URL, headers=headers, json=payload)
+
         if response.status_code != 200:
-            return jsonify({"error": "Failed to generate quiz.", "details": response.text}), 500
-        result = response.json()
-        model_output = result["choices"][0]["message"]["content"]
-        # Try to extract JSON array
-        import re, json
-        match = re.search(r'\[.*\]', model_output, re.DOTALL)
-        if match:
+            error_details = response.text
             try:
-                quiz = json.loads(match.group(0))
-            except Exception:
-                quiz = model_output
-        else:
-            quiz = model_output
-        # Update analytics for quiz generation
-        if user_id:
+                error_details_json = response.json()
+                error_details = error_details_json.get("error", {}).get("message", response.text)
+            except ValueError:
+                pass 
+            print(f"LLM API Error: Status {response.status_code}, Details: {error_details}")
+            return jsonify({"error": "Failed to generate quiz from LLM.", "details": error_details}), 500
+
+        model_output_raw = response.json()
+        model_content_str = model_output_raw.get("choices", [{}])[0].get("message", {}).get("content", "")
+
+        if not model_content_str:
+            print("LLM returned empty content for quiz.")
+            return jsonify({"error": "LLM returned empty content for quiz."}), 500
+            
+        quiz_data = None
+        try:
+            parsed_json = json.loads(model_content_str)
+            if isinstance(parsed_json, list):
+                quiz_data = parsed_json
+            elif isinstance(parsed_json, dict):
+                for key in ["quiz", "questions", "quiz_questions", "data"]:
+                    if isinstance(parsed_json.get(key), list):
+                        quiz_data = parsed_json[key]
+                        break
+                if not quiz_data: 
+                    print(f"LLM returned a JSON object but not in the expected array format or wrapped object: {parsed_json}")
+                    if "question" in parsed_json and "answer" in parsed_json:
+                        quiz_data = [parsed_json]
+                    else:
+                        raise ValueError("JSON object received, but quiz array not found within it.")
+            else:
+                raise ValueError(f"Expected a JSON list or an object containing a list, but got {type(parsed_json)}")
+
+        except json.JSONDecodeError as e:
+            print(f"JSONDecodeError while parsing LLM output for quiz: {e}")
+            print(f"Problematic LLM output string: {model_content_str[:500]}...")
+            match = re.search(r'\\[\\s*\\{.*?\\}\\s*\\]', model_content_str, re.DOTALL) # Corrected regex
+            if match:
+                try:
+                    quiz_data = json.loads(match.group(0))
+                except json.JSONDecodeError as e_regex:
+                    print(f"JSONDecodeError even after regex extraction for quiz: {e_regex}")
+                    return jsonify({"error": "Failed to parse quiz JSON from LLM response after regex.", "details": model_content_str}), 500
+            else:
+                return jsonify({"error": "Failed to parse quiz JSON from LLM response and no regex match.", "details": model_content_str}), 500
+        
+        if not quiz_data:
+             return jsonify({"error": "Successfully parsed JSON from LLM, but no quiz data found.", "details": model_content_str}), 500
+
+        if not isinstance(quiz_data, list) or not all(isinstance(q, dict) and 'question' in q and 'answer' in q for q in quiz_data): # Corrected list comprehension
+            print(f"Quiz data is not in the expected format (list of dicts with question/answer): {quiz_data}")
+            return jsonify({"error": "Generated quiz data is not in the expected format.", "details": str(quiz_data)}), 500
+
+        # If quiz generation is successful, update analytics
+        if user_id and quiz_data:
             update_analytics_on_quiz(user_id)
-        return jsonify({"quiz": quiz})
+        
+        return jsonify({"quiz": quiz_data})
+
+    except requests.exceptions.RequestException as e:
+        print(f"Network error during quiz generation: {e}")
+        return jsonify({"error": "Network error during quiz generation."}), 500
+    except KeyError as e:
+        print(f"KeyError during quiz generation (likely unexpected LLM response structure): {e}")
+        return jsonify({"error": "KeyError during quiz generation."}), 500
     except Exception as e:
-        print(f"Quiz generation error: {e}")
-        return jsonify({"error": str(e)}), 500
+        print(f"Unexpected error during quiz generation: {e}")
+        traceback.print_exc()
+        return jsonify({"error": "Unexpected error during quiz generation."}), 500
 
 @main.route("/generate-script", methods=["POST"])
 def generate_script():
@@ -903,7 +1188,7 @@ def generate_script():
     slides = data.get("slides")
     user_id = data.get("user_id")  # Expect user_id from frontend
     if not slides or not isinstance(slides, list):
-        return jsonify({"error": "Slides data is required."}), 400
+        return jsonify({"error": "No slides provided or invalid format."}), 400
     try:
         # Compose a prompt for script generation
         slide_text = "\n".join(
@@ -930,7 +1215,7 @@ def generate_script():
         }
         response = requests.post(GROQ_API_URL, headers=headers, json=payload)
         if response.status_code != 200:
-            return jsonify({"error": "Failed to generate script.", "details": response.text}), 500
+            return jsonify({"error": "Failed to generate script."}), 500
         result = response.json()
         model_output = result["choices"][0]["message"]["content"]
         # Update analytics for script generation
@@ -939,7 +1224,7 @@ def generate_script():
         return jsonify({"script": model_output.strip()})
     except Exception as e:
         print(f"Script generation error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Script generation error.", "details": str(e)}), 500
 
 @main.route("/export-quiz-word", methods=["POST"])
 def export_quiz_word():
@@ -1046,21 +1331,31 @@ def update_user(user_id):
 # --- ANALYTICS ROUTES ---
 @main.route('/analytics/<int:user_id>', methods=['GET'])
 def get_analytics(user_id):
-    # Fetch general usage analytics
-    analytics = Analytics.query.filter_by(user_id=user_id, month=None, topic=None).first()
-    if not analytics:
-        return jsonify({'error': 'No analytics found.'}), 404
-    # Fetch monthly slide creation
+    # General summary
+    general_analytics = Analytics.query.filter_by(user_id=user_id, month=None, topic=None).first()
+    if not general_analytics:
+        # Create a default general analytics entry if none exists
+        general_analytics = Analytics(
+            user_id=user_id,
+            slides_created=0,
+            quizzes_generated=0,
+            scripts_generated=0,
+            last_active=datetime.utcnow()  # Ensure datetime is imported
+        )
+        db.session.add(general_analytics)
+        db.session.commit()
+
+    # Monthly data
     monthly = Analytics.query.filter_by(user_id=user_id).filter(Analytics.month != None).all()
     month_stats = {a.month: a.slides_created for a in monthly}
     # Fetch topic stats
     topics = Analytics.query.filter_by(user_id=user_id).filter(Analytics.topic != None).all()
     topic_stats = {a.topic: a.topic_count for a in topics}
     return jsonify({
-        'slides_generated': analytics.slides_created,
-        'quizzes_generated': analytics.quizzes_generated,
-        'scripts_generated': analytics.scripts_generated,
-        'last_active': analytics.last_active,
+        'slides_generated': general_analytics.slides_created,
+        'quizzes_generated': general_analytics.quizzes_generated,
+        'scripts_generated': general_analytics.scripts_generated,
+        'last_active': general_analytics.last_active.isoformat() if general_analytics.last_active else None,
         'monthly': month_stats,
         'topics': topic_stats
     })
@@ -1171,4 +1466,47 @@ def templates_list():
 @main.route("/", methods=["GET"])
 def root():
     return jsonify({"message": "Welcome to the SmartSlide API!"})
+
+# Helper function to extract text from different slide formats
+def extract_text_from_slides(slides_data):
+    text_content = []
+    for slide in slides_data:
+        slide_text_parts = []
+        # Check for editor slide format (textboxes)
+        if "textboxes" in slide and isinstance(slide.get("textboxes"), list):
+            for tb in slide["textboxes"]:
+                if "text" in tb and tb["text"]:
+                    # Remove HTML tags using BeautifulSoup
+                    soup = BeautifulSoup(tb["text"], "html.parser")
+                    cleaned_text = soup.get_text(separator=" ", strip=True)
+                    if cleaned_text:
+                        slide_text_parts.append(cleaned_text)
+        # Check for original slide format (title/content)
+        elif "title" in slide or "content" in slide:
+            if slide.get("title"):
+                # Titles might also have markdown/html, clean them
+                soup = BeautifulSoup(str(slide["title"]), "html.parser")
+                cleaned_title = soup.get_text(separator=" ", strip=True)
+                if cleaned_title:
+                    slide_text_parts.append(cleaned_title)
+            
+            slide_content_data = slide.get("content")
+            if slide_content_data:
+                if isinstance(slide_content_data, list):
+                    for item in slide_content_data:
+                        if item: # Ensure item is not None or empty
+                            soup = BeautifulSoup(str(item), "html.parser")
+                            cleaned_item = soup.get_text(separator=" ", strip=True)
+                            if cleaned_item:
+                                slide_text_parts.append(cleaned_item)
+                elif isinstance(slide_content_data, str): # Content could be a single string
+                    soup = BeautifulSoup(slide_content_data, "html.parser")
+                    cleaned_content_str = soup.get_text(separator=" ", strip=True)
+                    if cleaned_content_str:
+                        slide_text_parts.append(cleaned_content_str)
+        
+        if slide_text_parts:
+            text_content.append(" ".join(slide_text_parts)) # Join parts for a single slide
+            
+    return "\\n\\n".join(text_content) # Join text from all slides with double newline
 

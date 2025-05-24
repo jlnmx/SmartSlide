@@ -14,6 +14,7 @@ import AccountProfile from "./AccountProfile";
 import Help from "./Help";
 import GeneratedQuiz from "./GeneratedQuiz";
 import GeneratedScript from "./GeneratedScript";
+import SlideEditor from "./SlideEditor";
 
 
 
@@ -58,6 +59,9 @@ const MainRouter = () => {
 
         {/* Generated Script Page */}   
         <Route path="/generated-script" element={<GeneratedScript />} />
+
+        {/* Slide Editor Page */}
+        <Route path="/slide-editor" element={<SlideEditor />} />
 
         {/* Help Page */}
         <Route path="/help" element={<Help />} />

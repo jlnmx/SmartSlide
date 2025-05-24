@@ -18,9 +18,14 @@ export default function ImportPage() {
       fetch("http://localhost:5000/templates-list")
         .then((res) => res.json())
         .then((data) => {
-          setTemplates(data.templates || []);
-          if (data.templates && data.templates.length > 0 && !selectedTemplate) {
-            setSelectedTemplate(data.templates[0]);
+          // Only keep Abstract, Creative, Business, Education (case-insensitive)
+          const allowed = ["abstract", "creative", "business", "education"];
+          const filtered = (data.templates || []).filter(
+            t => allowed.includes((t.title || t.name || "").toLowerCase())
+          );
+          setTemplates(filtered);
+          if (filtered.length > 0 && !selectedTemplate) {
+            setSelectedTemplate(filtered[0]);
           }
         });
     }

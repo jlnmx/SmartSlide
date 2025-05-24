@@ -22,9 +22,14 @@ const GeneratePage = () => {
             fetch("http://localhost:5000/templates-list")
                 .then((res) => res.json())
                 .then((data) => {
-                    setTemplates(data.templates || []);
-                    if (data.templates && data.templates.length > 0 && !selectedTemplate) {
-                        setSelectedTemplate(data.templates[0]);
+                    // Match template choices to Import and PasteAndCreate (case-insensitive)
+                    const allowed = ["abstract", "creative", "business", "education"];
+                    const filtered = (data.templates || []).filter(
+                        t => allowed.includes((t.title || t.name || "").toLowerCase())
+                    );
+                    setTemplates(filtered);
+                    if (filtered.length > 0 && !selectedTemplate) {
+                        setSelectedTemplate(filtered[0]);
                     }
                 });
         }

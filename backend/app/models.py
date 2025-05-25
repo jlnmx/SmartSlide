@@ -39,7 +39,7 @@ class Presentation(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     title = db.Column(db.String(200), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    # Optionally store more metadata (e.g., template, type)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow) # Add this line
     template = db.Column(db.String(100), nullable=True)
     presentation_type = db.Column(db.String(100), nullable=True)
     slides_json = db.Column(db.Text, nullable=True)  # Store slides as JSON string

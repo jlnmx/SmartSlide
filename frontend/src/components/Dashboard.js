@@ -8,13 +8,11 @@ const Dashboard = () => {
   const [presentations, setPresentations] = useState([]);
 
   useEffect(() => {
-    // Get user from localStorage (set after login)
     const user = JSON.parse(localStorage.getItem("user"));
     if (!user || !user.id) {
       navigate("/auth");
       return;
     }
-    // Fetch recent presentations from backend
     axios
       .get(`http://localhost:5000/presentations/${user.id}`)
       .then((res) => {
@@ -33,7 +31,6 @@ const Dashboard = () => {
     localStorage.removeItem("user");
     navigate("/auth");
   };
-
   const handlePresentationClick = async (presentation) => {
     try {
       const res = await axios.get(`http://localhost:5000/presentation/${presentation.id}`);
@@ -43,15 +40,16 @@ const Dashboard = () => {
           slides,
           template: res.data.template || presentation.template,
           presentationType: res.data.presentationType || presentation.presentation_type || "Default",
+          presentationId: presentation.id, // Add presentationId to the navigation state
         },
       });
     } catch (err) {
-      // fallback: show placeholder if error
       navigate("/slides-generating", {
         state: {
           slides: [{ title: presentation.title, content: ["No slide content stored. This is a placeholder."] }],
           template: presentation.template,
           presentationType: presentation.presentation_type || "Default",
+          presentationId: presentation.id, // Add presentationId to the navigation state
         },
       });
     }
@@ -69,25 +67,21 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard-container">
-      {/* Sidebar */}
       <aside className="sidebar">
-        <div className="sidebar logo"></div> {/* Logo is styled in CSS */}
+        <div className="sidebar logo"></div> 
         <nav className="menu">
           <Link to="/create" className="menu-item">CREATE</Link>
           <Link to="/saved-quizzes-and-scripts" className="menu-item">QUIZZES & SCRIPTS</Link>
-          <Link to="/settings" className="menu-item">SETTINGS</Link>
         </nav>
         <button className="logout-btn" onClick={handleLogoutClick}>
           Logout
         </button>
       </aside>
 
-      {/* Main Content */}
       <main className="main-content">
         <header className="dashboard-header">
           <h1>WELCOME BACK!</h1>
-          {/* Add Account Button */}
-          <div className="header-actions"> {/* Added a wrapper for buttons */}
+          <div className="header-actions"> 
             <Link to="/account" className="account-btn">
               Account
             </Link>
@@ -122,7 +116,6 @@ const Dashboard = () => {
         </section>
       </main>
 
-      {/* Need Help Button */}
       <button className="need-help-btn" onClick={handleHelpClick}>
       </button>
     </div>

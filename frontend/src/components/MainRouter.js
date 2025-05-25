@@ -8,7 +8,6 @@ import GeneratePage from "./GeneratePage";
 import PasteAndCreate from "./PasteAndCreate";
 import ImportPage from "./ImportPage";
 import Analytics from "./Analytics";
-import Templates from "./Templates";
 import SlidesGeneratingPage from "./SlidesGeneratingPage";
 import AccountProfile from "./AccountProfile";
 import Help from "./Help";
@@ -48,9 +47,7 @@ const MainRouter = () => {
         {/* Analytics Page */}
         <Route path="/analytics" element={<Analytics />} />
 
-        {/* Templates Page */}
-        <Route path="/templates" element={<Templates />} />
-
+        {/* Account Profile Page */}
         <Route path="/account" element={<AccountProfile />} />
 
         <Route path="/slides-generating" element={<SlidesGeneratingPage />} />
@@ -70,6 +67,7 @@ const MainRouter = () => {
         {/* Help Page */}
         <Route path="/help" element={<Help />} />
 
+        
       </Routes>
     </Router>
   );

@@ -1,8 +1,9 @@
 import React from "react";
-import "../styles/Help.css"; // Import the HelpPage styles
-
+import "../styles/Help.css";
+import Navbar from "./Navbar"; 
 const Help = () => {
   return (
+    <div><Navbar />
     <div className="help-page-container">
       <h1 className="help-title">Contact us for more information!</h1>
       <p className="help-description">
@@ -12,7 +13,7 @@ const Help = () => {
       <div className="help-cards">
         <div className="help-card">
           <i className="help-icon location-icon"></i>
-          <h3>LOCATION</h3>
+          <h3>LOCATION</h3>``
           <p>Polytechnic University of the Philippines - Binan Campus</p>
           <p>College of Information Technology and Engineering</p>
         </div>
@@ -29,6 +30,7 @@ const Help = () => {
           <ul>sabandojullian@gmail.com</ul>
         </div>
       </div>
+    </div>
     </div>
   );
 };

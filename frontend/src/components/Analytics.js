@@ -13,14 +13,12 @@ const Analytics = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get user id from localStorage (set at login)
     const user = JSON.parse(localStorage.getItem("user"));
     if (!user || !user.id) return;
     setLoading(true);
     fetch(`http://localhost:5000/analytics/${user.id}`)
       .then(res => res.json())
       .then(data => {
-        // Fallbacks for missing fields
         const months = (data.monthly && Object.keys(data.monthly).sort()) || [];
         const slidesPerMonth = months.map(m => data.monthly ? data.monthly[m] : 0);
         setSlideData({
@@ -92,7 +90,7 @@ const Analytics = () => {
             {loading ? <p>Loading...</p> : <Bar data={slideData} />}
           </div>
           <div className="chart-container">
-            <h2>Most Common Topics</h2>
+            <h2>Topics</h2>
             {loading ? <p>Loading...</p> : <Pie data={topicData} />}
           </div>
         </section>

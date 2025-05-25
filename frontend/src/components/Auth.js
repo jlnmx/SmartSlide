@@ -80,7 +80,7 @@ const AuthPage = ({ isLogin }) => {
             </Slide>
           </div>
 
-          <p className="slideshow-footer">Directly create and open in Google Slides.</p>
+          <p className="slideshow-footer">Create your own presentations, quizzes and scripts efficiently .</p>
         </div>
 
         {/* --- Form Section --- */}

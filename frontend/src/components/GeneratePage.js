@@ -10,7 +10,6 @@ const GeneratePage = () => {
     const [prompt, setPrompt] = useState("");
     const [language, setLanguage] = useState("English");
     const [numSlides, setNumSlides] = useState("5");
-    const [presentationType, setPresentationType] = useState("Default");
     const [loading, setLoading] = useState(false);
     const [templates, setTemplates] = useState([]);
     const [selectedTemplate, setSelectedTemplate] = useState(passedTemplate || null);
@@ -57,7 +56,6 @@ const GeneratePage = () => {
                     prompt,
                     language,
                     numSlides: parseInt(numSlides),
-                    presentationType,
                     template: selectedTemplate.id,
                     user_id,
                     title: prompt,
@@ -73,7 +71,6 @@ const GeneratePage = () => {
                 state: {
                     slides: data.slides,
                     template: selectedTemplate,
-                    presentationType,
                 },
             });
         } catch (error) {
@@ -153,21 +150,6 @@ const GeneratePage = () => {
                             <option>20</option>
                             <option>25</option>
                             <option>30</option>
-                            <option>35</option>
-                            <option>40</option>
-                            <option>45</option>
-                            <option>50</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label>Presentation Type:</label>
-                        <select
-                            value={presentationType}
-                            onChange={(e) => setPresentationType(e.target.value)}
-                        >
-                            <option value="Default">Default</option>
-                            <option value="Tall">Tall</option>
-                            <option value="Traditional">Traditional</option>
                         </select>
                     </div>
                 </div>

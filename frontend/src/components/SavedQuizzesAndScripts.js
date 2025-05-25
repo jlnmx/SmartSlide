@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import '../styles/SavedQuizzesAndScripts.css';
+import Navbar from './Navbar';
 
 const Modal = ({ open, onClose, title, children }) => {
     if (!open) return null;
@@ -88,85 +89,97 @@ const SavedQuizzesAndScripts = () => {
     };
     
     const handleView = async (type, id) => {
-        let item, name; // Removed 'content' from here as it's handled by dataToProcess
+        let item;
 
         if (type === 'quiz') {
             item = savedQuizzes.find(q => q.id === id);
             if (!item) return;
 
-            name = item.name; // Default to item's name from the list
-            let questionsArray = null;
-            let dataToProcess = item.content; // Initialize with raw content
-
-            if (typeof item.content === 'string') {
+            let quizData = item.content;
+            if (typeof quizData === 'string') {
                 try {
-                    dataToProcess = JSON.parse(item.content); // Attempt to parse if it's a string
+                    quizData = JSON.parse(quizData);
                 } catch (e) {
-                    // Parsing failed, dataToProcess remains the original string content
-                    // console.error("Failed to parse quiz content string:", e);
+                    // keep as string if parsing fails
                 }
             }
 
-            // dataToProcess is now either parsed content (array/object) or the original string
-            
-            let currentTitleInModal = name; // Use item.name for the title inside the modal by default
-
-            if (Array.isArray(dataToProcess)) {
-                questionsArray = dataToProcess;
-            } else if (typeof dataToProcess === 'object' && dataToProcess !== null) {
-                if (Array.isArray(dataToProcess.questions)) {
-                    questionsArray = dataToProcess.questions;
-                    // If content has its own name/title, prefer that for the modal's H1
-                    if (typeof dataToProcess.name === 'string' && dataToProcess.name) {
-                        currentTitleInModal = dataToProcess.name;
-                    } else if (typeof dataToProcess.title === 'string' && dataToProcess.title) {
-                        currentTitleInModal = dataToProcess.title;
-                    }
-                }
-            }
-            // If questionsArray is still null, it means we couldn't find a structured question list.
-            // The fallback will handle displaying dataToProcess.
-
-            setModalTitle(name); // Set the title for the modal frame (usually item.name)
+            setModalTitle('Generated Quiz');
             setModalContent(
-                <div style={{ maxWidth: 700, margin: '0 auto', background: '#fff', borderRadius: 10, boxShadow: '0 2px 8px #0001', padding: 32, overflowY: 'auto', maxHeight: '80vh' }}>
-                    <h1 style={{ textAlign: 'center', fontWeight: 700, marginBottom: 32 }}>{currentTitleInModal}</h1>
-                    {questionsArray ? (
-                        questionsArray.map((q, idx) => (
-                            <div key={idx} style={{ marginBottom: 24 }}> {/* Style from GeneratedQuiz.js */}
-                                <b>Q{idx + 1}:</b> {q.question}
-                                {q.choices && Array.isArray(q.choices) && (
-                                    <ul style={{ marginTop: 8, paddingLeft: 20 }}> {/* Style from GeneratedQuiz.js (added paddingLeft) */}
-                                        {q.choices.map((choice, cidx) => (
-                                            <li key={cidx}>{choice}</li>
-                                        ))}
-                                    </ul>
-                                )}
-                                {q.answer && (
-                                    <div style={{ color: "#1976d2", marginTop: 6 }}> {/* Style from GeneratedQuiz.js */}
-                                        <b>Answer:</b> {q.answer}
-                                    </div>
-                                )}
-                            </div>
-                        ))
+                <div
+                    style={{
+                        maxWidth: 700,
+                        margin: "2rem auto",
+                        background: "#fff",
+                        borderRadius: 10,
+                        boxShadow: "0 2px 8px #0001",
+                        padding: 32,
+                        overflowY: 'auto',
+                        maxHeight: '70vh'
+                    }}
+                >
+                    <h1>Generated Quiz</h1>
+                    {quizData ? (
+                        Array.isArray(quizData) ? (
+                            quizData.map((q, idx) => (
+                                <div key={idx} style={{ marginBottom: 24 }}>
+                                    <b>Q{idx + 1}:</b> {q.question}
+                                    {q.choices && (
+                                        <ul style={{ marginTop: 8 }}>
+                                            {q.choices.map((choice, cidx) => (
+                                                <li key={cidx}>{choice}</li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                    {q.answer && (
+                                        <div style={{ color: "#1976d2", marginTop: 6 }}>
+                                            <b>Answer:</b> {q.answer}
+                                        </div>
+                                    )}
+                                </div>
+                            ))
+                        ) : (
+                            <pre style={{ whiteSpace: 'pre-wrap', fontSize: '1.08rem', lineHeight: 1.7 }}>
+                                {typeof quizData === 'string' ? quizData : JSON.stringify(quizData, null, 2)}
+                            </pre>
+                        )
                     ) : (
-                        // Fallback: Display dataToProcess (parsed or original string)
-                        // or stringify if it's an object we couldn't process into questionsArray
-                        <pre style={{ whiteSpace: 'pre-wrap', fontSize: '1.08rem', lineHeight: 1.7 }}>
-                            {typeof dataToProcess === 'string' ? dataToProcess : JSON.stringify(dataToProcess, null, 2)}
-                        </pre>
+                        <div>No quiz generated.</div>
                     )}
                 </div>
             );
-        } else { // type === 'script'
+        } else {
             item = savedScripts.find(s => s.id === id);
             if (!item) return;
-            // For scripts, the name is not taken from content, and title is hardcoded for the modal frame.
-            setModalTitle('Speaker Script'); // Modal frame title
+
+            setModalTitle('Speaker Script');
             setModalContent(
-                <div style={{ maxWidth: 700, margin: '0 auto', background: '#fff', borderRadius: 10, boxShadow: '0 2px 8px #0001', padding: 32, overflowY: 'auto', maxHeight: '80vh' }}>
-                    <h1 style={{ textAlign: 'center', fontWeight: 700, marginBottom: 32 }}>Speaker Script</h1> {/* Title inside content */}
-                    <pre style={{ whiteSpace: 'pre-wrap', fontSize: '1.08rem', lineHeight: 1.7 }}>{item.content}</pre>
+                <div
+                    style={{
+                        maxWidth: 700,
+                        margin: "2rem auto",
+                        background: "#fff",
+                        borderRadius: 10,
+                        boxShadow: "0 2px 8px #0001",
+                        padding: 32,
+                        overflowY: 'auto',
+                        maxHeight: '70vh'
+                    }}
+                >
+                    <h1>Speaker Script</h1>
+                    {item.content ? (
+                        <pre
+                            style={{
+                                whiteSpace: "pre-wrap",
+                                fontSize: "1.08rem",
+                                lineHeight: 1.7,
+                            }}
+                        >
+                            {item.content}
+                        </pre>
+                    ) : (
+                        <div>No script generated.</div>
+                    )}
                 </div>
             );
         }
@@ -177,6 +190,7 @@ const SavedQuizzesAndScripts = () => {
     if (error) return <div className="error-container"><p>{error}</p></div>;
 
     return (
+        <div><Navbar />
         <div className="saved-items-page">
             <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={modalTitle}>
                 {modalContent}
@@ -198,7 +212,6 @@ const SavedQuizzesAndScripts = () => {
                                     <h3>{quiz.name}</h3>
                                     <p>Saved on: {new Date(quiz.created_at).toLocaleDateString()}</p>
                                     <div className="item-actions">
-                                        <button onClick={() => handleView('quiz', quiz.id)} className="action-btn view-btn">View</button>
                                         <button onClick={() => handleExport('quiz', quiz.id, quiz.name)} className="action-btn export-btn">Export as Word</button>
                                         <button onClick={() => handleDelete('quiz', quiz.id)} className="action-btn delete-btn">Delete</button>
                                     </div>
@@ -219,7 +232,6 @@ const SavedQuizzesAndScripts = () => {
                                     <h3>{script.name}</h3>
                                     <p>Saved on: {new Date(script.created_at).toLocaleDateString()}</p>
                                     <div className="item-actions">
-                                        <button onClick={() => handleView('script', script.id)} className="action-btn view-btn">View</button>
                                         <button onClick={() => handleExport('script', script.id, script.name)} className="action-btn export-btn">Export as Word</button>
                                         <button onClick={() => handleDelete('script', script.id)} className="action-btn delete-btn">Delete</button>
                                     </div>
@@ -229,6 +241,7 @@ const SavedQuizzesAndScripts = () => {
                     )}
                 </section>
             </div>
+        </div>
         </div>
     );
 };

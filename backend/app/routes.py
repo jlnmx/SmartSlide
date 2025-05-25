@@ -1,6 +1,6 @@
 import os
 import re
-import json
+import json # Ensure json is imported
 import traceback
 import uuid
 import base64
@@ -285,6 +285,61 @@ def manage_presentation(presentation_id):
             traceback.print_exc()
             return jsonify({'error': 'Failed to delete presentation'}), 500
 
+# Route to save or update slide editor state
+@main.route('/api/save-slides-state', methods=['POST', 'OPTIONS'])
+def save_slides_state():
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Invalid JSON payload"}), 400
+
+        user_id = data.get("userId") or data.get("user_id")
+        slides = data.get("slides")
+        template_id = data.get("templateId") or data.get("template")
+        presentation_type = data.get("presentationType", "Default")
+        presentation_id = data.get("presentationId") or data.get("presentation_id")
+
+        if not user_id or not slides or not template_id:
+            return jsonify({"error": "Missing required fields (user_id, slides, template_id)"}), 400
+
+        slides_json_str = json.dumps(slides)
+        now = datetime.utcnow()
+
+        if presentation_id:
+            # Update existing presentation
+            presentation = Presentation.query.get(presentation_id)
+            if not presentation:
+                return jsonify({"error": "Presentation not found"}), 404
+            presentation.slides_json = slides_json_str
+            presentation.template = template_id
+            presentation.presentation_type = presentation_type
+            presentation.updated_at = now
+            db.session.commit()
+            return jsonify({"message": "Presentation updated successfully", "presentationId": presentation.id}), 200
+        else:
+            # Create new presentation
+            title = slides[0].get("title", "Untitled Presentation") if slides and isinstance(slides, list) else "Untitled Presentation"
+            new_presentation = Presentation(
+                user_id=user_id,
+                title=title,
+                slides_json=slides_json_str,
+                template=template_id,
+                presentation_type=presentation_type,
+                created_at=now,
+                updated_at=now
+            )
+            db.session.add(new_presentation)
+            db.session.commit()
+            return jsonify({"message": "Presentation created successfully", "presentationId": new_presentation.id}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error in /api/save-slides-state: {e}", exc_info=True)
+        return jsonify({"error": "An error occurred while saving the presentation."}), 500
+
 @main.route("/generate-slides", methods=["POST"])
 def generate_slides():
     data = request.json
@@ -295,11 +350,10 @@ def generate_slides():
     language = data.get("language", "English")
     user_id = data.get("user_id")  # Expect user_id from frontend
     template = data.get("template")
-    presentation_type = data.get("presentationType", "Default")
     try:
         num_slides = int(data.get("numSlides", 5))
-        if num_slides <= 0:
-            return jsonify({"error": "Invalid number of slides."}), 400
+        if num_slides <= 0 or num_slides > 30:
+            return jsonify({"error": "Invalid Number Of Slides."}), 400
     except (ValueError, TypeError):
         return jsonify({"error": "Invalid number of slides."}), 400
     if not prompt_topic:
@@ -311,7 +365,6 @@ def generate_slides():
         Requirements:
         - The presentation must have exactly {num_slides} slides.
         - Use {language} as the language.
-        - The presentation style/type should be: {presentation_type}.
         - Each slide should have:
         - A concise and engaging title.
         - Remove the unnecessary characters from the texts like the ** or __. 
@@ -333,24 +386,61 @@ def generate_slides():
 
         Example:
         [
-        {{
-            "title": "Introduction to Artificial Intelligence",
+          {{
+            "title": "Market Analysis: Renewable Energy Sector",
             "content": [
-            "**Artificial Intelligence (AI)** is the simulation of human intelligence in machines.",
-            "Key areas include: \n- Machine Learning\n- Natural Language Processing\n- Robotics",
-            "*AI is transforming industries worldwide.*"
-            ],
-            "image_prompt": "A futuristic image of AI robots working in an office"
-        }},
-        {{
+              "Overview: The renewable energy sector has experienced significant growth over the past decade, driven by technological advancements and policy support.",
+              "Global investment in renewables reached $500 billion in 2023.",
+              "- Major segments: Solar, Wind, and Hydropower.",
+              "- Key drivers: Climate change initiatives, government incentives, and declining technology costs."
+            ]
+          }},
+          {{
+            "title": "Key Trends and Opportunities",
+            "content": [
+              "Decentralization: Growth of distributed energy resources and microgrids.",
+              "Corporate Adoption: Increasing number of Fortune 500 companies committing to 100% renewable energy.",
+              "Emerging Markets: Rapid expansion in Asia-Pacific and Latin America.",
+              "Opportunity: Investment in battery storage and grid modernization."
+            ]
+          }},
+          {{
+            "title": "Challenges and Risk Factors",
+            "content": [
+              "Regulatory Uncertainty: Changes in government policy can impact project viability.",
+              "Supply Chain Constraints: Shortages of critical materials such as lithium and rare earth elements.",
+              "Market Volatility: Fluctuations in energy prices and demand.",
+              "Mitigation: Diversification of supply sources and long-term contracts."
+            ]
+          }},
+          {{
+            "title": "Strategic Recommendations",
+            "content": [
+              "Invest in Innovation: Focus on R&D for next-generation solar and wind technologies.",
+              "Partnerships: Collaborate with local governments and technology providers.",
+              "Sustainability Reporting: Enhance transparency to attract ESG-focused investors.",
+              "Action Item: Develop a roadmap for entering emerging markets."
+            ]
+          }},
+          {{
+            "title": "Conclusion and Next Steps",
+            "content": [
+              "Summary: The renewable energy sector presents robust growth opportunities, but requires careful navigation of risks.",
+              "Continue monitoring policy developments.",
+              "Prioritize investments in high-growth regions.",
+              "Schedule follow-up meeting to review implementation plan."
+            ]
+          }},
+          {{
             "title": "References",
             "content": [
-            "1. Russell, S., & Norvig, P. (2020). *Artificial Intelligence: A Modern Approach*.",
-            "2. https://www.ibm.com/cloud/learn/what-is-artificial-intelligence"
-            ],
-            "image_prompt": null
-        }}
+              "1. International Energy Agency. (2023). World Energy Outlook.",
+              "2. https://www.iea.org/reports/world-energy-outlook-2023",
+              "3. BloombergNEF. (2023). Renewable Energy Investment Trends."
+            ]
+          }}
         ]
+
 
         Generate the slides now:
         """
@@ -395,7 +485,6 @@ def generate_slides():
                 user_id=user_id,
                 title=prompt_topic,
                 template=template,
-                presentation_type=presentation_type,
                 slides_json=json.dumps(slides_data)
             )
             db.session.add(new_presentation)
@@ -572,8 +661,8 @@ def generate_presentation():
     # Define slide and editor dimensions (in inches and pixels)
     PPTX_SLIDE_WIDTH_INCHES = 13.33
     PPTX_SLIDE_HEIGHT_INCHES = 7.5
-    EDITOR_SLIDE_WIDTH_PX = 1280
-    EDITOR_SLIDE_HEIGHT_PX = 720
+    EDITOR_SLIDE_WIDTH_PX = 1280 # Assuming this is the canvas width in the frontend editor
+    EDITOR_SLIDE_HEIGHT_PX = 720 # Assuming this is the canvas height in the frontend editor
 
     data = request.json
     if not data:
@@ -587,15 +676,12 @@ def generate_presentation():
     prs.slide_width = Inches(PPTX_SLIDE_WIDTH_INCHES)
     prs.slide_height = Inches(PPTX_SLIDE_HEIGHT_INCHES)
 
+    # Calculate conversion factors once
     px_to_in_x = PPTX_SLIDE_WIDTH_INCHES / EDITOR_SLIDE_WIDTH_PX
     px_to_in_y = PPTX_SLIDE_HEIGHT_INCHES / EDITOR_SLIDE_HEIGHT_PX
 
+    # Helper function (can be outside or nested if only used here)
     def parse_span_style(style_str):
-        """
-        Parse a CSS-like style string into a dictionary.
-        Example: "font-family: Arial; font-size: 24px; color: #FF0000; bold: true;"
-        Returns: {'fontfamily': 'Arial', 'fontsize': '24px', 'color': '#FF0000', 'bold': 'true'}
-        """
         styles = {}
         if not style_str:
             return styles
@@ -608,174 +694,219 @@ def generate_presentation():
         return styles
 
     for slide_item_data in slides_data:
-        slide_layout = prs.slide_layouts[6] # BLANK layout
+        slide_layout = prs.slide_layouts[6]  # BLANK layout
         ppt_slide = prs.slides.add_slide(slide_layout)
 
+        # Background (apply directly to slide, not zIndex sorted)
         background_data = slide_item_data.get("background", {})
         bg_fill_hex = background_data.get("fill", "#FFFFFF")
         if bg_fill_hex:
-            fill = ppt_slide.background.fill
-            fill.solid()
-            fill.fore_color.rgb = hex_to_rgb(bg_fill_hex)
+            try:
+                fill = ppt_slide.background.fill
+                fill.solid()
+                fill.fore_color.rgb = hex_to_rgb(bg_fill_hex)
+            except Exception as e:
+                current_app.logger.error(f"Error setting background color: {e}", exc_info=True)
+
+
+        # Collect elements to be rendered based on zIndex
+        elements_to_render = []
 
         textboxes_data = slide_item_data.get("textboxes", [])
         for tb_data in textboxes_data:
-            x_px = float(tb_data.get("x", 0))
-            y_px = float(tb_data.get("y", 0))
-            width_px = float(tb_data.get("width", 100))
-            height_px = float(tb_data.get("height", 50))
+            elements_to_render.append({
+                "type": "textbox",
+                "data": tb_data,
+                "zIndex": int(tb_data.get("zIndex", 100)) # Default zIndex for textboxes
+            })
 
-            left = Inches(x_px * px_to_in_x)
-            top = Inches(y_px * px_to_in_y)
-            width = Inches(width_px * px_to_in_x)
-            height = Inches(height_px * px_to_in_y)
-            
-            if width <= 0 or height <= 0: # Skip if dimensions are invalid
-                print(f"Skipping textbox with invalid dimensions: w={width_px}, h={height_px}")
-                continue
+        images_data = slide_item_data.get("images", []) # Process multiple images
+        for img_data in images_data:
+            elements_to_render.append({
+                "type": "image",
+                "data": img_data,
+                "zIndex": int(img_data.get("zIndex", 101)) # Images have zIndex
+            })
+        
+        # Sort elements by zIndex: lower zIndex elements are added first (appear "behind")
+        elements_to_render.sort(key=lambda el: el["zIndex"])
 
-            shape = ppt_slide.shapes.add_textbox(left, top, width, height)
-            tf = shape.text_frame
-            tf.word_wrap = True
-            tf.auto_size = MSO_AUTO_SIZE.NONE # Respect explicit height
-            tf.margin_bottom = Inches(0.05)
-            tf.margin_left = Inches(0.1)
-            tf.margin_right = Inches(0.1)
-            tf.margin_top = Inches(0.05)
-            tf.clear()
+        # Render elements in sorted order
+        for element in elements_to_render:
+            el_data = element["data"]
+            el_type = element["type"]
 
-            text_content = tb_data.get("text", "")
-            
-            default_font_family = tb_data.get("fontFamily", "Arial")
-            default_font_size_pt = float(tb_data.get("fontSize", 18))
-            default_font_color_hex = tb_data.get("fill", "#000000")
-            default_font_color_rgb = hex_to_rgb(default_font_color_hex)
-            
-            default_font_style = tb_data.get("fontStyle", {})
-            default_bold = default_font_style.get("bold", False)
-            default_italic = default_font_style.get("italic", False)
-            default_underline = default_font_style.get("underline", False)
-            
-            default_align_str = tb_data.get("align", "left").upper()
-            # Mapping for PP_ALIGN: LEFT, CENTER, RIGHT, JUSTIFY, DISTRIBUTE, THAI_DISTRIBUTE
-            align_map = {
-                "LEFT": PP_ALIGN.LEFT,
-                "CENTER": PP_ALIGN.CENTER,
-                "RIGHT": PP_ALIGN.RIGHT,
-                "JUSTIFY": PP_ALIGN.JUSTIFY, # Or DISTRIBUTE, JUSTIFY is usually better for western text
-            }
-            default_alignment = align_map.get(default_align_str, PP_ALIGN.LEFT)
-            
-            default_line_height_multiplier = tb_data.get("lineHeight") # e.g., 1, 1.15, 1.5
-            default_paragraph_spacing_pt = float(tb_data.get("paragraphSpacing", 0))
-            is_bulleted = tb_data.get("bullets", False)
-
-            # Use BeautifulSoup to parse text_content which might contain spans and newlines as <br/>
-            # The frontend text property of a textbox is innerText, but handleToolbarChange injects spans.
-            # And the frontend rendering of textboxes splits by \\n.
-            # For simplicity, we assume text_content is a string where \\n are paragraph breaks.
-            
-            paragraphs_text = text_content.split('\\n')
-            
-            for para_idx, para_text_html in enumerate(paragraphs_text):
-                p = tf.add_paragraph()
-                p.alignment = default_alignment
-                if default_line_height_multiplier and isinstance(default_line_height_multiplier, (int, float)):
-                    p.line_spacing = default_line_height_multiplier
-                
-                # space_before for first para, space_after for the rest (or just space_after for all)
-                if para_idx > 0 : # Add paragraph spacing before if not the first paragraph
-                     p.space_before = Pt(default_paragraph_spacing_pt)
-                # p.space_after = Pt(default_paragraph_spacing_pt) # Or apply after always
-
-                if is_bulleted and para_text_html.strip(): # Add bullet if line is not empty
-                    p.level = 0 # Basic bullet
-                
-                # Now parse this paragraph's HTML-like content (spans)
-                # Wrap in a div for proper parsing by BeautifulSoup
-                soup = BeautifulSoup(f"<div>{para_text_html}</div>", "html.parser")
-                
-                for element in soup.div.contents:
-                    run = p.add_run()
-                    text_to_add = ""
-                    
-                    run_font_family = default_font_family
-                    run_font_size_pt = default_font_size_pt
-                    run_font_color_rgb = default_font_color_rgb
-                    run_bold = default_bold # Start with textbox defaults
-                    run_italic = default_italic
-                    run_underline = default_underline
-
-                    if element.name == 'span':
-                        text_to_add = element.get_text()
-                        span_style_str = element.get('style', '')
-                        span_styles = parse_span_style(span_style_str)
-                        
-                        if 'fontfamily' in span_styles: run_font_family = span_styles['fontfamily'] # Matched lowercase
-                        if 'fontsize' in span_styles: # e.g. "24px" or "24"
-                            try: run_font_size_pt = float(str(span_styles['fontsize']).replace('pt','').replace('px',''))
-                            except ValueError: pass
-                        if 'color' in span_styles: run_font_color_rgb = hex_to_rgb(span_styles['color'])
-                        
-                        # Handling for custom bold/italic/underline styles from frontend spans
-                        # style="bold: true;" or style="italic: false;"
-                        if 'bold' in span_styles: run_bold = str(span_styles['bold']).lower() == 'true'
-                        if 'italic' in span_styles: run_italic = str(span_styles['italic']).lower() == 'true'
-                        if 'underline' in span_styles: run_underline = str(span_styles['underline']).lower() == 'true'
-
-                    elif element.name is None: # Plain text node
-                        text_to_add = str(element)
-                    
-                    if text_to_add:
-                        run.text = text_to_add
-                        run.font.name = run_font_family
-                        run.font.size = Pt(run_font_size_pt)
-                        run.font.color.rgb = run_font_color_rgb
-                        run.font.bold = run_bold
-                        run.font.italic = run_italic
-                        run.font.underline = run_underline
-                
-                if not p.runs and not (is_bulleted and para_text_html.strip()): # If paragraph is empty and not a placeholder for a bullet point
-                    # Add a non-breaking space to make empty lines take up space if needed,
-                    # or ensure paragraph formatting is applied.
-                    # However, python-pptx usually handles empty paragraphs okay.
-                    # If bulleted and empty, it should still show the bullet.
-                    pass
-
-
-            if not tf.paragraphs: # Ensure at least one paragraph if textbox was empty
-                p = tf.add_paragraph()
-                run = p.add_run()
-                run.text = " " # Add a space to make the textbox selectable
-                run.font.size = Pt(1)
-
-
-        image_data = slide_item_data.get("image")
-        if image_data and isinstance(image_data, dict):
-            img_src_base64 = image_data.get("src")
-            if img_src_base64 and img_src_base64.startswith('data:image'):
+            if el_type == "textbox":
                 try:
-                    header, encoded = img_src_base64.split(',', 1)
-                    img_bytes = base64.b64decode(encoded)
-                    img_stream = BytesIO(img_bytes)
+                    x_px = float(el_data.get("x", 0))
+                    y_px = float(el_data.get("y", 0))
+                    width_px = float(el_data.get("width", 100))
+                    height_px = float(el_data.get("height", 50))
 
-                    img_x_px = float(image_data.get("x", 0))
-                    img_y_px = float(image_data.get("y", 0))
-                    img_width_px = float(image_data.get("width", 100))
-                    img_height_px = float(image_data.get("height", 100))
+                    left = Inches(x_px * px_to_in_x)
+                    top = Inches(y_px * px_to_in_y)
+                    width = Inches(width_px * px_to_in_x)
+                    height = Inches(height_px * px_to_in_y)
                     
-                    if img_width_px <=0 or img_height_px <=0:
-                        print(f"Skipping image with invalid dimensions: w={img_width_px}, h={img_height_px}")
+                    if width <= Inches(0) or height <= Inches(0):
+                        current_app.logger.warning(f"Skipping textbox with invalid dimensions: w_px={width_px}, h_px={height_px}")
                         continue
 
-                    img_left = Inches(img_x_px * px_to_in_x)
-                    img_top = Inches(img_y_px * px_to_in_y)
-                    img_width = Inches(img_width_px * px_to_in_x)
-                    img_height = Inches(img_height_px * px_to_in_y)
+                    shape = ppt_slide.shapes.add_textbox(left, top, width, height)
+                    tf = shape.text_frame
+                    tf.word_wrap = True 
+                    tf.auto_size = MSO_AUTO_SIZE.NONE # Use explicit height
+                    tf.margin_bottom = Inches(0.05) 
+                    tf.margin_left = Inches(0.1)
+                    tf.margin_right = Inches(0.1)
+                    tf.margin_top = Inches(0.05)
+                    tf.clear()
 
-                    ppt_slide.shapes.add_picture(img_stream, img_left, img_top, width=img_width, height=img_height)
+                    text_content = el_data.get("text", "")
+                    default_font_family = el_data.get("fontFamily", "Arial")
+                    default_font_size_pt = float(el_data.get("fontSize", 18))
+                    default_font_color_hex = el_data.get("fill", "#000000")
+                    default_font_color_rgb = hex_to_rgb(default_font_color_hex)
+                    
+                    default_font_style_data = el_data.get("fontStyle", {})
+                    default_bold = default_font_style_data.get("bold", False)
+                    default_italic = default_font_style_data.get("italic", False)
+                    default_underline = default_font_style_data.get("underline", False)
+                    
+                    default_align_str = el_data.get("align", "left").upper()
+                    align_map = {
+                        "LEFT": PP_ALIGN.LEFT, "CENTER": PP_ALIGN.CENTER,
+                        "RIGHT": PP_ALIGN.RIGHT, "JUSTIFY": PP_ALIGN.JUSTIFY,
+                    }
+                    default_alignment = align_map.get(default_align_str, PP_ALIGN.LEFT)
+                    
+                    default_line_height_multiplier = el_data.get("lineHeight") # e.g., 1, 1.15, 1.5
+                    default_paragraph_spacing_pt = float(el_data.get("paragraphSpacing", 0))
+                    is_bulleted = el_data.get("bullets", False)
+
+                    paragraphs_text = text_content.split('\\\\n') # Split by literal \\n from JSON
+                    
+                    if not paragraphs_text and not text_content.strip(): # Handle completely empty textbox or textbox with only whitespace
+                        p = tf.add_paragraph()
+                        run = p.add_run()
+                        run.text = " " # Add a space to make it selectable and visible if it has dimensions
+                        run.font.size = Pt(1)
+                        continue # Move to next element
+
+                    for para_idx, para_text_html in enumerate(paragraphs_text):
+                        p = tf.add_paragraph()
+                        p.alignment = default_alignment
+                        if default_line_height_multiplier and isinstance(default_line_height_multiplier, (int, float)):
+                            try:
+                                p.line_spacing = float(default_line_height_multiplier)
+                            except ValueError:
+                                current_app.logger.warning(f"Invalid line height value: {default_line_height_multiplier}")
+                        
+                        if para_idx > 0 and default_paragraph_spacing_pt > 0:
+                             p.space_before = Pt(default_paragraph_spacing_pt)
+                        
+                        if is_bulleted and para_text_html.strip(): # Add bullet only if line has content
+                            p.level = 0
+
+                        # Parse HTML-like content (spans) for rich text
+                        # Replace &nbsp; with space for BeautifulSoup processing
+                        soup = BeautifulSoup(f"<div>{para_text_html.replace('&nbsp;', ' ')}</div>", "html.parser")
+                        
+                        if not soup.div.contents: # Handle paragraph that becomes empty after parsing (e.g. only &nbsp;)
+                            if is_bulleted: # If it was supposed to be a bullet, keep the paragraph for the bullet point
+                                pass # The paragraph is already added, bullet will show if level is set
+                            elif len(paragraphs_text) > 1 or para_text_html: # Preserve empty line if it's not a truly empty single-line textbox
+                                run = p.add_run()
+                                run.text = " " # Add a space to make the line take height
+                            continue # Next content_node or next paragraph
+
+                        for content_node in soup.div.contents:
+                            run = p.add_run()
+                            text_to_add = ""
+                            
+                            run_font_family = default_font_family
+                            run_font_size_pt = default_font_size_pt
+                            run_font_color_rgb = default_font_color_rgb
+                            run_bold = default_bold
+                            run_italic = default_italic
+                            run_underline = default_underline
+
+                            if content_node.name == 'span':
+                                text_to_add = content_node.get_text()
+                                span_style_str = content_node.get('style', '')
+                                span_styles = parse_span_style(span_style_str)
+                                
+                                if 'fontfamily' in span_styles: run_font_family = span_styles['fontfamily']
+                                if 'fontsize' in span_styles:
+                                    try: run_font_size_pt = float(str(span_styles['fontsize']).replace('pt','').replace('px',''))
+                                    except ValueError: pass
+                                if 'color' in span_styles: 
+                                    try: run_font_color_rgb = hex_to_rgb(span_styles['color'])
+                                    except: pass # Ignore invalid color
+                                if 'bold' in span_styles: run_bold = str(span_styles['bold']).lower() == 'true'
+                                if 'italic' in span_styles: run_italic = str(span_styles['italic']).lower() == 'true'
+                                if 'underline' in span_styles: run_underline = str(span_styles['underline']).lower() == 'true'
+                            
+                            elif content_node.name is None: # Plain text node
+                                text_to_add = str(content_node)
+                            
+                            if text_to_add:
+                                run.text = text_to_add
+                                run.font.name = run_font_family
+                                run.font.size = Pt(run_font_size_pt)
+                                if run_font_color_rgb: run.font.color.rgb = run_font_color_rgb
+                                run.font.bold = run_bold
+                                run.font.italic = run_italic
+                                run.font.underline = run_underline
+                        
+                        if not p.runs and not (is_bulleted and para_text_html.strip()): 
+                             if len(paragraphs_text) > 1 or para_text_html: 
+                                 run = p.add_run()
+                                 run.text = " " 
+
+                    if not tf.paragraphs: # Final check if textbox ended up with no paragraphs at all
+                        p = tf.add_paragraph()
+                        run = p.add_run()
+                        run.text = " " 
+                        run.font.size = Pt(1)
                 except Exception as e:
-                    print(f"Error processing image: {e}")
+                    tb_id_log = "Unknown Textbox"
+                    if isinstance(el_data, dict):
+                        tb_id_log = el_data.get('id', 'N/A')
+                    current_app.logger.error(f"Error processing textbox: {tb_id_log}. Error: {e}", exc_info=True)
+
+            elif el_type == "image":
+                try:
+                    img_src_base64 = el_data.get("src")
+                    if img_src_base64 and img_src_base64.startswith('data:image'):
+                        header, encoded = img_src_base64.split(',', 1)
+                        img_bytes = base64.b64decode(encoded)
+                        img_stream = BytesIO(img_bytes)
+
+                        img_x_px = float(el_data.get("x", 0))
+                        img_y_px = float(el_data.get("y", 0))
+                        img_width_px = float(el_data.get("width", 100))
+                        img_height_px = float(el_data.get("height", 100))
+                        
+                        if img_width_px <= 0 or img_height_px <= 0:
+                            current_app.logger.warning(f"Skipping image with zero/negative pixel dimensions: w={img_width_px}, h={img_height_px}")
+                            continue
+
+                        img_left = Inches(img_x_px * px_to_in_x)
+                        img_top = Inches(img_y_px * px_to_in_y)
+                        img_width = Inches(img_width_px * px_to_in_x)
+                        img_height = Inches(img_height_px * px_to_in_y)
+                        
+                        if img_width <= Inches(0) or img_height <= Inches(0):
+                            current_app.logger.warning(f"Skipping image with zero/negative inch dimensions after conversion: w_in={img_width}, h_in={img_height}")
+                            continue
+
+                        ppt_slide.shapes.add_picture(img_stream, img_left, img_top, width=img_width, height=img_height)
+                except Exception as e:
+                    img_id_log = "Unknown Image"
+                    if isinstance(el_data, dict):
+                        img_id_log = el_data.get('id', 'N/A')
+                    current_app.logger.error(f"Error processing image: {img_id_log}. Error: {e}", exc_info=True)
 
     file_stream = BytesIO()
     prs.save(file_stream)
@@ -784,7 +915,7 @@ def generate_presentation():
     return send_file(
         file_stream,
         as_attachment=True,
-        download_name="edited_presentation.pptx",
+        download_name="smartslide_presentation.pptx", # Changed name slightly
         mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation"
     )
     
@@ -847,13 +978,14 @@ def upload_file():
         # --- Use LLM to structure slides ---
         prompt = f"""
         You are an expert presentation assistant.
-        Given the following extracted document content, generate a well-structured presentation as a JSON array.
+        Given the following extracted document content, generate a well-structured, professional presentation as a JSON array.
         - The first slide should have a clear, relevant title based on the topic: \"{topic}\".
-        - Each slide must have a concise, informative title (do NOT use generic titles like \"Slide 1\").
-        - Divide the content logically across slides (introduction, main points, summary, etc.).
+        - Each slide must have a concise, informative title (do NOT use generic titles like "Slide 1").
+        - Divide the content logically across slides (introduction, main points, analysis, recommendations, summary, etc.).
         - Use bullet points or short paragraphs for slide content.
         - Use Markdown for formatting: **bold** for emphasis, *italic* for highlights, and __underline__ for key terms.
-        - Ensure proper spacing, paragraph styles, and font sizes (as much as possible in Markdown).
+        - Ensure the content is detailed, precise, and suitable for a business, academic, or formal audience.
+        - The last slide should be titled "References" and include a list of references, sources, or further reading if available from the document content.
         - Output format: a JSON array, where each object has:
             - "title": string (slide title)
             - "content": array of strings (each string is a bullet point or paragraph, use Markdown)
@@ -862,20 +994,56 @@ def upload_file():
         Example:
         [
           {{
-            "title": "Introduction to the Water Cycle",
+            "title": "Market Analysis: Renewable Energy Sector",
             "content": [
-              "**The water cycle** describes how water moves on, above, and below the surface of the Earth.",
-              "- Evaporation: Water turns into vapor.",
-              "- Condensation: Vapor forms clouds.",
-              "- Precipitation: Water returns as rain, snow, etc."
+              "Overview: The renewable energy sector has experienced significant growth over the past decade, driven by technological advancements and policy support.",
+              "Global investment in renewables reached $500 billion in 2023.",
+              "- Major segments: Solar, Wind, and Hydropower.",
+              "- Key drivers: Climate change initiatives, government incentives, and declining technology costs."
             ]
           }},
           {{
-            "title": "Key Processes",
+            "title": "Key Trends and Opportunities",
             "content": [
-              "- **Evaporation**: Sun heats water.",
-              "- **Condensation**: Vapor cools.",
-              "- **Precipitation**: Water falls to Earth."
+              "Decentralization: Growth of distributed energy resources and microgrids.",
+              "Corporate Adoption: Increasing number of Fortune 500 companies committing to 100% renewable energy.",
+              "Emerging Markets: Rapid expansion in Asia-Pacific and Latin America.",
+              "Opportunity: Investment in battery storage and grid modernization."
+            ]
+          }},
+          {{
+            "title": "Challenges and Risk Factors",
+            "content": [
+              "Regulatory Uncertainty: Changes in government policy can impact project viability.",
+              "Supply Chain Constraints: Shortages of critical materials such as lithium and rare earth elements.",
+              "Market Volatility: Fluctuations in energy prices and demand.",
+              "Mitigation: Diversification of supply sources and long-term contracts."
+            ]
+          }},
+          {{
+            "title": "Strategic Recommendations",
+            "content": [
+              "Invest in Innovation: Focus on R&D for next-generation solar and wind technologies.",
+              "Partnerships: Collaborate with local governments and technology providers.",
+              "Sustainability Reporting: Enhance transparency to attract ESG-focused investors.",
+              "Action Item: Develop a roadmap for entering emerging markets."
+            ]
+          }},
+          {{
+            "title": "Conclusion and Next Steps",
+            "content": [
+              "Summary: The renewable energy sector presents robust growth opportunities, but requires careful navigation of risks.",
+              "Continue monitoring policy developments.",
+              "Prioritize investments in high-growth regions.",
+              "Schedule follow-up meeting to review implementation plan."
+            ]
+          }},
+          {{
+            "title": "References",
+            "content": [
+              "1. International Energy Agency. (2023). World Energy Outlook.",
+              "2. https://www.iea.org/reports/world-energy-outlook-2023",
+              "3. BloombergNEF. (2023). Renewable Energy Investment Trends."
             ]
           }}
         ]
@@ -925,245 +1093,7 @@ def upload_file():
         return jsonify({'error': f'Failed to process file: {str(e)}'}), 500
     
 
-@main.route("/create-google-slides", methods=["POST"])
-def create_google_slides():
-    try:
-        credentials = service_account.Credentials.from_service_account_file(
-            GOOGLE_CREDENTIALS_FILE, scopes=SCOPES
-        )
-        slides_service = build("slides", "v1", credentials=credentials)
-        drive_service = build("drive", "v3", credentials=credentials)
 
-        data = request.json
-        slides_from_frontend = data.get("slides")
-        template_id = data.get("template")
-        template = TEMPLATES.get(template_id)
-        presentation_type = data.get("presentationType", "Default")
-
-        if slides_from_frontend is None:
-            return jsonify({"error": "Slides data is missing (must be a list, can be empty)."}), 400
-        if not isinstance(slides_from_frontend, list):
-            return jsonify({"error": "Slides data must be a list."}), 400
-        if not template:
-            return jsonify({"error": "Invalid or missing template."}), 400
-
-        presentation_title = "Generated Presentation"
-        if not slides_from_frontend:
-            presentation_title = "New Presentation (Empty)"
-
-        # Set slide size based on presentation type
-        if presentation_type == "Tall":
-            page_size = {"width": {"magnitude": 6858000, "unit": "EMU"}, "height": {"magnitude": 12192000, "unit": "EMU"}}
-        elif presentation_type == "Traditional":
-            page_size = {"width": {"magnitude": 9144000, "unit": "EMU"}, "height": {"magnitude": 6858000, "unit": "EMU"}}
-        else:  # Default (Widescreen)
-            page_size = {"width": {"magnitude": 12192000, "unit": "EMU"}, "height": {"magnitude": 6858000, "unit": "EMU"}}
-
-        presentation = slides_service.presentations().create(
-            body={"title": presentation_title, "pageSize": page_size}
-        ).execute()
-        presentation_id = presentation["presentationId"]
-
-        if not slides_from_frontend:
-            drive_service.permissions().create(
-                fileId=presentation_id, body={"type": "anyone", "role": "writer"}
-            ).execute()
-            presentation_url = f"https://docs.google.com/presentation/d/{presentation_id}/edit"
-            return jsonify({"url": presentation_url})
-
-        # --- Batch 1: Delete initial default slide AND Create all new slide pages ---
-        initial_presentation_data = slides_service.presentations().get(presentationId=presentation_id, fields="slides(objectId)").execute()
-        initial_api_slides = initial_presentation_data.get("slides", [])
-
-        batch1_requests = []
-        if initial_api_slides:
-            initial_slide_id = initial_api_slides[0].get("objectId")
-            if initial_slide_id:
-                batch1_requests.append({"deleteObject": {"objectId": initial_slide_id}})
-
-        page_object_ids = []
-        for _ in slides_from_frontend:
-            page_object_id = f"page_{uuid.uuid4().hex}"
-            page_object_ids.append(page_object_id)
-            batch1_requests.append({
-                "createSlide": {
-                    "objectId": page_object_id,
-                    "slideLayoutReference": {
-                        "predefinedLayout": "TITLE_AND_BODY"
-                    }
-                }
-            })
-
-        if batch1_requests:
-            slides_service.presentations().batchUpdate(
-                presentationId=presentation_id,
-                body={"requests": batch1_requests}
-            ).execute()
-
-        # --- Retrieve the presentation again. It should now only contain the slides we created. ---
-        fields_to_get = "slides(objectId,pageElements(objectId,shape(placeholder(type))))"
-        presentation_with_slides = slides_service.presentations().get(
-            presentationId=presentation_id,
-            fields=fields_to_get
-        ).execute()
-        api_slides = presentation_with_slides.get("slides", [])
-
-        # --- Batch 2: Add content (text and images) and apply template styles ---
-        update_content_requests = []
-
-        for i in range(min(len(slides_from_frontend), len(api_slides))):
-            frontend_slide_content = slides_from_frontend[i]
-            current_api_slide = api_slides[i]
-            page_id = current_api_slide.get("objectId")
-            page_elements = current_api_slide.get("pageElements", [])
-            title_placeholder_id = None
-            body_placeholder_id = None
-
-            for element in page_elements:
-                shape = element.get("shape")
-                if shape:
-                    placeholder = shape.get("placeholder")
-                    if placeholder:
-                        placeholder_type = placeholder.get("type")
-                        if placeholder_type == "TITLE":
-                            title_placeholder_id = element.get("objectId")
-                        elif placeholder_type == "BODY":
-                            body_placeholder_id = element.get("objectId")
-                        if title_placeholder_id and body_placeholder_id:
-                            break
-
-            # Add text to title placeholder
-            if title_placeholder_id and frontend_slide_content.get("title"):
-                update_content_requests.append({
-                    "insertText": {
-                        "objectId": title_placeholder_id,
-                        "text": frontend_slide_content["title"]
-                    }
-                })
-                # Apply title font style if template is provided
-                update_content_requests.append({
-                    "updateTextStyle": {
-                        "objectId": title_placeholder_id,
-                        "style": {
-                            "fontFamily": template["title_font"]["name"],
-                            "fontSize": {"magnitude": template["title_font"]["size"], "unit": "PT"},
-                            "bold": template.get("title_bold", False),
-                            "foregroundColor": {
-                                "opaqueColor": {
-                                    "rgbColor": {
-                                        "red": template["title_font"]["color"][0] / 255.0,
-                                        "green": template["title_font"]["color"][1] / 255.0,
-                                        "blue": template["title_font"]["color"][2] / 255.0
-                                    }
-                                }
-                            }
-                        },
-                        "fields": "fontFamily,fontSize,bold,foregroundColor",
-                        "textRange": {"type": "ALL"}
-                    }
-                })
-
-            # Add text to body placeholder
-            if body_placeholder_id and frontend_slide_content.get("content"):
-                content_list = frontend_slide_content.get("content", [])
-                content_text = ""
-                if isinstance(content_list, list):
-                    content_text = "\n".join(str(item) for item in content_list)
-                elif isinstance(content_list, str):
-                    content_text = content_list
-
-                if content_text:
-                    update_content_requests.append({
-                        "insertText": {
-                            "objectId": body_placeholder_id,
-                            "text": content_text
-                        }
-                    })
-                    # Apply content font style if template is provided
-                    update_content_requests.append({
-                        "updateTextStyle": {
-                            "objectId": body_placeholder_id,
-                            "style": {
-                                "fontFamily": template["content_font"]["name"],
-                                "fontSize": {"magnitude": template["content_font"]["size"], "unit": "PT"},
-                                "bold": template.get("content_bold", False),
-                                "foregroundColor": {
-                                    "opaqueColor": {
-                                        "rgbColor": {
-                                            "red": template["content_font"]["color"][0] / 255.0,
-                                            "green": template["content_font"]["color"][1] / 255.0,
-                                            "blue": template["content_font"]["color"][2] / 255.0
-                                        }
-                                    }
-                                }
-                            },
-                            "fields": "fontFamily,fontSize,bold,foregroundColor",
-                            "textRange": {"type": "ALL"}
-                        }
-                    })
-
-            # Add image if available
-            if frontend_slide_content.get("image_url"):
-                update_content_requests.append({
-                    "createImage": {
-                        "url": frontend_slide_content["image_url"],
-                        "elementProperties": {
-                            "pageObjectId": page_id,
-                            "size": {
-                                "width": {"magnitude": 6096000, "unit": "EMU"},  # Half of 12192000
-                                "height": {"magnitude": 6858000, "unit": "EMU"}
-                            },
-                            "transform": {
-                                "scaleX": 1, "scaleY": 1,
-                                "translateX": 6096000,  # Start at middle of slide
-                                "translateY": 0,
-                                "unit": "EMU"
-                            }
-                        }
-                    }
-                })
-
-            update_content_requests.append({
-                "updatePageProperties": {
-                    "objectId": page_id,
-                    "pageProperties": {
-                        "pageBackgroundFill": {
-                            "solidFill": {
-                                "color": {
-                                    "rgbColor": {
-                                        "red": template["background_color"][0] / 255.0,
-                                        "green": template["background_color"][1] / 255.0,
-                                        "blue": template["background_color"][2] / 255.0
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "fields": "pageBackgroundFill"
-                }
-            })
-
-        if update_content_requests:
-            slides_service.presentations().batchUpdate(
-                presentationId=presentation_id,
-                body={"requests": update_content_requests}
-            ).execute()
-
-        # Update sharing permissions
-        drive_service.permissions().create(
-            fileId=presentation_id,
-            body={"type": "anyone", "role": "writer"},
-        ).execute()
-
-        presentation_url = f"https://docs.google.com/presentation/d/{presentation_id}/edit"
-        return jsonify({"url": presentation_url})
-
-    except Exception as e:
-        print(f"Error creating Google Slides presentation: {e}")
-        traceback.print_exc()
-        return jsonify({"error": "An error occurred while creating the Google Slides presentation.", "details": str(e)}), 500
-    
-def set_presentation_size(ppt, presentation_type):
     if presentation_type == "Tall":
         ppt.slide_width = Inches(7.5)
         ppt.slide_height = Inches(13.33)
@@ -1293,7 +1223,7 @@ def paste_and_create():
             
             # Save presentation to database
             if slides:
-                presentation_title = slides[0].get("title") if slides and slides[0].get("title") else "Pasted Content Presentation"
+                presentation_title = slides[0].get("title") if slides and slides[0].get("title") else "Pasted Content"
                 slides_json_str = json.dumps(slides)
 
                 new_presentation = Presentation(
@@ -1685,4 +1615,50 @@ def export_script_word(script_id):
     except Exception as e:
         current_app.logger.error(f"Error exporting script to Word: {e}")
         return jsonify({"error": "Failed to export script"}), 500
+
+@main.route('/save-presentation', methods=['POST', 'OPTIONS'])
+def save_presentation():
+    if request.method == 'OPTIONS':
+        # Handle preflight request
+        return jsonify({"message": "CORS preflight acknowledged"}), 200
+
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Invalid JSON payload"}), 400
+
+        user_id = data.get("user_id")
+        title = data.get("title")
+        slides = data.get("slides") # This is the raw slide data from older system
+        template = data.get("template")
+        presentation_type = data.get("presentationType", "Default") # Matches frontend key
+
+        if not user_id or not title or not slides or not template:
+            return jsonify({"error": "Missing required fields (user_id, title, slides, template)"}), 400
+        
+        # This route is likely for a simpler save mechanism, not the full editor state.
+        # The /api/save-slides-state is for the detailed editor state.
+        # We'll assume 'slides' here is a simpler structure if this route is still in use.
+        # For robust storage, it should also be JSON.
+        slides_json_str = json.dumps(slides)
+
+
+        new_presentation = Presentation(
+            user_id=user_id,
+            title=title,
+            slides_json=slides_json_str, # Storing the provided slides data as JSON
+            template=template,
+            presentation_type=presentation_type,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        db.session.add(new_presentation)
+        db.session.commit()
+        current_app.logger.info(f"Presentation '{title}' (ID: {new_presentation.id}) saved for user {user_id} via /save-presentation route.")
+        return jsonify({"message": "Presentation saved successfully", "presentation_id": new_presentation.id}), 201 # 201 for created
+
+    except Exception as e:
+        db.session.rollback() # Rollback in case of error during commit
+        current_app.logger.error(f"Error in /save-presentation: {e}", exc_info=True)
+        return jsonify({"error": "An error occurred while saving the presentation."}), 500
 

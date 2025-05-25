@@ -7,8 +7,8 @@ import { FaBold, FaItalic, FaUnderline, FaAlignLeft, FaAlignCenter, FaAlignRight
 import { v4 as uuidv4 } from "uuid";
 import "../styles/SlideEditor.css";
 
-const SLIDE_WIDTH = 800;
-const SLIDE_HEIGHT = 450;
+const SLIDE_WIDTH = 960;
+const SLIDE_HEIGHT = 540;
 const TEXTBOX_PADDING = 10;
 
 function SlideImage({ src, x, y, width, height, isSelected, onSelect, onChange }) {
@@ -117,6 +117,7 @@ const FONT_FAMILIES = [
 const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 64];
 const LINE_HEIGHTS = [1, 1.15, 1.5, 2];
 const TEXT_ALIGNS = ["left", "center", "right", "justify"];
+const PARAGRAPH_SPACINGS = [0, 4, 8, 12, 16, 20, 24, 28, 32]; // Corresponds to spacing options 1.0, 1.5, 2.0, 2.5, 3.0
 
 const TOOLBAR_BUTTON_STYLE = {
   background: "none",
@@ -535,7 +536,6 @@ const SlideEditor = () => {
       alert(error.message || "An error occurred while exporting the presentation.");
     }
   };
-
   // Save and return
   const handleSave = async () => {
     const user = JSON.parse(localStorage.getItem('user'));
@@ -547,8 +547,33 @@ const SlideEditor = () => {
       return;
     }
 
+    // Ensure consistency between legacy image and images array before saving
+    const processedSlides = slides.map(slide => {
+      const processedSlide = { ...slide };
+      
+      // If legacy image is null but images array exists and has items, legacy was intentionally removed
+      if (processedSlide.image === null && processedSlide.images && processedSlide.images.length > 0) {
+        // Keep both as they are - legacy is intentionally null
+      } 
+      // If there's no images array but legacy image exists, it's legacy-only mode
+      else if ((!processedSlide.images || processedSlide.images.length === 0) && processedSlide.image) {
+        // Create images array from legacy image
+        processedSlide.images = [{
+          src: processedSlide.image.src,
+          x: processedSlide.image.x,
+          y: processedSlide.image.y,
+          width: processedSlide.image.width,
+          height: processedSlide.image.height,
+          id: uuidv4(),
+          zIndex: DEFAULT_IMAGE_Z_INDEX
+        }];
+      }
+      
+      return processedSlide;
+    });
+
     const presentationData = {
-      slides: slides,
+      slides: processedSlides,
       templateId: template ? (typeof template === "object" ? template.id : template) : null,
       presentationType: presentationType || "custom",
       userId: userId,
@@ -608,13 +633,36 @@ const SlideEditor = () => {
       ));
     });
   };
-
   // Remove image handler
   const handleRemoveImage = idx => {
     setSlides(prev => prev.map((s, i) =>
       i === currentIdx ? {
         ...s,
         images: s.images.filter((_, j) => j !== idx)
+      } : s
+    ));
+    setSelectedImage(null);
+  };
+  
+  // Remove legacy image and ensure consistency
+  const handleRemoveLegacyImage = () => {
+    setSlides(prev => prev.map((s, i) => 
+      i === currentIdx ? { 
+        ...s, 
+        image: null,
+        // If this was the only image representation, also clear the images array
+        images: (s.images && s.images.length > 0) ? s.images : []
+      } : s
+    ));
+  };
+  
+  // Remove all images from a slide
+  const handleRemoveAllImages = () => {
+    setSlides(prev => prev.map((s, i) => 
+      i === currentIdx ? { 
+        ...s, 
+        image: null,
+        images: []
       } : s
     ));
     setSelectedImage(null);
@@ -668,11 +716,11 @@ const SlideEditor = () => {
             <input type="color" className="background-color-picker" value={slide.background?.fill || '#fff'} onChange={handleBackgroundColor} style={{ width: 28, height: 28, marginLeft: 8 }} />
           </div>
           <div style={{ width: '100%' }}>
-            <label style={{ fontSize: 13, color: '#222', marginBottom: 4 }}>Image</label>
-            <div className="image-upload-row">
+            <label style={{ fontSize: 13, color: '#222', marginBottom: 4 }}>Image</label>            <div className="image-upload-row">
               <button className="image-upload-btn" onClick={() => fileInputRef.current.click()}>Upload Image</button>
               <input type="file" accept="image/*" multiple ref={fileInputRef} style={{ display: 'none' }} onChange={handleImageUpload} />
-              {slide.image && <button className="remove-image-btn" onClick={() => setSlides(prev => prev.map((s, i) => i === currentIdx ? { ...s, image: null } : s))}>Remove</button>}
+              {slide.image && <button className="remove-image-btn" onClick={() => setSlides(prev => prev.map((s, i) => i === currentIdx ? { ...s, image: null } : s))}>Remove Legacy Image</button>}
+              {slide.images && slide.images.length > 0 && <button className="remove-image-btn" onClick={() => setSlides(prev => prev.map((s, i) => i === currentIdx ? { ...s, images: [] } : s))}>Remove All Images</button>}
             </div>
           </div>
         </div>
@@ -764,33 +812,51 @@ const SlideEditor = () => {
               className={selectedTextBox?.bullets ? 'active' : ''}
             >
               •
-            </button>
-            <input
+            </button>            <input
               type="color"
               value={selectedTextBox?.fill || '#222'}
               onChange={e => handleToolbarChange('fill', e.target.value)}
               disabled={!selectedTextBox}
             />
+            <div style={{ display: 'flex', alignItems: 'center', marginLeft: '12px' }}>
+              <span style={{ marginRight: '8px', fontSize: '14px' }}>Spacing:</span>
+              <select
+                value={selectedTextBox?.paragraphSpacing || 0}
+                onChange={e => handleParagraphSpacing(Number(e.target.value))}
+                disabled={!selectedTextBox}
+                style={{ padding: '4px', fontSize: '14px' }}
+              >
+                <option value="0">1.0</option>
+                <option value="4">1.5</option>
+                <option value="8">2.0</option>
+                <option value="12">2.5</option>
+                <option value="16">3.0</option>
+                <option value="20">3.5</option>
+                <option value="24">4.0</option>
+                <option value="28">4.5</option>
+                <option value="32">5.0</option> 
+              </select>
+            </div>
             <button style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }} onClick={() => {}} disabled={!selectedTextBox}><FaHighlighter /></button>
           </div>
 
           {/* --- Slide Preview/Editor --- */}
-          <div
-            className="slide-preview"
-            style={{
-              position: "relative",
-              background: slide.background?.fill || "#fff",
-              width: "80%",
-              aspectRatio: "16 / 9",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              margin: "auto",
-              border: "1px solid #ccc",
-              boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
-              overflow: "hidden"
-            }}
-            onDragOver={e => { // ADDED onDragOver to slide-preview
+                <div
+                className="slide-preview"
+                style={{
+                  position: "relative",
+                  background: slide.background?.fill || "#fff",
+                  width: `${SLIDE_WIDTH}px`, // 960px for PowerPoint 16:9 widescreen
+                  height: `${SLIDE_HEIGHT}px`, // 540px for PowerPoint 16:9 widescreen
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  margin: "auto",
+                  border: "1px solid #ccc",
+                  boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+                  overflow: "hidden"
+                }}
+                onDragOver={e => { // ADDED onDragOver to slide-preview
               e.preventDefault();
               e.dataTransfer.dropEffect = "move";
             }}

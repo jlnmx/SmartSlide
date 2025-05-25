@@ -1,7 +1,8 @@
 .saved-items-page {
     padding: 20px;
     font-family: Arial, sans-serif;
-    max-width: 1000px;
+    max-width: 70vw;
+    width: 70vw;
     margin: 0 auto;
     background-color: #f4f7f6; /* Light background for the page */
 }
@@ -21,14 +22,18 @@
 }
 
 .back-to-dashboard-btn {
-    padding: 10px 20px;
+    padding: 4px 8px;
     background-color: #007bff;
     color: white;
     border: none;
-    border-radius: 5px;
+    border-radius: 4px;
     cursor: pointer;
-    font-size: 1em;
+    font-size: 0.85em;
     transition: background-color 0.3s ease;
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .back-to-dashboard-btn:hover {
@@ -42,8 +47,17 @@
     color: #555;
 }
 
-.saved-section {
+.saved-sections-row {
+    display: flex;
+    gap: 32px;
+    justify-content: space-between;
+    align-items: flex-start;
     margin-bottom: 40px;
+}
+
+.saved-section {
+    flex: 1 1 0;
+    min-width: 0;
     background-color: #ffffff; /* White background for sections */
     padding: 20px;
     border-radius: 8px;
@@ -120,4 +134,14 @@
 .delete-btn {
     background-color: #dc3545; /* Danger color */
     color: white;
+}
+
+@media (max-width: 900px) {
+    .saved-sections-row {
+        flex-direction: column;
+        gap: 20px;
+    }
+    .saved-section {
+        width: 100%;
+    }
 }

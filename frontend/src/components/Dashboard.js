@@ -74,7 +74,7 @@ const Dashboard = () => {
         <div className="sidebar logo"></div> {/* Logo is styled in CSS */}
         <nav className="menu">
           <Link to="/create" className="menu-item">CREATE</Link>
-          <Link to="/templates" className="menu-item">TEMPLATES</Link>
+          <Link to="/saved-quizzes-and-scripts" className="menu-item">QUIZZES & SCRIPTS</Link>
           <Link to="/settings" className="menu-item">SETTINGS</Link>
         </nav>
         <button className="logout-btn" onClick={handleLogoutClick}>
@@ -90,10 +90,6 @@ const Dashboard = () => {
           <div className="header-actions"> {/* Added a wrapper for buttons */}
             <Link to="/account" className="account-btn">
               Account
-            </Link>
-            {/* Add Saved Quizzes/Scripts Button */}
-            <Link to="/saved-quizzes-and-scripts" className="account-btn" style={{ marginLeft: '10px' }}> {/* Added style for spacing */}
-              Saved Items
             </Link>
           </div>
         </header>

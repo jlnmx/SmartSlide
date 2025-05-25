@@ -186,47 +186,49 @@ const SavedQuizzesAndScripts = () => {
                 <button onClick={() => navigate('/dashboard')} className="back-to-dashboard-btn">Back to Dashboard</button>
             </header>
 
-            <section className="saved-section">
-                <h2>Saved Quizzes</h2>
-                {savedQuizzes.length === 0 ? (
-                    <p>No saved quizzes found.</p>
-                ) : (
-                    <ul className="items-list">
-                        {savedQuizzes.map(quiz => (
-                            <li key={quiz.id} className="item-card">
-                                <h3>{quiz.name}</h3>
-                                <p>Saved on: {new Date(quiz.created_at).toLocaleDateString()}</p>
-                                <div className="item-actions">
-                                    <button onClick={() => handleView('quiz', quiz.id)} className="action-btn view-btn">View</button>
-                                    <button onClick={() => handleExport('quiz', quiz.id, quiz.name)} className="action-btn export-btn">Export as Word</button>
-                                    <button onClick={() => handleDelete('quiz', quiz.id)} className="action-btn delete-btn">Delete</button>
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </section>
+            <div className="saved-sections-row">
+                <section className="saved-section">
+                    <h2>Saved Quizzes</h2>
+                    {savedQuizzes.length === 0 ? (
+                        <p>No saved quizzes found.</p>
+                    ) : (
+                        <ul className="items-list">
+                            {savedQuizzes.map(quiz => (
+                                <li key={quiz.id} className="item-card">
+                                    <h3>{quiz.name}</h3>
+                                    <p>Saved on: {new Date(quiz.created_at).toLocaleDateString()}</p>
+                                    <div className="item-actions">
+                                        <button onClick={() => handleView('quiz', quiz.id)} className="action-btn view-btn">View</button>
+                                        <button onClick={() => handleExport('quiz', quiz.id, quiz.name)} className="action-btn export-btn">Export as Word</button>
+                                        <button onClick={() => handleDelete('quiz', quiz.id)} className="action-btn delete-btn">Delete</button>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </section>
 
-            <section className="saved-section">
-                <h2>Saved Scripts</h2>
-                {savedScripts.length === 0 ? (
-                    <p>No saved scripts found.</p>
-                ) : (
-                    <ul className="items-list">
-                        {savedScripts.map(script => (
-                            <li key={script.id} className="item-card">
-                                <h3>{script.name}</h3>
-                                <p>Saved on: {new Date(script.created_at).toLocaleDateString()}</p>
-                                <div className="item-actions">
-                                    <button onClick={() => handleView('script', script.id)} className="action-btn view-btn">View</button>
-                                    <button onClick={() => handleExport('script', script.id, script.name)} className="action-btn export-btn">Export as Word</button>
-                                    <button onClick={() => handleDelete('script', script.id)} className="action-btn delete-btn">Delete</button>
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </section>
+                <section className="saved-section">
+                    <h2>Saved Scripts</h2>
+                    {savedScripts.length === 0 ? (
+                        <p>No saved scripts found.</p>
+                    ) : (
+                        <ul className="items-list">
+                            {savedScripts.map(script => (
+                                <li key={script.id} className="item-card">
+                                    <h3>{script.name}</h3>
+                                    <p>Saved on: {new Date(script.created_at).toLocaleDateString()}</p>
+                                    <div className="item-actions">
+                                        <button onClick={() => handleView('script', script.id)} className="action-btn view-btn">View</button>
+                                        <button onClick={() => handleExport('script', script.id, script.name)} className="action-btn export-btn">Export as Word</button>
+                                        <button onClick={() => handleDelete('script', script.id)} className="action-btn delete-btn">Delete</button>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </section>
+            </div>
         </div>
     );
 };

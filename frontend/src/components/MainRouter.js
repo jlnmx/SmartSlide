@@ -15,6 +15,7 @@ import Help from "./Help";
 import GeneratedQuiz from "./GeneratedQuiz";
 import GeneratedScript from "./GeneratedScript";
 import SlideEditor from "./SlideEditor";
+import SavedQuizzesAndScripts from "./SavedQuizzesAndScripts";
 
 
 
@@ -62,6 +63,9 @@ const MainRouter = () => {
 
         {/* Slide Editor Page */}
         <Route path="/slide-editor" element={<SlideEditor />} />
+
+        {/* Saved Quizzes and Scripts Page */}
+        <Route path="/saved-quizzes-and-scripts" element={<SavedQuizzesAndScripts />} />
 
         {/* Help Page */}
         <Route path="/help" element={<Help />} />

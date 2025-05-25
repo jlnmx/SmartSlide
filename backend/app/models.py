@@ -44,3 +44,21 @@ class Presentation(db.Model):
     presentation_type = db.Column(db.String(100), nullable=True)
     slides_json = db.Column(db.Text, nullable=True)  # Store slides as JSON string
     user = db.relationship('User', backref=db.backref('presentations', lazy=True))
+
+class SavedQuiz(db.Model):
+    __tablename__ = 'saved_quizzes'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    name = db.Column(db.String(200), nullable=False)
+    content = db.Column(db.Text, nullable=False)  # Store quiz content as JSON string
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user = db.relationship('User', backref=db.backref('saved_quizzes', lazy=True))
+
+class SavedScript(db.Model):
+    __tablename__ = 'saved_scripts'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    name = db.Column(db.String(200), nullable=False)
+    content = db.Column(db.Text, nullable=False)  # Store script content as text
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user = db.relationship('User', backref=db.backref('saved_scripts', lazy=True))

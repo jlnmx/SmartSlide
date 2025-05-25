@@ -5,10 +5,10 @@ import traceback
 import uuid
 import base64
 import requests
-from app.models import db, User, Analytics, Presentation
-from app.templates_config import TEMPLATES
+from app.models import db, User, Analytics, Presentation, SavedQuiz, SavedScript # Added SavedQuiz, SavedScript
+from app.templates_config import TEMPLATES # Ensure this import is present
 from datetime import datetime
-from flask import Blueprint, jsonify, request, send_file, send_from_directory
+from flask import Blueprint, request, jsonify, current_app, send_from_directory, send_file # Added send_file
 from dotenv import load_dotenv
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
@@ -23,12 +23,25 @@ from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from docx import Document
+from docx import Document # Added for Word export
 from bs4 import BeautifulSoup
 try:
     from youtube_transcript_api import YouTubeTranscriptApi
 except ImportError:
     YouTubeTranscriptApi = None
+from collections import Counter # Added import for Counter
+
+def update_analytics_on_slide(user_id, topic=None):
+    """Update analytics for a user when a slide is generated."""
+    analytics = Analytics.query.filter_by(user_id=user_id).first()
+    if not analytics:
+        analytics = Analytics(user_id=user_id, slides_created=0, last_topic=topic)
+        db.session.add(analytics)
+    analytics.slides_created += 1
+    if topic:
+        analytics.last_topic = topic
+    analytics.last_generated_at = datetime.utcnow()
+    db.session.commit()
 
 load_dotenv()
 GOOGLE_CREDENTIALS_FILE = os.path.join(os.path.dirname(__file__), '..', 'credentials.json')
@@ -41,14 +54,175 @@ if not GROQ_API_KEY:
     raise RuntimeError("GROQ_API_KEY environment variable is not set. Please set it in your environment or .env file.")
 
 main = Blueprint("main", __name__)
-CORS(main, resources={r"/*": {"origins": "http://localhost:3000"}})
+# CORS(main, resources={r"/*": {"origins": "http://localhost:3000"}}) # Commented out old line
+CORS(main, 
+    resources={r"/*": {"origins": "http://localhost:3000"}},
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
+    supports_credentials=True
+)
 
 @main.after_request
 def after_request(response):
-    response.headers.add("Access-Control-Allow-Origin", "http://localhost:3000")
-    response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization")
-    response.headers.add("Access-Control-Allow-Methods", "GET,POST,OPTIONS,DELETE")
+    # The following CORS headers are now handled by the CORS() call above for the blueprint.
+    # response.headers.add("Access-Control-Allow-Origin", "*") # Handled by Flask-CORS
+    # response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization") # Handled by Flask-CORS
+    # response.headers.add("Access-Control-Allow-Methods", "GET,POST,OPTIONS,DELETE") # Handled by Flask-CORS
     return response
+
+@main.route('/generate-quiz', methods=['POST', 'OPTIONS'])
+def generate_quiz_route():
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    
+    data = request.json
+    slides_content = data.get("slides") # Assuming slides data is passed
+    if not slides_content:
+        return jsonify({"error": "No slides content provided for quiz generation."}), 400
+
+    # Combine slide content into a single text for the prompt
+    full_text_content = ""
+    for slide in slides_content:
+        title = slide.get("title", "")
+        content = slide.get("content", [])
+        full_text_content += f"Slide Title: {title}\n"
+        if isinstance(content, list):
+            full_text_content += "\n".join(content)
+        elif isinstance(content, str):
+            full_text_content += content
+        full_text_content += "\n\n"
+
+    if not full_text_content.strip():
+        return jsonify({"error": "Empty content from slides for quiz generation."}), 400
+
+    quiz_prompt = f"""
+    Based on the following presentation content, generate a quiz with 5 multiple-choice questions.
+    Each question should have 4 choices and a clear answer.
+    Format the output as a JSON array, where each object has "question", "choices" (an array of 4 strings), and "answer" (a string).
+
+    Presentation Content:
+    ---
+    {full_text_content}
+    ---
+
+    Generate the quiz now in JSON format:
+    """
+    try:
+        headers = {
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "llama3-8b-8192",
+            "messages": [
+                {"role": "system", "content": "You are an assistant that generates quizzes in JSON format based on provided text."},
+                {"role": "user", "content": quiz_prompt}
+            ],
+            "max_tokens": 2048,
+            "temperature": 0.5
+        }
+        response = requests.post(GROQ_API_URL, headers=headers, json=payload)
+        response.raise_for_status() # Raise an exception for HTTP errors
+
+        result = response.json()
+        model_output = result["choices"][0]["message"]["content"]
+        
+        # Extract JSON array from the response
+        match = re.search(r'\[\s*{.*}\s*\]', model_output, re.DOTALL)
+        if not match:
+            current_app.logger.error(f"Failed to parse quiz JSON from LLM output: {model_output}")
+            return jsonify({"error": "Failed to parse quiz output from LLM."}), 500
+        
+        quiz_data = json.loads(match.group(0))
+        return jsonify({"quiz": quiz_data})
+
+    except requests.exceptions.HTTPError as http_err:
+        error_details = "N/A"
+        if http_err.response is not None:
+            try:
+                error_details = http_err.response.json()
+            except ValueError:
+                error_details = http_err.response.text
+        current_app.logger.error(f"HTTP error during quiz generation: {http_err}. Details: {error_details}")
+        return jsonify({"error": f"LLM service error: {str(http_err)}"}), getattr(http_err.response, 'status_code', 502)
+    except json.JSONDecodeError as e:
+        current_app.logger.error(f"JSON Decode Error in quiz generation: {e}. LLM Output: {model_output}")
+        return jsonify({"error": "Failed to decode quiz JSON from LLM."}), 500
+    except Exception as e:
+        current_app.logger.error(f"Error during quiz generation: {e}")
+        traceback.print_exc()
+        return jsonify({"error": "Internal server error during quiz generation."}), 500
+
+@main.route('/generate-script', methods=['POST', 'OPTIONS'])
+def generate_script_route():
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+        
+    data = request.json
+    slides_content = data.get("slides") # Assuming slides data is passed
+    if not slides_content:
+        return jsonify({"error": "No slides content provided for script generation."}), 400
+
+    full_text_content = ""
+    for slide in slides_content:
+        title = slide.get("title", "")
+        content = slide.get("content", [])
+        full_text_content += f"Slide Title: {title}\n"
+        if isinstance(content, list):
+            full_text_content += "\n".join(content)
+        elif isinstance(content, str): # Handle content if it's a plain string
+            full_text_content += content
+        full_text_content += "\n\n"
+
+    if not full_text_content.strip():
+        return jsonify({"error": "Empty content from slides for script generation."}), 400
+
+    script_prompt = f"""
+    Based on the following presentation content, generate a detailed speaker script.
+    The script should elaborate on the key points of each slide, provide transitions, and suggest where to pause or emphasize.
+    The output should be a single string of text.
+
+    Presentation Content:
+    ---
+    {full_text_content}
+    ---
+
+    Generate the speaker script now:
+    """
+    try:
+        headers = {
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "llama3-8b-8192",
+            "messages": [
+                {"role": "system", "content": "You are an assistant that generates speaker scripts based on provided presentation content."},
+                {"role": "user", "content": script_prompt}
+            ],
+            "max_tokens": 3000, # Increased max_tokens for potentially longer scripts
+            "temperature": 0.6
+        }
+        response = requests.post(GROQ_API_URL, headers=headers, json=payload)
+        response.raise_for_status() # Raise an exception for HTTP errors
+
+        result = response.json()
+        script_data = result["choices"][0]["message"]["content"]
+        return jsonify({"script": script_data})
+
+    except requests.exceptions.HTTPError as http_err:
+        error_details = "N/A"
+        if http_err.response is not None:
+            try:
+                error_details = http_err.response.json()
+            except ValueError:
+                error_details = http_err.response.text
+        current_app.logger.error(f"HTTP error during script generation: {http_err}. Details: {error_details}")
+        return jsonify({"error": f"LLM service error: {str(http_err)}"}), getattr(http_err.response, 'status_code', 502)
+    except Exception as e:
+        current_app.logger.error(f"Error during script generation: {e}")
+        traceback.print_exc()
+        return jsonify({"error": "Internal server error during script generation."}), 500
 
 @main.route('/presentations/<int:user_id>', methods=['GET'])
 def get_recent_presentations(user_id):
@@ -65,6 +239,51 @@ def get_recent_presentations(user_id):
         for p in presentations
     ]
     return jsonify({'presentations': result})
+
+@main.route('/presentation/<int:presentation_id>', methods=['GET', 'DELETE', 'OPTIONS'])
+def manage_presentation(presentation_id):
+    if request.method == 'OPTIONS':
+        # Preflight request. Reply successfully:
+        return jsonify({'status': 'ok'}), 200
+
+    # For GET and DELETE, first try to fetch the presentation
+    presentation = Presentation.query.get_or_404(presentation_id)
+
+    if request.method == 'GET':
+        try:
+            # Attempt to parse slides_json, default to empty list if None or invalid
+            slides_data = []
+            if presentation.slides_json:
+                try:
+                    slides_data = json.loads(presentation.slides_json)
+                except json.JSONDecodeError:
+                    current_app.logger.warning(f"Invalid JSON in slides_json for presentation {presentation_id}. Serving empty slides.")
+                    # Optionally, you could return an error or a specific structure indicating malformed data
+                    # For now, just returning empty slides as a fallback
+            
+            return jsonify({
+                'id': presentation.id,
+                'title': presentation.title,
+                'created_at': presentation.created_at.isoformat(),
+                'template': presentation.template,
+                'presentationType': presentation.presentation_type, # Ensure frontend uses this key
+                'slides': slides_data
+            })
+        except Exception as e:
+            current_app.logger.error(f"Error fetching details for presentation {presentation_id}: {e}")
+            traceback.print_exc()
+            return jsonify({"error": "Could not retrieve presentation details"}), 500
+
+    elif request.method == 'DELETE':
+        try:
+            db.session.delete(presentation)
+            db.session.commit()
+            return jsonify({'message': 'Presentation deleted successfully'}), 200
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error deleting presentation {presentation_id}: {e}")
+            traceback.print_exc()
+            return jsonify({'error': 'Failed to delete presentation'}), 500
 
 @main.route("/generate-slides", methods=["POST"])
 def generate_slides():
@@ -625,47 +844,82 @@ def upload_file():
         else:
             text = file.read().decode(errors='ignore')
 
-        # --- Slide splitting logic ---
-        # Split by double newlines or headings
-        sections = re.split(r'\n\s*\n|(?=^#+ )', text)
-        slides = []
-        for idx, section in enumerate(sections):
-            if not section or not isinstance(section, str):
-                continue
-            section = section.strip()
-            if not section:
-                continue
-            # Try to extract a title: first line if it's short and not generic
-            lines = [l for l in section.split('\n') if l and l.strip()]
-            first_line = lines[0].strip() if lines else ''
-            # Heuristic: if first line is long or generic, generate a title
-            generic_titles = [f"Slide {idx+1}", "Untitled", "Introduction", "Overview", "Summary"]
-            if (not first_line or len(first_line) > 80 or first_line.lower() in [g.lower() for g in generic_titles]):
-                # Use first 5-8 words of section as title, or fallback to topic
-                words = section.split()
-                if len(words) > 8:
-                    title = " ".join(words[:8]) + "..."
-                elif len(words) > 0:
-                    title = " ".join(words[:min(8, len(words))])
-                else:
-                    title = topic
-                # Capitalize first letter
-                title = title[0].upper() + title[1:] if title else topic
-            else:
-                title = first_line
-                # Remove title from content if it's the first line
-                lines = lines[1:]
-            # Remove any duplicate/overlapping content
-            content = [l.strip() for l in lines if l.strip() and l.strip() != title]
-            # If content is empty, use the section minus the title
-            if not content:
-                content = [section[len(title):].strip()] if section[len(title):].strip() else [section]
-            slides.append({
-                'title': title,
-                'content': content
-            })
+        # --- Use LLM to structure slides ---
+        prompt = f"""
+        You are an expert presentation assistant.
+        Given the following extracted document content, generate a well-structured presentation as a JSON array.
+        - The first slide should have a clear, relevant title based on the topic: \"{topic}\".
+        - Each slide must have a concise, informative title (do NOT use generic titles like \"Slide 1\").
+        - Divide the content logically across slides (introduction, main points, summary, etc.).
+        - Use bullet points or short paragraphs for slide content.
+        - Use Markdown for formatting: **bold** for emphasis, *italic* for highlights, and __underline__ for key terms.
+        - Ensure proper spacing, paragraph styles, and font sizes (as much as possible in Markdown).
+        - Output format: a JSON array, where each object has:
+            - "title": string (slide title)
+            - "content": array of strings (each string is a bullet point or paragraph, use Markdown)
+        - Do NOT include any text before or after the JSON array.
+
+        Example:
+        [
+          {{
+            "title": "Introduction to the Water Cycle",
+            "content": [
+              "**The water cycle** describes how water moves on, above, and below the surface of the Earth.",
+              "- Evaporation: Water turns into vapor.",
+              "- Condensation: Vapor forms clouds.",
+              "- Precipitation: Water returns as rain, snow, etc."
+            ]
+          }},
+          {{
+            "title": "Key Processes",
+            "content": [
+              "- **Evaporation**: Sun heats water.",
+              "- **Condensation**: Vapor cools.",
+              "- **Precipitation**: Water falls to Earth."
+            ]
+          }}
+        ]
+
+        Document content:
+        ---
+        {text}
+        ---
+        """
+
+        headers = {
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "llama3-8b-8192",
+            "messages": [
+                {"role": "system", "content": "You are a helpful assistant that generates slide content in JSON format."},
+                {"role": "user", "content": prompt}
+            ],
+            "max_tokens": 4096,
+            "temperature": 0.3
+        }
+        response = requests.post(GROQ_API_URL, headers=headers, json=payload)
+        if response.status_code != 200:
+            return jsonify({'error': 'Failed to generate slides from file.'}), 500
+
+        result = response.json()
+        model_output = result["choices"][0]["message"]["content"]
+
+        # Extract JSON array from the response
+        match = re.search(r'\[\s*{.*}\s*\]', model_output, re.DOTALL)
+        if not match:
+            return jsonify({'error': 'Failed to parse slides output.'}), 500
+        slides = json.loads(match.group(0))
+
         if not slides:
             return jsonify({'error': 'Could not extract slides from file.'}), 400
+
+        # Update analytics if user_id is provided
+        user_id = request.form.get("user_id")
+        if user_id:
+            update_analytics_on_slide(user_id, topic=topic)
+
         return jsonify({'slides': slides})
     except Exception as e:
         return jsonify({'error': f'Failed to process file: {str(e)}'}), 500
@@ -923,590 +1177,512 @@ def set_presentation_size(ppt, presentation_type):
 @main.route("/paste-and-create", methods=["POST", "OPTIONS"])
 def paste_and_create():
     if request.method == "OPTIONS":
-        response = jsonify({"status": "ok"})
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
-        response.headers["Access-Control-Allow-Methods"] = "POST,OPTIONS"
-        return response, 200
+        # Preflight request will be handled by Flask-CORS and the after_request hook
+        return jsonify({"message": "CORS preflight acknowledged"}), 200
 
-    data = request.json
-    if not data or "text" not in data:
-        return
-
-    pasted_text = data["text"].strip()
-    if not pasted_text:
-        return
-
-    import json
-    # Split by double newlines or Markdown headings
-    raw_sections = re.split(r'(?:\n\s*\n|^#+\s+)', pasted_text)
-    slides = []
-    for section in raw_sections:
-        section = section.strip()
-        if not section:
-            continue
-        lines = section.splitlines()
-        first_line = lines[0].strip()
-        if len(first_line.split()) > 12:
-            title = first_line.split('.')[0] if '.' in first_line else first_line[:50]
-            content_lines = lines
-        else:
-            title = first_line
-            content_lines = lines[1:]
-        if not content_lines:
-            content_lines = lines[1:]
-        if not content_lines:
-            content_lines = [section[len(title):].strip()]
-        content_lines = [l.strip() for l in content_lines if l.strip()]
-        if not content_lines:
-            continue
-        slides.append({
-            "title": title,
-            "content": content_lines
-        })
-
-    # Fallback: if no slides detected, chunk by 100 words as before
-    if not slides:
-        words = pasted_text.split()
-        chunk_size = 100
-        for i in range(0, len(words), chunk_size):
-            chunk = words[i:i+chunk_size]
-            slides.append({
-                "title": f"Slide {i//chunk_size+1}",
-                "content": [' '.join(chunk)]
-            })
-
-    # Store presentation metadata in DB if user_id is provided
-    user_id = data.get("user_id")
-    template = data.get("template")
-    presentation_type = data.get("presentationType", "Default")
-    if user_id:
-        new_presentation = Presentation(
-            user_id=user_id,
-            title=slides[0]["title"] if slides else "Untitled Presentation",
-            template=template,
-            presentation_type=presentation_type,
-            slides_json=json.dumps(slides)
-        )
-        db.session.add(new_presentation)
-        db.session.commit()
-        # Update analytics after successful paste-and-create and saving
-        update_analytics_on_slide(user_id, topic=slides[0]["title"] if slides else "Pasted Content")
-
-    return jsonify({"slides": slides, "result": f"Generated {len(slides)} slides."})
-
-def generate_image_cloudflare(prompt):
-    """
-    Generate an image using Cloudflare Workers AI and return a data URL (base64-encoded PNG).
-    """
-    CLOUDFLARE_WORKERS_AI_KEY = os.environ.get("CLOUDFLARE_WORKERS_AI_KEY")
-    CLOUDFLARE_ACCOUNT_ID = os.environ.get("CLOUDFLARE_ACCOUNT_ID")
-    if not CLOUDFLARE_WORKERS_AI_KEY:
-        print("Error: CLOUDFLARE_WORKERS_AI_KEY is not set in the environment.")
-        return None
-    if not CLOUDFLARE_ACCOUNT_ID:
-        print("Error: CLOUDFLARE_ACCOUNT_ID is not set in the environment.")
-        return None
-
-    url = f"https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/run/@cf/stabilityai/stable-diffusion-xl-base-1.0"
-    headers = {
-        "Authorization": f"Bearer {CLOUDFLARE_WORKERS_AI_KEY}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "prompt": prompt,
-        "num_steps": 20,  # Cloudflare API requires <= 20
-        "width": 768,
-        "height": 512
-    }
-    try:
-        response = requests.post(url, headers=headers, json=payload)
-        if response.status_code != 200:
-            print(f"Cloudflare Workers AI error: status={response.status_code}")
-            print(f"Response content: {response.content}")
-            return None
-        if not response.content:
-            print("Cloudflare Workers AI error: Empty response body.")
-            return None
+    if request.method == "POST":
         try:
-            result = response.json()
-        except Exception as e:
-            print(f"Cloudflare Workers AI error: Could not parse JSON. Raw response: {response.content}")
-            return None
-        # The result should contain a base64-encoded image string
-        image_base64 = result.get("result", {}).get("image")
-        if image_base64:
-            return f"data:image/png;base64,{image_base64}"
-    except Exception as e:
-        print(f"Cloudflare Workers AI exception: {e}")
-    return None
+            data = request.get_json()
+            if not data:
+                return jsonify({"error": "Invalid JSON payload"}), 400
 
-@main.route("/generate-quiz", methods=["POST"])
-def generate_quiz():
-    data = request.json
-    slides = data.get("slides")
-    user_id = data.get("user_id")
+            text_input = data.get("text")
+            user_id = data.get("user_id")
+            template_id = data.get("template") # Ensure this line is present and uncommented
 
-    if not slides or not isinstance(slides, list):
-        return jsonify({"error": "No slides provided or invalid format."}), 400
+            if not text_input:
+                return jsonify({"error": "No text provided"}), 400
 
-    slide_text_content = extract_text_from_slides(slides)
-
-    if not slide_text_content.strip():
-        return jsonify({"error": "No text content found in slides."}), 400
-
-    try:
-        prompt = f"""
-        Based on the following presentation content, generate a structured quiz questionnaire.
-        The content is extracted from presentation slides.
-        
-        Presentation Content:
-        ---
-        {slide_text_content}
-        ---
-
-        Quiz Requirements:
-        1.  Generate a variety of question types:
-            *   Multiple Choice Questions (MCQ): Provide 3-4 distinct choices. Clearly indicate the correct answer.
-            *   True/False Questions: State a fact and ask if it\\\\\'s true or false. Provide the correct answer.
-            *   Short Answer Questions: Ask a question that requires a brief written response. Provide the ideal answer.
-        2.  Ensure the quiz comprehensively covers the key information and concepts from the provided content.
-        3.  The difficulty should be appropriate for someone who has just reviewed the presentation material.
-        4.  The tone should be educational and neutral.
-        5.  Output Format: STRICTLY a JSON object. This object MUST contain a single key named "quiz". The value of this "quiz" key MUST be a JSON array of question objects. Each question object must have the following fields:
-            *   `question` (string): The question text.
-            *   `type` (string): Can be "MCQ", "True/False", or "Short Answer".
-            *   `choices` (array of strings, optional): Required for "MCQ" type. List of possible answers.
-            *   `answer` (string): The correct answer. For "MCQ", this should be one of the strings from the `choices` array. For "Short Answer", this is the ideal response. For "True/False", it\\\\\'s "True" or "False".
-            *   `explanation` (string, optional): A brief explanation for why the answer is correct, especially for tricky questions.
-
-        Example of a single question object (which would be an element in the "quiz" array):
-        {{{{  // Escaped curly brace
-          "question": "What is the capital of France?",
-          "type": "MCQ",
-          "choices": ["Berlin", "Madrid", "Paris", "Rome"],
-          "answer": "Paris",
-          "explanation": "Paris is the capital and most populous city of France."
-        }}}}  // Escaped curly brace
-        
-        Generate at least 5 questions if the content allows, but no more than 10.
-        Ensure the entire output is a single valid JSON object as described (e.g., {{{{ "quiz": [ ...questions... ] }}}}). Do not include any text before or after this JSON object.
-        """
-        
-        headers = {
-            "Authorization": f"Bearer {GROQ_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "model": "llama3-70b-8192",
-            "messages": [
-                {"role": "system", "content": "You are an expert quiz generation assistant. Your output MUST be a single valid JSON object. This object must contain a key named 'quiz', and its value must be an array of question objects, as per the user\\'s detailed instructions. Do not add any introductory or concluding text outside the JSON object itself."},
-                {"role": "user", "content": prompt}
-            ],
-            "max_tokens": 3000,
-            "temperature": 0.2,
-            "response_format": {"type": "json_object"}
-        }
-
-        response = requests.post(GROQ_API_URL, headers=headers, json=payload)
-
-        if response.status_code != 200:
-            error_details = response.text
-            try:
-                error_details_json = response.json()
-                error_details = error_details_json.get("error", {}).get("message", response.text)
-            except ValueError:
-                pass 
-            print(f"LLM API Error: Status {response.status_code}, Details: {error_details}")
-            return jsonify({"error": "Failed to generate quiz from LLM.", "details": error_details}), 500
-
-        model_output_raw = response.json()
-        model_content_str = model_output_raw.get("choices", [{}])[0].get("message", {}).get("content", "")
-
-        if not model_content_str:
-            print("LLM returned empty content for quiz.")
-            return jsonify({"error": "LLM returned empty content for quiz."}), 500
+            if not GROQ_API_KEY:
+                current_app.logger.error("GROQ_API_KEY is not configured.")
+                return jsonify({"error": "Server configuration error: Missing API key"}), 500
             
-        quiz_data = None
-        try:
-            parsed_json = json.loads(model_content_str)
-            if isinstance(parsed_json, list):
-                quiz_data = parsed_json
-            elif isinstance(parsed_json, dict):
-                for key in ["quiz", "questions", "quiz_questions", "data"]:
-                    if isinstance(parsed_json.get(key), list):
-                        quiz_data = parsed_json[key]
-                        break
-                if not quiz_data: 
-                    print(f"LLM returned a JSON object but not in the expected array format or wrapped object: {parsed_json}")
-                    if "question" in parsed_json and "answer" in parsed_json:
-                        quiz_data = [parsed_json]
+            if not GROQ_API_URL:
+                current_app.logger.error("GROQ_API_URL is not configured.")
+                return jsonify({"error": "Server configuration error: Missing API URL"}), 500
+
+            headers = {
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            
+            system_prompt = (
+                "You are an expert in structuring text content into presentation slides. "
+                "Each slide in the presentation must have a 'title' (a string) and 'content' "
+                "(a list of strings, where each string represents a paragraph or a bullet point). "
+                "The entire output must be a valid JSON list of these slide objects, or a JSON object with a 'slides' key containing the list. "
+                "Do NOT use emojis, special unicode, or non-ASCII characters. Use only plain English text and standard punctuation. "
+                "Do not include any introductory text, explanations, or markdown formatting around the JSON itself."
+            )
+            user_prompt_content = f"Text to process:\n---\n{text_input}\n---\n\nDo NOT use emojis, special unicode, or non-ASCII characters. Use only plain English text and standard punctuation."
+
+            payload = {
+                "model": "llama3-8b-8192",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt_content}
+                ],
+                "temperature": 0.5,
+                "max_tokens": 3000, # Adjusted to be within typical limits for llama3-8b if necessary, though 3000 is usually fine.
+                "response_format": {"type": "json_object"}
+            }
+
+            api_response = requests.post(GROQ_API_URL, headers=headers, json=payload, timeout=120)
+            api_response.raise_for_status()
+
+            llm_response_data = api_response.json()
+            
+            if not (llm_response_data.get("choices") and 
+                    len(llm_response_data["choices"]) > 0 and
+                    llm_response_data["choices"][0].get("message") and
+                    llm_response_data["choices"][0]["message"].get("content")):
+                current_app.logger.error(f"Unexpected LLM response structure: {llm_response_data}")
+                return jsonify({"error": "Failed to parse slides from LLM response (incomplete structure)"}), 500
+
+            json_string_from_llm = llm_response_data["choices"][0]["message"]["content"]
+
+            if not isinstance(json_string_from_llm, str):
+                current_app.logger.error(f"LLM response content is not a string as expected. Type: {type(json_string_from_llm)}. Content: {json_string_from_llm}")
+                return jsonify({"error": "Invalid data type for slide content from LLM"}), 500
+            
+            try:
+                # Try strict JSON parsing first
+                parsed_llm_response_object = json.loads(json_string_from_llm)
+                slides = None
+                if isinstance(parsed_llm_response_object, dict):
+                    if 'slides' in parsed_llm_response_object and isinstance(parsed_llm_response_object['slides'], list):
+                        slides = parsed_llm_response_object['slides']
                     else:
-                        raise ValueError("JSON object received, but quiz array not found within it.")
-            else:
-                raise ValueError(f"Expected a JSON list or an object containing a list, but got {type(parsed_json)}")
-
-        except json.JSONDecodeError as e:
-            print(f"JSONDecodeError while parsing LLM output for quiz: {e}")
-            print(f"Problematic LLM output string: {model_content_str[:500]}...")
-            match = re.search(r'\\[\\s*\\{.*?\\}\\s*\\]', model_content_str, re.DOTALL) # Corrected regex
-            if match:
+                        for key, value in parsed_llm_response_object.items():
+                            if isinstance(value, list):
+                                if not value or isinstance(value[0], dict):
+                                    slides = value
+                                    current_app.logger.info(f"Extracted slides from key '{key}' in LLM response object.")
+                                    break
+                elif isinstance(parsed_llm_response_object, list):
+                    slides = parsed_llm_response_object
+                    current_app.logger.warning("LLM response was a direct list despite json_object format request.")
+                if slides is None:
+                    raise ValueError("No slides list found in JSON object")
+            except Exception as je:
+                # Fallback: try to extract a JSON array from the string using regex (like /upload-file)
+                import re
+                current_app.logger.warning(f"Strict JSON parse failed, attempting regex fallback. Error: {je}")
+                match = re.search(r'\[\s*{.*?}\s*\]', json_string_from_llm, re.DOTALL)
+                if not match:
+                    current_app.logger.error(f"Regex fallback failed to find JSON array in LLM output: {json_string_from_llm[:500]}")
+                    return jsonify({"error": "Failed to parse slides output from LLM."}), 500
                 try:
-                    quiz_data = json.loads(match.group(0))
-                except json.JSONDecodeError as e_regex:
-                    print(f"JSONDecodeError even after regex extraction for quiz: {e_regex}")
-                    return jsonify({"error": "Failed to parse quiz JSON from LLM response after regex.", "details": model_content_str}), 500
-            else:
-                return jsonify({"error": "Failed to parse quiz JSON from LLM response and no regex match.", "details": model_content_str}), 500
-        
-        if not quiz_data:
-             return jsonify({"error": "Successfully parsed JSON from LLM, but no quiz data found.", "details": model_content_str}), 500
+                    slides = json.loads(match.group(0))
+                except Exception as e2:
+                    current_app.logger.error(f"Regex fallback found array but failed to parse JSON: {e2}. Content: {match.group(0)[:500]}")
+                    return jsonify({"error": "Failed to decode slides JSON from LLM output."}), 500
 
-        if not isinstance(quiz_data, list) or not all(isinstance(q, dict) and 'question' in q and 'answer' in q for q in quiz_data): # Corrected list comprehension
-            print(f"Quiz data is not in the expected format (list of dicts with question/answer): {quiz_data}")
-            return jsonify({"error": "Generated quiz data is not in the expected format.", "details": str(quiz_data)}), 500
+            # Validate structure of each slide
+            if not isinstance(slides, list): # Should be redundant now, but as a final safeguard.
+                current_app.logger.error(f"Slides variable is not a list after extraction logic. Type: {type(slides)}. Value: {slides}")
+                return jsonify({"error": "Internal error processing slide data format."}), 500
 
-        # If quiz generation is successful, update analytics
-        if user_id and quiz_data:
-            update_analytics_on_quiz(user_id)
-        
-        return jsonify({"quiz": quiz_data})
+            for i, s_item in enumerate(slides):
+                if not (isinstance(s_item, dict) and 
+                        "title" in s_item and isinstance(s_item.get("title"), str) and
+                        "content" in s_item and isinstance(s_item.get("content"), list) and
+                        all(isinstance(c_item, str) for c_item in s_item.get("content"))):
+                    current_app.logger.error(f"LLM generated invalid slide structure at index {i}: {s_item}")
+                    return jsonify({"error": "LLM generated invalid slide data structure (title/content fields or content list/items missing/invalid)"}), 500
+            
+            # Save presentation to database
+            if slides:
+                presentation_title = slides[0].get("title") if slides and slides[0].get("title") else "Pasted Content Presentation"
+                slides_json_str = json.dumps(slides)
 
-    except requests.exceptions.RequestException as e:
-        print(f"Network error during quiz generation: {e}")
-        return jsonify({"error": "Network error during quiz generation."}), 500
-    except KeyError as e:
-        print(f"KeyError during quiz generation (likely unexpected LLM response structure): {e}")
-        return jsonify({"error": "KeyError during quiz generation."}), 500
-    except Exception as e:
-        print(f"Unexpected error during quiz generation: {e}")
-        traceback.print_exc()
-        return jsonify({"error": "Unexpected error during quiz generation."}), 500
+                new_presentation = Presentation(
+                    user_id=user_id if user_id else None,
+                    title=presentation_title,
+                    slides_json=slides_json_str,
+                    template=template_id, # Changed from template_id to template
+                    presentation_type="Pasted" # Default presentation_type for pasted content
+                )
+                db.session.add(new_presentation)
+                db.session.commit()
+                current_app.logger.info(f"Saved new presentation from paste-and-create: ID {new_presentation.id}, Title: {presentation_title}, UserID: {user_id}, TemplateID: {template_id}")
+            
+            if user_id:
+                topic = slides[0].get("title", "Pasted Content") if slides else "Pasted Content"
+                update_analytics_on_slide(user_id, topic=topic)
 
-@main.route("/generate-script", methods=["POST"])
-def generate_script():
-    data = request.json
-    slides = data.get("slides")
-    user_id = data.get("user_id")  # Expect user_id from frontend
-    if not slides or not isinstance(slides, list):
-        return jsonify({"error": "No slides provided or invalid format."}), 400
+            return jsonify({"slides": slides, "result": f"Generated {len(slides)} slides."}), 200
+
+        except requests.exceptions.HTTPError as http_err:
+            error_details = "N/A"
+            if http_err.response is not None:
+                try:
+                    error_details = http_err.response.json() # Try to get JSON error from Groq
+                except ValueError:
+                    error_details = http_err.response.text # Fallback to text
+            current_app.logger.error(f"HTTP error occurred while calling Groq API: {http_err}. Status: {http_err.response.status_code if http_err.response is not None else 'Unknown'}. Details: {error_details}")
+            return jsonify({"error": f"Failed to communicate with LLM service"}), getattr(http_err.response, 'status_code', 502)
+        except requests.exceptions.RequestException as req_err:
+            current_app.logger.error(f"Request error occurred while calling Groq API: {req_err}")
+            return jsonify({"error": "Network error while communicating with LLM service"}), 503
+        except json.JSONDecodeError as json_err: # If api_response.json() fails
+            current_app.logger.error(f"Failed to decode JSON response from Groq API: {json_err}. Response text: {api_response.text[:500] if api_response else 'N/A'}")
+            return jsonify({"error": "Invalid response from LLM service"}), 502
+        except Exception as e:
+            current_app.logger.error(f"An unexpected error occurred in /paste-and-create: {e}", exc_info=True)
+            return jsonify({"error": "An internal server error occurred"}), 500
+    
+    return jsonify({"error": "Method not allowed"}), 405
+
+@main.route("/templates-list", methods=["GET"])
+def templates_list():
     try:
-        # Compose a prompt for script generation
-        slide_text = "\n".join(
-            f"Title: {slide.get('title', '')}\nContent: {' '.join(slide.get('content', []))}" for slide in slides
-        )
-        prompt = f"""
-        You are a professional speaker. Write a detailed speaker script for the following presentation slides.
-        - The script should be engaging, clear, and follow the slide order.
-        - For each slide, provide what the speaker should say, including transitions.
-        Slides:\n{slide_text}
-        """
-        headers = {
-            "Authorization": f"Bearer {GROQ_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "model": "llama3-8b-8192",
-            "messages": [
-                {"role": "system", "content": "You are a helpful assistant that generates speaker scripts."},
-                {"role": "user", "content": prompt}
-            ],
-            "max_tokens": 3072,
-            "temperature": 0.3
-        }
-        response = requests.post(GROQ_API_URL, headers=headers, json=payload)
-        if response.status_code != 200:
-            return jsonify({"error": "Failed to generate script."}), 500
-        result = response.json()
-        model_output = result["choices"][0]["message"]["content"]
-        # Update analytics for script generation
-        if user_id:
-            update_analytics_on_script(user_id)
-        return jsonify({"script": model_output.strip()})
+        # Transform the TEMPLATES dictionary into a list of objects,
+        # adding the key as an 'id' field in each object.
+        formatted_templates = []
+        for template_id, template_data in TEMPLATES.items():
+            formatted_templates.append({
+                "id": template_id,
+                "name": template_data.get("name"),
+                "description": template_data.get("description"),
+                "preview": template_data.get("preview") # Assuming you might add a preview image path later
+                # Add any other fields the frontend might need, like 'title' if it's different from 'name'
+            })
+        return jsonify({"templates": formatted_templates})
     except Exception as e:
-        print(f"Script generation error: {e}")
-        return jsonify({"error": "Script generation error.", "details": str(e)}), 500
+        current_app.logger.error(f"Error in /templates-list: {e}")
+        return jsonify({"error": "Could not retrieve templates"}), 500
 
-@main.route("/export-quiz-word", methods=["POST"])
-def export_quiz_word():
-    data = request.json
-    quiz = data.get("quiz")
-    if not quiz:
-        return jsonify({"error": "No quiz data provided."}), 400
-    try:
-        doc = Document()
-        doc.add_heading("Generated Quiz", 0)
-        if isinstance(quiz, list):
-            for idx, q in enumerate(quiz, 1):
-                doc.add_paragraph(f"Q{idx}: {q.get('question', '')}", style="List Number")
-                choices = q.get("choices")
-                if choices:
-                    for c in choices:
-                        doc.add_paragraph(c, style="List Bullet")
-                answer = q.get("answer")
-                if answer:
-                    doc.add_paragraph(f"Answer: {answer}", style="Intense Quote")
-                doc.add_paragraph("")
-        else:
-            doc.add_paragraph(str(quiz))
-        buf = BytesIO()
-        doc.save(buf)
-        buf.seek(0)
-        return send_file(buf, as_attachment=True, download_name="generated_quiz.docx", mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-    except Exception as e:
-        print(f"Quiz Word export error: {e}")
-        return jsonify({"error": str(e)}), 500
-
-@main.route("/export-script-word", methods=["POST"])
-def export_script_word():
-    data = request.json
-    script = data.get("script")
-    if not script:
-        return jsonify({"error": "No script data provided."}), 400
-    try:
-        doc = Document()
-        doc.add_heading("Speaker Script", 0)
-        if isinstance(script, str):
-            for para in script.split("\n"):
-                doc.add_paragraph(para)
-        else:
-            doc.add_paragraph(str(script))
-        buf = BytesIO()
-        doc.save(buf)
-        buf.seek(0)
-        return send_file(buf, as_attachment=True, download_name="script.docx", mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-    except Exception as e:
-        print(f"Script Word export error: {e}")
-        return jsonify({"error": str(e)}), 500
-
-# --- AUTH ROUTES ---
-@main.route('/register', methods=['POST'])
+@main.route('/register', methods=['POST', 'OPTIONS'])
 def register():
-    data = request.json
-    email = data.get('email')
-    password = data.get('password')
-    if not email or not password:
-        return jsonify({'error': 'Email and password required.'}), 400
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200  # Handle preflight
+    
+    data = request.get_json()
+    if not data or not data.get('email') or not data.get('password'):
+        return jsonify({"error": "Email and password are required"}), 400
+
+    email = data['email']
+    password = data['password']
+
     if User.query.filter_by(email=email).first():
-        return jsonify({'error': 'Email already registered.'}), 400
-    user = User(email=email)
-    user.set_password(password)
-    db.session.add(user)
-    db.session.commit()
-    # Create analytics row for this user (one for general usage)
-    analytics = Analytics(user_id=user.id)
-    db.session.add(analytics)
-    db.session.commit()
-    return jsonify({'message': 'Registration successful.'})
+        return jsonify({"error": "Email address already registered"}), 409
 
-@main.route('/login', methods=['POST'])
+    new_user = User(email=email)
+    new_user.set_password(password)
+    db.session.add(new_user)
+    db.session.commit()
+
+    # Initialize analytics for the new user
+    new_analytics = Analytics(user_id=new_user.id, slides_created=0) # Ensure Analytics is imported
+    db.session.add(new_analytics)
+    db.session.commit()
+
+    return jsonify({"message": "User registered successfully", "user": {"id": new_user.id, "email": new_user.email}}), 201
+
+@main.route('/login', methods=['POST', 'OPTIONS'])
 def login():
-    data = request.json
-    email = data.get('email')
-    password = data.get('password')
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200  # Handle preflight
+
+    data = request.get_json()
+    if not data or not data.get('email') or not data.get('password'):
+        return jsonify({"error": "Email and password are required"}), 400
+
+    email = data['email']
+    password = data['password']
     user = User.query.filter_by(email=email).first()
-    if not user or not user.check_password(password):
-        return jsonify({'error': 'Invalid email or password.'}), 401
-    return jsonify({'message': 'Login successful.', 'user': {'id': user.id, 'email': user.email}})
 
-@main.route('/user/<int:user_id>', methods=['GET'])
-def get_user(user_id):
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({'error': 'User not found.'}), 404
-    return jsonify({'id': user.id, 'email': user.email, 'created_at': user.created_at})
-
-@main.route('/user/<int:user_id>', methods=['PUT'])
-def update_user(user_id):
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({'error': 'User not found.'}), 404
-    data = request.json
-    if 'email' in data:
-        user.email = data['email']
-    if 'password' in data and data['password']:
-        user.set_password(data['password'])
-    db.session.commit()
-    return jsonify({'message': 'User updated.'})
-
-# --- ANALYTICS ROUTES ---
-@main.route('/analytics/<int:user_id>', methods=['GET'])
-def get_analytics(user_id):
-    # General summary
-    general_analytics = Analytics.query.filter_by(user_id=user_id, month=None, topic=None).first()
-    if not general_analytics:
-        # Create a default general analytics entry if none exists
-        general_analytics = Analytics(
-            user_id=user_id,
-            slides_created=0,
-            quizzes_generated=0,
-            scripts_generated=0,
-            last_active=datetime.utcnow()  # Ensure datetime is imported
-        )
-        db.session.add(general_analytics)
-        db.session.commit()
-
-    # Monthly data
-    monthly = Analytics.query.filter_by(user_id=user_id).filter(Analytics.month != None).all()
-    month_stats = {a.month: a.slides_created for a in monthly}
-    # Fetch topic stats
-    topics = Analytics.query.filter_by(user_id=user_id).filter(Analytics.topic != None).all()
-    topic_stats = {a.topic: a.topic_count for a in topics}
-    return jsonify({
-        'slides_generated': general_analytics.slides_created,
-        'quizzes_generated': general_analytics.quizzes_generated,
-        'scripts_generated': general_analytics.scripts_generated,
-        'last_active': general_analytics.last_active.isoformat() if general_analytics.last_active else None,
-        'monthly': month_stats,
-        'topics': topic_stats
-    })
-
-@main.route('/presentation/<int:presentation_id>', methods=['GET'])
-def get_presentation_slides(presentation_id):
-    presentation = Presentation.query.get(presentation_id)
-    if not presentation or not presentation.slides_json:
-        return jsonify({'error': 'Presentation not found or no slides stored.'}), 404
-    try:
-        import json
-        slides = json.loads(presentation.slides_json)
-    except Exception:
-        slides = []
-    return jsonify({
-        'slides': slides,
-        'template': presentation.template,
-        'presentationType': presentation.presentation_type
-    })
-
-@main.route('/presentation/<int:presentation_id>', methods=['DELETE'])
-def delete_presentation(presentation_id):
-    presentation = Presentation.query.get(presentation_id)
-    if not presentation:
-        return jsonify({'error': 'Presentation not found.'}), 404
-    db.session.delete(presentation)
-    db.session.commit()
-    return jsonify({'message': 'Presentation deleted.'})
-
-# --- ANALYTICS UPDATES (to be called in slide/quiz/script generation endpoints) ---
-def update_analytics_on_slide(user_id, topic=None):
-    # General usage
-    analytics = Analytics.query.filter_by(user_id=user_id, month=None, topic=None).first()
-    if analytics:
-        analytics.slides_created += 1
-        analytics.last_active = datetime.utcnow()
-    # Monthly
-    month_str = datetime.utcnow().strftime('%Y-%m')
-    monthly = Analytics.query.filter_by(user_id=user_id, month=month_str).first()
-    if not monthly:
-        monthly = Analytics(user_id=user_id, month=month_str, slides_created=1)
-        db.session.add(monthly)
-    else:
-        monthly.slides_created += 1
-    # Topic
-    if topic:
-        topic_row = Analytics.query.filter_by(user_id=user_id, topic=topic).first()
-        if not topic_row:
-            topic_row = Analytics(user_id=user_id, topic=topic, topic_count=1)
-            db.session.add(topic_row)
+    if user and user.check_password(password):
+        # Update last_active for analytics
+        analytics = Analytics.query.filter_by(user_id=user.id).first()
+        if analytics:
+            analytics.last_active = datetime.utcnow()
+            db.session.commit()
         else:
-            topic_row.topic_count += 1
-    db.session.commit()
+            # Should not happen if analytics are created on registration, but as a safeguard:
+            new_analytics = Analytics(user_id=user.id, last_active=datetime.utcnow())
+            db.session.add(new_analytics)
+            db.session.commit()
+            current_app.logger.warning(f"Analytics record created for user {user.id} at login as it was missing.")
 
-def update_analytics_on_quiz(user_id):
-    analytics = Analytics.query.filter_by(user_id=user_id, month=None, topic=None).first()
-    if analytics:
-        analytics.quizzes_generated += 1
-        analytics.last_active = datetime.utcnow()
-        db.session.commit()
+        return jsonify({"message": "Login successful", "user": {"id": user.id, "email": user.email}}), 200
+    
+    return jsonify({"error": "Invalid email or password"}), 401
 
-def update_analytics_on_script(user_id):
-    analytics = Analytics.query.filter_by(user_id=user_id, month=None, topic=None).first()
-    if analytics:
-        analytics.scripts_generated += 1
-        analytics.last_active = datetime.utcnow()
-        db.session.commit()
+@main.route('/user/<int:user_id>', methods=['GET', 'PUT', 'OPTIONS'])
+def manage_user_profile(user_id):
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200 # Handle CORS preflight
 
-@main.route('/save-presentation', methods=['POST'])
-def save_presentation():
-    import json
+    user = User.query.get_or_404(user_id)
+
+    if request.method == 'GET':
+        return jsonify({
+            'id': user.id,
+            'email': user.email
+            # Add other user details here if needed in the future
+        }), 200
+
+    if request.method == 'PUT':
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid JSON payload'}), 400
+
+        # Update email if provided and different
+        if 'email' in data and data['email'] != user.email:
+            # Optional: Check if the new email is already taken by another user
+            existing_user_with_new_email = User.query.filter(User.email == data['email'], User.id != user.id).first()
+            if existing_user_with_new_email:
+                return jsonify({'error': 'New email address is already in use'}), 409
+            user.email = data['email']
+            current_app.logger.info(f'User {user_id} email updated to {data["email"]}')
+
+        # Update password if provided
+        if 'password' in data and data['password']:
+            user.set_password(data['password'])
+            current_app.logger.info(f'User {user_id} password updated.')
+        
+        try:
+            db.session.commit()
+            return jsonify({'message': 'User profile updated successfully', 'user': {'id': user.id, 'email': user.email}}), 200
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f'Error updating user {user_id} profile: {e}')
+            return jsonify({'error': 'Failed to update user profile'}), 500
+
+@main.route('/analytics/<int:user_id>', methods=['GET', 'OPTIONS'])
+def get_user_analytics(user_id):
+    if request.method == 'OPTIONS':
+        # Preflight request. Reply successfully:
+        return jsonify({'status': 'ok'}), 200
+
+    # Check if user exists
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    analytics_record = Analytics.query.filter_by(user_id=user_id).first()
+    presentations = Presentation.query.filter_by(user_id=user_id).all()
+
+    # Slides created over time (monthly)
+    monthly_slides_counter = Counter()
+    if presentations:
+        for p in presentations:
+            if p.created_at:
+                month_year = p.created_at.strftime('%Y-%m')
+                monthly_slides_counter[month_year] += 1
+    
+    # Most common topics (using presentation titles)
+    topic_counts_counter = Counter()
+    if presentations:
+        for p in presentations:
+            if p.title: # Assuming title is the topic
+                topic_counts_counter[p.title.lower()] += 1
+    
+    # Prepare summary data
+    slides_generated = analytics_record.slides_created if analytics_record and analytics_record.slides_created is not None else 0
+    # Always count actual saved quizzes/scripts for analytics
+    quizzes_generated = SavedQuiz.query.filter_by(user_id=user_id).count()
+    scripts_generated = SavedScript.query.filter_by(user_id=user_id).count()
+    last_active_iso = analytics_record.last_active.isoformat() if analytics_record and analytics_record.last_active else None
+
+    return jsonify({
+        "monthly": dict(monthly_slides_counter),
+        "topics": dict(topic_counts_counter),
+        "slides_generated": slides_generated,
+        "quizzes_generated": quizzes_generated,
+        "scripts_generated": scripts_generated,
+        "last_active": last_active_iso
+    }), 200
+
+# Ensure this new route is defined before any potential catch-all routes or error handlers, if any.
+# If there's a specific place where new routes are usually added, it should go there.
+# For now, adding it at the end of the file before any app.run() or similar global statements.
+
+# Routes for Saved Quizzes and Scripts
+
+@main.route('/save-quiz', methods=['POST', 'OPTIONS'])
+def save_quiz():
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
     data = request.json
     user_id = data.get('user_id')
-    title = data.get('title') or 'Untitled Presentation'
-    slides = data.get('slides')
-    template = data.get('template')
-    presentation_type = data.get('presentationType', 'Default')
-    if not user_id or not slides:
-        return jsonify({'error': 'Missing user_id or slides'}), 400
+    name = data.get('name')
+    content = data.get('content')
+    if not all([user_id, name, content]):
+        return jsonify({"error": "Missing data for saving quiz"}), 400
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
     try:
-        slides_json = json.dumps(slides)
-        presentation = Presentation(
-            user_id=user_id,
-            title=title,
-            slides_json=slides_json,
-            template=template,
-            presentation_type=presentation_type
-        )
-        db.session.add(presentation)
+        new_quiz = SavedQuiz(user_id=user_id, name=name, content=content)
+        db.session.add(new_quiz)
+        analytics = Analytics.query.filter_by(user_id=user_id).first()
+        if analytics:
+            analytics.quizzes_generated = (analytics.quizzes_generated or 0) + 1
+            analytics.last_active = datetime.utcnow()
         db.session.commit()
-        return jsonify({'message': 'Presentation saved', 'id': presentation.id})
+        return jsonify({"message": "Quiz saved successfully", "quiz_id": new_quiz.id}), 201
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        db.session.rollback()
+        current_app.logger.error(f"Error saving quiz: {e}")
+        return jsonify({"error": "Failed to save quiz"}), 500
 
-@main.route('/templates-list', methods=['GET'])
-def templates_list():
-    # Return all templates as a list of dicts with id, name, description, etc.
-    templates = []
-    for tpl_id, tpl in TEMPLATES.items():
-        templates.append({
-            'id': tpl_id,
-            'name': tpl.get('name', tpl_id),
-            'description': tpl.get('description', ''),
-            'preview': f"/images/{tpl_id}_preview.png"  # convention for preview images
-        })
-    return jsonify({'templates': templates})
+@main.route('/save-script', methods=['POST', 'OPTIONS'])
+def save_script():
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    data = request.json
+    user_id = data.get('user_id')
+    name = data.get('name')
+    content = data.get('content')
+    if not all([user_id, name, content]):
+        return jsonify({"error": "Missing data for saving script"}), 400
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    try:
+        new_script = SavedScript(user_id=user_id, name=name, content=content)
+        db.session.add(new_script)
+        analytics = Analytics.query.filter_by(user_id=user_id).first()
+        if analytics:
+            analytics.scripts_generated = (analytics.scripts_generated or 0) + 1
+            analytics.last_active = datetime.utcnow()
+        db.session.commit()
+        return jsonify({"message": "Script saved successfully", "script_id": new_script.id}), 201
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error saving script: {e}")
+        return jsonify({"error": "Failed to save script"}), 500
 
-@main.route("/", methods=["GET"])
-def root():
-    return jsonify({"message": "Welcome to the SmartSlide API!"})
+@main.route('/saved-items/<int:user_id>', methods=['GET', 'OPTIONS'])
+def get_saved_items(user_id):
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
 
-# Helper function to extract text from different slide formats
-def extract_text_from_slides(slides_data):
-    text_content = []
-    for slide in slides_data:
-        slide_text_parts = []
-        # Check for editor slide format (textboxes)
-        if "textboxes" in slide and isinstance(slide.get("textboxes"), list):
-            for tb in slide["textboxes"]:
-                if "text" in tb and tb["text"]:
-                    # Remove HTML tags using BeautifulSoup
-                    soup = BeautifulSoup(tb["text"], "html.parser")
-                    cleaned_text = soup.get_text(separator=" ", strip=True)
-                    if cleaned_text:
-                        slide_text_parts.append(cleaned_text)
-        # Check for original slide format (title/content)
-        elif "title" in slide or "content" in slide:
-            if slide.get("title"):
-                # Titles might also have markdown/html, clean them
-                soup = BeautifulSoup(str(slide["title"]), "html.parser")
-                cleaned_title = soup.get_text(separator=" ", strip=True)
-                if cleaned_title:
-                    slide_text_parts.append(cleaned_title)
+    quizzes = SavedQuiz.query.filter_by(user_id=user_id).order_by(SavedQuiz.created_at.desc()).all()
+    scripts = SavedScript.query.filter_by(user_id=user_id).order_by(SavedScript.created_at.desc()).all()
+
+    return jsonify({
+        "quizzes": [{"id": q.id, "name": q.name, "created_at": q.created_at.isoformat()} for q in quizzes],
+        "scripts": [{"id": s.id, "name": s.name, "created_at": s.created_at.isoformat()} for s in scripts]
+    }), 200
+
+@main.route('/saved-quiz/<int:quiz_id>', methods=['DELETE', 'OPTIONS'])
+def delete_saved_quiz(quiz_id):
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    
+    quiz = SavedQuiz.query.get(quiz_id)
+    if not quiz:
+        return jsonify({"error": "Quiz not found"}), 404
+    
+    # Optional: Check if the user owns this quiz before deleting
+    # For simplicity, direct deletion is implemented here.
+    try:
+        db.session.delete(quiz)
+        db.session.commit()
+        return jsonify({"message": "Quiz deleted successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting quiz: {e}")
+        return jsonify({"error": "Failed to delete quiz"}), 500
+
+@main.route('/saved-script/<int:script_id>', methods=['DELETE', 'OPTIONS'])
+def delete_saved_script(script_id):
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    script = SavedScript.query.get(script_id)
+    if not script:
+        return jsonify({"error": "Script not found"}), 404
+
+    try:
+        db.session.delete(script)
+        db.session.commit()
+        return jsonify({"message": "Script deleted successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting script: {e}")
+        return jsonify({"error": "Failed to delete script"}), 500
+
+@main.route('/export-quiz/<int:quiz_id>/word', methods=['GET', 'OPTIONS'])
+def export_quiz_word(quiz_id):
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    quiz = SavedQuiz.query.get(quiz_id)
+    if not quiz:
+        return jsonify({"error": "Quiz not found"}), 404
+
+    try:
+        quiz_data = json.loads(quiz.content) # Content is stored as JSON string
+        doc = Document()
+        doc.add_heading(quiz.name, level=1)
+        doc.add_paragraph(f"Generated on: {quiz.created_at.strftime('%Y-%m-%d %H:%M:%S')}")
+        doc.add_paragraph() # Spacer
+
+        for i, item in enumerate(quiz_data, 1):
+            doc.add_heading(f"Question {i}: {item.get('question', 'N/A')}", level=2)
             
-            slide_content_data = slide.get("content")
-            if slide_content_data:
-                if isinstance(slide_content_data, list):
-                    for item in slide_content_data:
-                        if item: # Ensure item is not None or empty
-                            soup = BeautifulSoup(str(item), "html.parser")
-                            cleaned_item = soup.get_text(separator=" ", strip=True)
-                            if cleaned_item:
-                                slide_text_parts.append(cleaned_item)
-                elif isinstance(slide_content_data, str): # Content could be a single string
-                    soup = BeautifulSoup(slide_content_data, "html.parser")
-                    cleaned_content_str = soup.get_text(separator=" ", strip=True)
-                    if cleaned_content_str:
-                        slide_text_parts.append(cleaned_content_str)
+            choices = item.get('choices', [])
+            if choices:
+                for choice_idx, choice in enumerate(choices):
+                    doc.add_paragraph(f"{chr(97 + choice_idx)}) {choice}", style='ListBullet') # a), b), c), d)
+            
+            doc.add_paragraph(f"Answer: {item.get('answer', 'N/A')}")
+            doc.add_paragraph() # Spacer
+
+        file_stream = BytesIO()
+        doc.save(file_stream)
+        file_stream.seek(0)
         
-        if slide_text_parts:
-            text_content.append(" ".join(slide_text_parts)) # Join parts for a single slide
-            
-    return "\\n\\n".join(text_content) # Join text from all slides with double newline
+        return send_file(
+            file_stream,
+            as_attachment=True,
+            download_name=f"{secure_filename(quiz.name)}.docx",
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+    except json.JSONDecodeError:
+        return jsonify({"error": "Invalid quiz content format"}), 500
+    except Exception as e:
+        current_app.logger.error(f"Error exporting quiz to Word: {e}")
+        return jsonify({"error": "Failed to export quiz"}), 500
+
+@main.route('/export-script/<int:script_id>/word', methods=['GET', 'OPTIONS'])
+def export_script_word(script_id):
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    script = SavedScript.query.get(script_id)
+    if not script:
+        return jsonify({"error": "Script not found"}), 404
+
+    try:
+        doc = Document()
+        doc.add_heading(script.name, level=1)
+        doc.add_paragraph(f"Generated on: {script.created_at.strftime('%Y-%m-%d %H:%M:%S')}")
+        doc.add_paragraph() # Spacer
+        
+        # Add script content - assuming it's plain text
+        doc.add_paragraph(script.content)
+
+        file_stream = BytesIO()
+        doc.save(file_stream)
+        file_stream.seek(0)
+
+        return send_file(
+            file_stream,
+            as_attachment=True,
+            download_name=f"{secure_filename(script.name)}.docx",
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+    except Exception as e:
+        current_app.logger.error(f"Error exporting script to Word: {e}")
+        return jsonify({"error": "Failed to export script"}), 500
 

@@ -21,11 +21,11 @@ const PasteAndCreate = () => {
           (t) => allowed.includes((t.title || t.name || "").toLowerCase())
         );
         setTemplates(filtered);
-        if (filtered.length > 0 && !selectedTemplate) {
+            if (filtered.length > 0) {
           setSelectedTemplate(filtered[0]);
         }
       });
-  }, [selectedTemplate]);
+  }, []); // Only run once on mount
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -40,18 +40,38 @@ const PasteAndCreate = () => {
     setLoading(true);
     setResult(null);
     try {
+      const user = JSON.parse(localStorage.getItem("user"));
+      const user_id = user && user.id ? user.id : null;
       const response = await fetch("http://localhost:5000/paste-and-create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ text, template: selectedTemplate.id }),
+        body: JSON.stringify({ text, template: selectedTemplate.id, user_id }),
       });
       if (!response.ok) {
-        throw new Error("Failed to generate slides.");
+        setLoading(false);
+        let errorMsg = "Failed to generate slides.";
+        try {
+          const errData = await response.json();
+          errorMsg = errData.error || errorMsg;
+        } catch {}
+        setResult(errorMsg);
+        return;
       }
       const data = await response.json();
-      setResult(data.result || "Slides generated successfully!");
+      if (data.slides) {
+        navigate("/slides-generating", {
+          state: {
+            slides: data.slides,
+            template: selectedTemplate,
+            presentationType: "Default",
+            isLoading: true,
+          },
+        });
+      } else {
+        setResult(data.error || "Failed to generate slides.");
+      }
     } catch (error) {
       setResult(error.message || "An error occurred.");
     } finally {
@@ -62,6 +82,12 @@ const PasteAndCreate = () => {
   return (
     <div className="page-bg">
       <Navbar />
+      {loading && (
+        <div className="loading-container">
+          <div className="spinner"></div>
+          <p>Generating slides... Please wait.</p>
+        </div>
+      )}
       <div className="page-wrapper">
         <div className="container">
           <h1 className="paste-title">Paste or Type Your Content</h1>

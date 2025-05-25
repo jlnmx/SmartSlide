@@ -87,9 +87,15 @@ const Dashboard = () => {
         <header className="dashboard-header">
           <h1>WELCOME BACK!</h1>
           {/* Add Account Button */}
-          <Link to="/account" className="account-btn">
-            Account
-          </Link>
+          <div className="header-actions"> {/* Added a wrapper for buttons */}
+            <Link to="/account" className="account-btn">
+              Account
+            </Link>
+            {/* Add Saved Quizzes/Scripts Button */}
+            <Link to="/saved-quizzes-and-scripts" className="account-btn" style={{ marginLeft: '10px' }}> {/* Added style for spacing */}
+              Saved Items
+            </Link>
+          </div>
         </header>
 
         <section className="recent-presentations">

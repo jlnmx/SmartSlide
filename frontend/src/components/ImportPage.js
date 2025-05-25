@@ -11,6 +11,7 @@ export default function ImportPage() {
   const [selectedTemplate, setSelectedTemplate] = useState(passedTemplate || null);
   const [templates, setTemplates] = useState([]);
   const [showTemplatePopup, setShowTemplatePopup] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Fetch templates from backend if not passed
   useEffect(() => {
@@ -42,7 +43,14 @@ export default function ImportPage() {
       return;
     }
     try {
+      setIsLoading(true);
       const formData = new FormData();
+      // Add user_id to FormData if available
+      const user = JSON.parse(localStorage.getItem("user"));
+      const user_id = user && user.id ? user.id : null;
+      if (user_id) {
+        formData.append("user_id", user_id);
+      }
       formData.append("file", file);
       formData.append("template", selectedTemplate.id);
       // Always expect slides, never download pptx directly
@@ -50,6 +58,7 @@ export default function ImportPage() {
         method: "POST",
         body: formData,
       });
+      setIsLoading(false);
       if (!response.ok) {
         let errorMsg = "Failed to upload file.";
         try {
@@ -83,12 +92,14 @@ export default function ImportPage() {
             slides: data.slides,
             template: selectedTemplate,
             presentationType: "Default",
+            isLoading: true
           },
         });
       } else {
         alert(data.error || "Failed to convert file.");
       }
     } catch (error) {
+      setIsLoading(false);
       alert(error.message || "Error uploading file.");
     }
   };
@@ -96,6 +107,12 @@ export default function ImportPage() {
   return (
     <div>
       <Navbar />
+      {isLoading && (
+        <div className="loading-container">
+          <div className="spinner"></div>
+          <p>Generating slides... Please wait.</p>
+        </div>
+      )}
       <div className="import-paste-container">
         <div className="import-paste-box">
           <h1 className="title">Import a Document</h1>

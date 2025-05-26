@@ -1,10 +1,11 @@
 import os
 import re
-import json # Ensure json is imported
-import traceback
+import json
+import requests
 import uuid
 import base64
-import requests
+import pandas as pd
+import traceback
 from app.models import db, User, Analytics, Presentation, SavedQuiz, SavedScript # Added SavedQuiz, SavedScript
 from app.templates_config import TEMPLATES # Ensure this import is present
 from datetime import datetime
@@ -76,24 +77,50 @@ def generate_quiz_route():
         return jsonify({'status': 'ok'}), 200
     
     data = request.json
-    slides_content = data.get("slides") # Assuming slides data is passed
+    slides_content = data.get("slides")
     if not slides_content:
-        return jsonify({"error": "No slides content provided for quiz generation."}), 400
-
-    # Combine slide content into a single text for the prompt
+        return jsonify({"error": "No slides content provided"}), 400    # Combine slide content into a single text for the prompt
     full_text_content = ""
     for slide in slides_content:
-        title = slide.get("title", "")
-        content = slide.get("content", [])
-        full_text_content += f"Slide Title: {title}\n"
-        if isinstance(content, list):
-            full_text_content += "\n".join(content)
-        elif isinstance(content, str):
-            full_text_content += content
-        full_text_content += "\n\n"
+        # Handle both editor format (textboxes) and simple format (title/content)
+        title = slide.get("title") or ""
+        
+        # Check if this is from the slide editor (has textboxes)
+        if slide.get("textboxes") and isinstance(slide["textboxes"], list):
+            title_box = next((tb for tb in slide["textboxes"] if tb.get("type") == "title"), None)
+            body_box = next((tb for tb in slide["textboxes"] if tb.get("type") == "body"), None)
+            
+            if title_box:
+                title = title_box.get("text", title)
+            
+            content = ""
+            if body_box:
+                content = body_box.get("text", "")
+            
+            # Also collect any other textboxes that might contain content
+            other_textboxes = [tb for tb in slide["textboxes"] if tb.get("type") not in ["title", "body"] and tb.get("text")]
+            for tb in other_textboxes:
+                if content:
+                    content += "\n"
+                content += tb.get("text", "")
+        else:
+            # Handle simple format
+            content = slide.get("content", "")
+            if isinstance(content, list):
+                content = "\n".join(content)
+            elif not isinstance(content, str):
+                content = str(content)
+        
+        if title:
+            full_text_content += f"Slide Title: {title}\n"        
+        if content:
+            full_text_content += f"{content}\n\n"
 
     if not full_text_content.strip():
-        return jsonify({"error": "Empty content from slides for quiz generation."}), 400
+        current_app.logger.error(f"No content extracted from slides. Slides data: {slides_content}")
+        return jsonify({"error": "No content found in slides"}), 400
+
+    current_app.logger.info(f"Extracted content for quiz generation: {full_text_content[:500]}...")  # Log first 500 chars
 
     quiz_prompt = f"""
     Based on the following presentation content, generate a quiz with 5 multiple-choice questions.
@@ -122,7 +149,7 @@ def generate_quiz_route():
             "temperature": 0.5
         }
         response = requests.post(GROQ_API_URL, headers=headers, json=payload)
-        response.raise_for_status() # Raise an exception for HTTP errors
+        response.raise_for_status()
 
         result = response.json()
         model_output = result["choices"][0]["message"]["content"]
@@ -131,7 +158,7 @@ def generate_quiz_route():
         match = re.search(r'\[\s*{.*}\s*\]', model_output, re.DOTALL)
         if not match:
             current_app.logger.error(f"Failed to parse quiz JSON from LLM output: {model_output}")
-            return jsonify({"error": "Failed to parse quiz output from LLM."}), 500
+            return jsonify({"error": "Failed to generate valid quiz format"}), 500
         
         quiz_data = json.loads(match.group(0))
         return jsonify({"quiz": quiz_data})
@@ -144,14 +171,15 @@ def generate_quiz_route():
             except ValueError:
                 error_details = http_err.response.text
         current_app.logger.error(f"HTTP error during quiz generation: {http_err}. Details: {error_details}")
-        return jsonify({"error": f"LLM service error: {str(http_err)}"}), getattr(http_err.response, 'status_code', 502)
+        return jsonify({"error": "Failed to communicate with AI service"}), 500    
     except json.JSONDecodeError as e:
-        current_app.logger.error(f"JSON Decode Error in quiz generation: {e}. LLM Output: {model_output}")
-        return jsonify({"error": "Failed to decode quiz JSON from LLM."}), 500
+        output_for_log = locals().get('model_output', 'N/A')
+        current_app.logger.error(f"JSON Decode Error in quiz generation: {e}. LLM Output: {output_for_log}")
+        return jsonify({"error": "Failed to parse quiz response"}), 500
     except Exception as e:
         current_app.logger.error(f"Error during quiz generation: {e}")
         traceback.print_exc()
-        return jsonify({"error": "Internal server error during quiz generation."}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 @main.route('/generate-script', methods=['POST', 'OPTIONS'])
 def generate_script_route():
@@ -159,23 +187,33 @@ def generate_script_route():
         return jsonify({'status': 'ok'}), 200
         
     data = request.json
-    slides_content = data.get("slides") # Assuming slides data is passed
+    slides_content = data.get("slides")
     if not slides_content:
-        return jsonify({"error": "No slides content provided for script generation."}), 400
+        return jsonify({"error": "No slides content provided"}), 400
 
+    # Combine slide content into a single text for the prompt
     full_text_content = ""
     for slide in slides_content:
-        title = slide.get("title", "")
-        content = slide.get("content", [])
-        full_text_content += f"Slide Title: {title}\n"
-        if isinstance(content, list):
-            full_text_content += "\n".join(content)
-        elif isinstance(content, str): # Handle content if it's a plain string
-            full_text_content += content
-        full_text_content += "\n\n"
+        title = slide.get("title") or None
+        if slide.get("textboxes") and isinstance(slide["textboxes"], list):
+            title_box = next((tb for tb in slide["textboxes"] if tb.get("type") == "title"), None)
+            body_box = next((tb for tb in slide["textboxes"] if tb.get("type") == "body"), None)
+            if title_box:
+                title = title_box.get("text", title or "")
+            content = body_box.get("text", "") if body_box else ""
+        else:
+            content = slide.get("content", "")
+            if isinstance(content, list):
+                content = "\n".join(content)
+            elif not isinstance(content, str):
+                content = str(content)
+        if title:
+            full_text_content += f"Slide Title: {title}\n"
+        if content:
+            full_text_content += f"{content}\n\n"
 
     if not full_text_content.strip():
-        return jsonify({"error": "Empty content from slides for script generation."}), 400
+        return jsonify({"error": "No content found in slides"}), 400
 
     script_prompt = f"""
     Based on the following presentation content, generate a detailed speaker script.
@@ -200,11 +238,11 @@ def generate_script_route():
                 {"role": "system", "content": "You are an assistant that generates speaker scripts based on provided presentation content."},
                 {"role": "user", "content": script_prompt}
             ],
-            "max_tokens": 3000, # Increased max_tokens for potentially longer scripts
+            "max_tokens": 3000,
             "temperature": 0.6
         }
         response = requests.post(GROQ_API_URL, headers=headers, json=payload)
-        response.raise_for_status() # Raise an exception for HTTP errors
+        response.raise_for_status()
 
         result = response.json()
         script_data = result["choices"][0]["message"]["content"]
@@ -218,11 +256,11 @@ def generate_script_route():
             except ValueError:
                 error_details = http_err.response.text
         current_app.logger.error(f"HTTP error during script generation: {http_err}. Details: {error_details}")
-        return jsonify({"error": f"LLM service error: {str(http_err)}"}), getattr(http_err.response, 'status_code', 502)
+        return jsonify({"error": "Failed to communicate with AI service"}), 500
     except Exception as e:
         current_app.logger.error(f"Error during script generation: {e}")
         traceback.print_exc()
-        return jsonify({"error": "Internal server error during script generation."}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 @main.route('/presentations/<int:user_id>', methods=['GET'])
 def get_recent_presentations(user_id):
@@ -243,36 +281,24 @@ def get_recent_presentations(user_id):
 @main.route('/presentation/<int:presentation_id>', methods=['GET', 'DELETE', 'OPTIONS'])
 def manage_presentation(presentation_id):
     if request.method == 'OPTIONS':
-        # Preflight request. Reply successfully:
         return jsonify({'status': 'ok'}), 200
 
-    # For GET and DELETE, first try to fetch the presentation
     presentation = Presentation.query.get_or_404(presentation_id)
 
     if request.method == 'GET':
         try:
-            # Attempt to parse slides_json, default to empty list if None or invalid
-            slides_data = []
-            if presentation.slides_json:
-                try:
-                    slides_data = json.loads(presentation.slides_json)
-                except json.JSONDecodeError:
-                    current_app.logger.warning(f"Invalid JSON in slides_json for presentation {presentation_id}. Serving empty slides.")
-                    # Optionally, you could return an error or a specific structure indicating malformed data
-                    # For now, just returning empty slides as a fallback
-            
+            slides_data = json.loads(presentation.slides_json) if presentation.slides_json else []
             return jsonify({
                 'id': presentation.id,
                 'title': presentation.title,
-                'created_at': presentation.created_at.isoformat(),
+                'slides': slides_data,
                 'template': presentation.template,
-                'presentationType': presentation.presentation_type, # Ensure frontend uses this key
-                'slides': slides_data
+                'presentation_type': presentation.presentation_type,
+                'created_at': presentation.created_at.isoformat()
             })
         except Exception as e:
-            current_app.logger.error(f"Error fetching details for presentation {presentation_id}: {e}")
-            traceback.print_exc()
-            return jsonify({"error": "Could not retrieve presentation details"}), 500
+            current_app.logger.error(f"Error retrieving presentation {presentation_id}: {e}")
+            return jsonify({'error': 'Failed to retrieve presentation'}), 500
 
     elif request.method == 'DELETE':
         try:
@@ -282,7 +308,6 @@ def manage_presentation(presentation_id):
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f"Error deleting presentation {presentation_id}: {e}")
-            traceback.print_exc()
             return jsonify({'error': 'Failed to delete presentation'}), 500
 
 # Route to save or update slide editor state
@@ -306,13 +331,30 @@ def save_slides_state():
             return jsonify({"error": "Missing required fields (user_id, slides, template_id)"}), 400
 
         slides_json_str = json.dumps(slides)
-        now = datetime.utcnow()
-
+        now = datetime.utcnow()        
         if presentation_id:
             # Update existing presentation
             presentation = Presentation.query.get(presentation_id)
             if not presentation:
                 return jsonify({"error": "Presentation not found"}), 404
+            
+            # Update the title from the slides if it has changed
+            if slides and isinstance(slides, list) and len(slides) > 0:
+                first_slide = slides[0]
+                new_title = None
+                
+                # Check if it's editor format (with textboxes)
+                if isinstance(first_slide, dict) and 'textboxes' in first_slide:
+                    title_textbox = next((tb for tb in first_slide['textboxes'] if tb.get('type') == 'title'), None)
+                    if title_textbox and title_textbox.get('text'):
+                        new_title = title_textbox['text']
+                # Check if it's simple format (with title field)
+                elif isinstance(first_slide, dict) and 'title' in first_slide:
+                    new_title = first_slide['title']
+                
+                if new_title and new_title.strip() and new_title != "Title":
+                    presentation.title = new_title.strip()
+            
             presentation.slides_json = slides_json_str
             presentation.template = template_id
             presentation.presentation_type = presentation_type
@@ -321,7 +363,19 @@ def save_slides_state():
             return jsonify({"message": "Presentation updated successfully", "presentationId": presentation.id}), 200
         else:
             # Create new presentation
-            title = slides[0].get("title", "Untitled Presentation") if slides and isinstance(slides, list) else "Untitled Presentation"
+            title = "Untitled Presentation"
+            if slides and isinstance(slides, list) and len(slides) > 0:
+                first_slide = slides[0]
+                
+                # Check if it's editor format (with textboxes)
+                if isinstance(first_slide, dict) and 'textboxes' in first_slide:
+                    title_textbox = next((tb for tb in first_slide['textboxes'] if tb.get('type') == 'title'), None)
+                    if title_textbox and title_textbox.get('text') and title_textbox['text'].strip() != "Title":
+                        title = title_textbox['text'].strip()
+                # Check if it's simple format (with title field)
+                elif isinstance(first_slide, dict) and 'title' in first_slide and first_slide['title'].strip():
+                    title = first_slide['title'].strip()
+            
             new_presentation = Presentation(
                 user_id=user_id,
                 title=title,
@@ -344,7 +398,7 @@ def save_slides_state():
 def generate_slides():
     data = request.json
     if not data:
-        return
+        return jsonify({"error": "No data provided"}), 400
 
     prompt_topic = data.get("prompt")
     language = data.get("language", "English")
@@ -1537,9 +1591,91 @@ def delete_saved_script(script_id):
         db.session.commit()
         return jsonify({"message": "Script deleted successfully"}), 200
     except Exception as e:
-        db.session.rollback()
+        db.session.rollback()        
         current_app.logger.error(f"Error deleting script: {e}")
         return jsonify({"error": "Failed to delete script"}), 500
+
+@main.route('/export-quiz-word', methods=['POST', 'OPTIONS'])
+def export_quiz_word_direct():
+    """Export quiz data directly to Word document (frontend expects this endpoint)"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    try:
+        data = request.get_json()
+        if not data or 'quiz' not in data:
+            return jsonify({"error": "Quiz data is required"}), 400
+
+        quiz_data = data['quiz']
+        if not isinstance(quiz_data, list):
+            return jsonify({"error": "Invalid quiz format"}), 400
+
+        doc = Document()
+        doc.add_heading("Generated Quiz", level=1)
+        doc.add_paragraph(f"Generated on: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}")
+        doc.add_paragraph()  # Spacer
+
+        for i, item in enumerate(quiz_data, 1):
+            doc.add_heading(f"Question {i}: {item.get('question', 'N/A')}", level=2)
+            
+            choices = item.get('choices', [])
+            if choices:
+                for choice_idx, choice in enumerate(choices):
+                    doc.add_paragraph(f"{chr(97 + choice_idx)}) {choice}", style='ListBullet')  # a), b), c), d)
+            
+            doc.add_paragraph(f"Answer: {item.get('answer', 'N/A')}")
+            doc.add_paragraph()  # Spacer
+
+        file_stream = BytesIO()
+        doc.save(file_stream)
+        file_stream.seek(0)
+        
+        return send_file(
+            file_stream,
+            as_attachment=True,
+            download_name="generated_quiz.docx",
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+    except Exception as e:
+        current_app.logger.error(f"Error exporting quiz to Word: {e}")
+        return jsonify({"error": "Failed to export quiz"}), 500
+
+@main.route('/export-script-word', methods=['POST', 'OPTIONS'])
+def export_script_word_direct():
+    """Export script data directly to Word document (frontend expects this endpoint)"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    try:
+        data = request.get_json()
+        if not data or 'script' not in data:
+            return jsonify({"error": "Script data is required"}), 400
+
+        script_content = data['script']
+        if not isinstance(script_content, str):
+            return jsonify({"error": "Invalid script format"}), 400
+
+        doc = Document()
+        doc.add_heading("Generated Presentation Script", level=1)
+        doc.add_paragraph(f"Generated on: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}")
+        doc.add_paragraph()  # Spacer
+        
+        # Add script content
+        doc.add_paragraph(script_content)
+
+        file_stream = BytesIO()
+        doc.save(file_stream)
+        file_stream.seek(0)
+
+        return send_file(
+            file_stream,
+            as_attachment=True,
+            download_name="generated_script.docx",
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+    except Exception as e:
+        current_app.logger.error(f"Error exporting script to Word: {e}")
+        return jsonify({"error": "Failed to export script"}), 500
 
 @main.route('/export-quiz/<int:quiz_id>/word', methods=['GET', 'OPTIONS'])
 def export_quiz_word(quiz_id):

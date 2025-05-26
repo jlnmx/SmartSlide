@@ -143,12 +143,22 @@ const SlideEditor = () => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedTextRange, setSelectedTextRange] = useState(null);
   const fileInputRef = useRef();
-  const stageRef = useRef();
-  // NEW: Add presentationId state
+  const stageRef = useRef();  // NEW: Add presentationId state
   const [presentationId, setPresentationId] = useState(presentationIdFromNav || null); // Added to store presentation ID
 
+  // Debug log for presentationId
+  useEffect(() => {
+    console.log("SlideEditor presentationId:", presentationId, "from nav:", presentationIdFromNav);
+  }, [presentationId, presentationIdFromNav]);
   // Load slides from localStorage on mount only
   useEffect(() => {
+    // If we have a presentationId from navigation, prioritize navigation state over localStorage
+    if (presentationIdFromNav && slidesFromNav && Array.isArray(slidesFromNav) && slidesFromNav.length > 0) {
+      setSlides(mapIfNeeded(slidesFromNav));
+      return;
+    }
+    
+    // Otherwise, try localStorage first
     const storedSlides = localStorage.getItem('latestEditedSlides');
     if (storedSlides) {
       try {
@@ -570,15 +580,19 @@ const SlideEditor = () => {
       }
       
       return processedSlide;
-    });
-
-    const presentationData = {
+    });    const presentationData = {
       slides: processedSlides,
       templateId: template ? (typeof template === "object" ? template.id : template) : null,
       presentationType: presentationType || "custom",
       userId: userId,
       ...(presentationId && { presentationId: presentationId }),
     };
+
+    console.log("Saving presentation with data:", {
+      ...presentationData,
+      slides: `[${processedSlides.length} slides]`, // Don't log full slides, just count
+      presentationId: presentationId
+    });
 
     try {
       const response = await fetch("/api/save-slides-state", {

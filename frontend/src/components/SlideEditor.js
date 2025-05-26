@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Stage, Layer, Text, Rect, Image as KonvaImage } from "react-konva";
 import useImage from "use-image";
@@ -137,13 +137,13 @@ const SlideEditor = () => {
   const { slides: slidesFromNav, template, presentationType, presentationId: presentationIdFromNav } = location.state || {};
 
   // --- Load slides: 1. LocalStorage, 2. Nav state, 3. Default ---
-  const [slides, setSlides] = useState([]);
-  const [currentIdx, setCurrentIdx] = useState(0);
+  const [slides, setSlides] = useState([]);  const [currentIdx, setCurrentIdx] = useState(0);
   const [selectedTextBoxId, setSelectedTextBoxId] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedTextRange, setSelectedTextRange] = useState(null);
   const fileInputRef = useRef();
-  const stageRef = useRef();  // NEW: Add presentationId state
+  const stageRef = useRef();
+  const contentEditableRefs = useRef(new Map()); // Track contentEditable DOM elements  
   const [presentationId, setPresentationId] = useState(presentationIdFromNav || null); // Added to store presentation ID
 
   // Debug log for presentationId
@@ -184,27 +184,77 @@ const SlideEditor = () => {
   useEffect(() => {
     if (slides && Array.isArray(slides)) {
       localStorage.setItem('latestEditedSlides', JSON.stringify(slides));
-    }
-  }, [slides]); // This effect runs when 'slides' state changes
+    }  }, [slides]); // This effect runs when 'slides' state changes
 
   const slide = slides[currentIdx] || defaultSlide(); // Ensure slide is always defined
   const selectedTextBox = slide.textboxes.find(tb => tb.id === selectedTextBoxId);
   const isFormattingEnabled = !!selectedTextBox || selectedImage;
 
+  // Cleanup effect to prevent memory leaks and DOM conflicts
+  useEffect(() => {
+    return () => {
+      // Clear all timeouts and contentEditable refs on unmount
+      contentEditableRefs.current.forEach((ref) => {
+        if (ref?.timeout) {
+          clearTimeout(ref.timeout);
+        }
+      });
+      contentEditableRefs.current.clear();
+    };
+  }, []);
+
+  // Cleanup timeouts when textboxes are deleted
+  useEffect(() => {
+    const currentTextboxIds = new Set(slide.textboxes.map(tb => tb.id));
+    
+    // Clear refs for deleted textboxes
+    const refsToDelete = [];
+    contentEditableRefs.current.forEach((ref, id) => {
+      if (!currentTextboxIds.has(id)) {
+        if (ref?.timeout) {
+          clearTimeout(ref.timeout);
+        }
+        refsToDelete.push(id);
+      }
+    });
+    
+    refsToDelete.forEach(id => {
+      contentEditableRefs.current.delete(id);
+    });  }, [slide.textboxes]);
+
   // Define zIndex constants for clarity
   const TEXT_Z_INDEX = 100;
   const MIN_IMAGE_Z_INDEX = 0;
-  const DEFAULT_IMAGE_Z_INDEX = 101; // Should match what handleImageUpload sets
-
-  // 3. Handle contenteditable changes for any textbox
-  const handleContentEdit = (id, e) => {
-    setSlides(prev => prev.map((s, i) =>
-      i === currentIdx ? {
-        ...s,
-        textboxes: s.textboxes.map(tb => tb.id === id ? { ...tb, text: e.target.innerText } : tb)
-      } : s
-    ));
-  };
+  const DEFAULT_IMAGE_Z_INDEX = 101; // Should match what handleImageUpload sets// 3. Handle contenteditable changes for any textbox
+  const handleContentEdit = useCallback((id, e) => {
+    // Prevent event bubbling
+    e.stopPropagation();
+    
+    const newText = e.target.innerText;
+    
+    // Clear any existing timeout for this textbox
+    const existingRef = contentEditableRefs.current.get(id);
+    if (existingRef?.timeout) {
+      clearTimeout(existingRef.timeout);
+    }
+    
+    // Debounce the state update to prevent interference with typing
+    const timeoutId = setTimeout(() => {
+      setSlides(prev => prev.map((s, i) =>
+        i === currentIdx ? {
+          ...s,
+          textboxes: s.textboxes.map(tb => tb.id === id ? { ...tb, text: newText } : tb)
+        } : s
+      ));
+    }, 150); // Increased debounce time to 150ms for better stability
+    
+    // Store timeout for cleanup
+    const element = existingRef?.element || contentEditableRefs.current.get(id);
+    contentEditableRefs.current.set(id, { 
+      element: typeof element === 'object' ? element : e.target,
+      timeout: timeoutId 
+    });
+  }, [currentIdx]);
 
   // 4. Handle drag for any textbox
   const handleTextDrag = (id, dx, dy) => {
@@ -431,11 +481,16 @@ const SlideEditor = () => {
       } : s
     ));
     setSelectedTextBoxId(null);
-  };
-  // 8. Keyboard support for deleting selected textbox
+  };  // 8. Keyboard support for deleting selected textbox
   useEffect(() => {
     const handleKeyDown = e => {
+      // Don't delete textbox if user is typing in a contentEditable element
+      if (e.target && e.target.contentEditable === 'true') {
+        return; // Let the contentEditable handle its own keystrokes
+      }
+      
       if ((e.key === "Backspace" || e.key === "Delete") && selectedTextBoxId) {
+        e.preventDefault();
         handleDeleteTextBox(selectedTextBoxId);
       }
     };
@@ -898,11 +953,23 @@ const SlideEditor = () => {
                 console.error("Error processing drop data:", error);
               }
             }}
-          >
-            {/* Render all textboxes */}
-            {slide.textboxes.map(tb => (
-              <div
-                key={tb.id}
+          >            {/* Render all textboxes */}
+            {slide.textboxes.map(tb => (              <div
+                key={`textbox-${currentIdx}-${tb.id}`} // More unique key to prevent conflicts
+                ref={el => {
+                  if (el) {
+                    const existingRef = contentEditableRefs.current.get(tb.id);
+                    contentEditableRefs.current.set(tb.id, {
+                      element: el,
+                      timeout: existingRef?.timeout || null
+                    });                  } else {
+                    const existingRef = contentEditableRefs.current.get(tb.id);
+                    if (existingRef?.timeout) {
+                      clearTimeout(existingRef.timeout);
+                    }
+                    contentEditableRefs.current.delete(tb.id);
+                  }
+                }}
                 className={"slide-textbox" + (selectedTextBoxId === tb.id ? " selected" : "")}
                 style={{
                   position: "absolute",
@@ -928,30 +995,40 @@ const SlideEditor = () => {
                   resize: "both",
                   cursor: "move",
                   zIndex: TEXT_Z_INDEX // Added zIndex for textboxes
-                }}
-                contentEditable
+                }}contentEditable
                 suppressContentEditableWarning
-                spellCheck={true}
-                onInput={e => {
-                  handleContentEdit(tb.id, e);
-                  const selection = window.getSelection();
-                  if (selection && selection.rangeCount > 0) {
-                    const range = selection.getRangeAt(0);
-                    // Ensure the selection is within the current contentEditable element
-                    if (e.currentTarget.contains(range.commonAncestorContainer)) {
-                      if (range.toString().length > 0) {
-                        setSelectedTextBoxId(tb.id);
-                        setSelectedTextRange({
-                          start: range.startOffset,
-                          end: range.endOffset
-                        });
-                      } else {
-                        setSelectedTextRange(null); // Clear range if no text is highlighted
+                spellCheck={true}                onInput={e => {
+                  // Don't prevent default - allow normal typing
+                  e.stopPropagation();
+                  handleContentEdit(tb.id, e);                }}
+                onFocus={e => {
+                  e.stopPropagation();
+                  setSelectedTextBoxId(tb.id);
+                  setSelectedTextRange(null);
+                }}
+                onKeyDown={e => {
+                  // Allow normal keyboard navigation and editing
+                  e.stopPropagation();
+                  
+                  // Prevent delete key from removing textbox when editing text
+                  if (e.key === 'Delete' || e.key === 'Backspace') {
+                    // Only allow if there's actual content to edit
+                    const selection = window.getSelection();
+                    if (selection && selection.rangeCount > 0) {
+                      const range = selection.getRangeAt(0);
+                      if (range.toString().length > 0 || e.target.innerText.length > 0) {
+                        return; // Allow normal delete/backspace for text editing
                       }
                     }
+                    // If no text content, prevent the global handler from deleting the textbox
+                    e.preventDefault();
                   }
                 }}
-                onClick={e => { e.stopPropagation(); setSelectedTextBoxId(tb.id); setSelectedTextRange(null); }} // Clear text range on simple click
+                onClick={e => { 
+                  e.stopPropagation(); 
+                  setSelectedTextBoxId(tb.id); 
+                  setSelectedTextRange(null); 
+                }}// Clear text range on simple click
                 onBlur={e => {
                   const textboxDiv = e.currentTarget;
                   const currentWidth = textboxDiv.offsetWidth;

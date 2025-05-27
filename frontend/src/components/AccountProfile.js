@@ -19,16 +19,37 @@ const AccountProfile = () => {
   React.useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
     if (!user || !user.id) {
-      navigate("/auth");
+      navigate("/auth"); // Redirect to login if no user
       return;
     }
+    // setLoading(true); // Set loading true before fetch
     fetch(`http://localhost:5000/user/${user.id}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) {
+          // If response is not OK, try to parse error message from backend if available
+          return res.json().then(errData => {
+            throw new Error(errData.error || 'Failed to fetch user data');
+          }).catch(() => {
+            // Fallback if parsing error JSON fails
+            throw new Error(`Failed to fetch user data. Status: ${res.status}`);
+          });
+        }
+        return res.json();
+      })
       .then((data) => {
-        setEmail(data.email);
+        if (data && typeof data.email === 'string') {
+          setEmail(data.email);
+        } else {
+          setEmail(''); // Set to empty if not found or invalid type
+          // setMessage("User email could not be retrieved in the expected format.");
+          console.warn("Fetched user data does not contain a valid email string:", data);
+        }
         setLoading(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("Error fetching user data:", err);
+        // Use the error message from the Error object, which might include backend error
+        setMessage(err.message || "Failed to load user information.");
         setLoading(false);
       });
   }, [navigate]);

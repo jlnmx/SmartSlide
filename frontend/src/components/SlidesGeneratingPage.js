@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "../styles/SlidesGeneratingPage.css";
+import Navbar from "./Navbar";
+
 
 const SlidesGeneratingPage = () => {
   const location = useLocation();
-  const navigate = useNavigate();
-  // Prioritize slides from editor if available
-  let { slides: initialSlides, template, presentationType, fromEditor } = location.state || {};
+  const navigate = useNavigate();  // Prioritize slides from editor if available
+  let { slides: initialSlides, template, presentationType, fromEditor, presentationId } = location.state || {};
 
   // Fallback: Load template and presentationType from localStorage if missing (for refresh/direct nav)
   if (!template) {
@@ -71,38 +72,9 @@ const SlidesGeneratingPage = () => {
         }
       } catch {}
     }
-    navigate("/slide-editor", { state: { slides: slidesToEdit, template, presentationType } });
+    navigate("/slide-editor", { state: { slides: slidesToEdit, template, presentationType, presentationId } });
   };
 
-  const handleEditInGoogleSlides = async () => {
-    if (!template) {
-      alert("Template information is missing. Please go back and select a template.");
-      return;
-    }
-    try {
-      const response = await fetch("http://localhost:5000/create-google-slides", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          slides: generatedSlides,
-          template: typeof template === "object" ? template.id : template,
-          presentationType,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create Google Slides presentation.");
-      }
-
-      const data = await response.json();
-      const presentationUrl = data.url;
-
-      window.open(presentationUrl, "_blank");
-    } catch (error) {
-      alert(error.message || "An error occurred while creating the Google Slides presentation.");
-    }
-  };
 
   const handleDownload = async () => {
     if (!template) {
@@ -216,6 +188,7 @@ const SlidesGeneratingPage = () => {
   };
 
   return (
+    <div><Navbar />
     <div className="slides-preview-root">
       {getTemplateInfo()}
       <h2 className="outline-title">Outline</h2>
@@ -307,6 +280,7 @@ const SlidesGeneratingPage = () => {
           Download as PowerPoint
         </button>
       </div>
+    </div>
     </div>
   );
 };

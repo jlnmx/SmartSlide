@@ -13,16 +13,14 @@ const Analytics = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get user id from localStorage (set at login)
     const user = JSON.parse(localStorage.getItem("user"));
     if (!user || !user.id) return;
     setLoading(true);
     fetch(`http://localhost:5000/analytics/${user.id}`)
       .then(res => res.json())
       .then(data => {
-        // Monthly slides
-        const months = Object.keys(data.monthly || {}).sort();
-        const slidesPerMonth = months.map(m => data.monthly[m]);
+        const months = (data.monthly && Object.keys(data.monthly).sort()) || [];
+        const slidesPerMonth = months.map(m => data.monthly ? data.monthly[m] : 0);
         setSlideData({
           labels: months.length ? months : ["No Data"],
           datasets: [
@@ -35,9 +33,8 @@ const Analytics = () => {
             },
           ],
         });
-        // Topics
-        const topics = Object.keys(data.topics || {});
-        const topicCounts = topics.map(t => data.topics[t]);
+        const topics = (data.topics && Object.keys(data.topics)) || [];
+        const topicCounts = topics.map(t => data.topics ? data.topics[t] : 0);
         setTopicData({
           labels: topics.length ? topics : ["No Data"],
           datasets: [
@@ -68,7 +65,7 @@ const Analytics = () => {
           slides_generated: data.slides_generated ?? 0,
           quizzes_generated: data.quizzes_generated ?? 0,
           scripts_generated: data.scripts_generated ?? 0,
-          last_active: data.last_active ?? null,
+          last_active: data.last_active ?? data.last_generated_at ?? null,
         });
         setLoading(false);
       })
@@ -93,7 +90,7 @@ const Analytics = () => {
             {loading ? <p>Loading...</p> : <Bar data={slideData} />}
           </div>
           <div className="chart-container">
-            <h2>Most Common Topics</h2>
+            <h2>Topics</h2>
             {loading ? <p>Loading...</p> : <Pie data={topicData} />}
           </div>
         </section>

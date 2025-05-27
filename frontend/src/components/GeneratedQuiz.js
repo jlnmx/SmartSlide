@@ -1,5 +1,6 @@
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import axios from "axios";
 
 const GeneratedQuiz = () => {
   const location = useLocation();
@@ -29,8 +30,39 @@ const GeneratedQuiz = () => {
     }
   };
 
+  // Save quiz to backend
+  const handleSaveQuiz = async () => {
+    if (!quiz) return;
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (!user || !user.id) {
+      alert("You must be logged in to save quizzes.");
+      return;
+    }
+    let name = prompt("Enter a name for this quiz:", "My Quiz");
+    if (!name) return;
+    try {
+      await axios.post("http://localhost:5000/save-quiz", {
+        user_id: user.id,
+        name,
+        content: JSON.stringify(quiz),
+      });
+      alert("Quiz saved successfully!");
+    } catch (err) {
+      alert("Failed to save quiz.");
+    }
+  };
+
   return (
-    <div style={{ maxWidth: 700, margin: "2rem auto", background: "#fff", borderRadius: 10, boxShadow: "0 2px 8px #0001", padding: 32 }}>
+    <div
+      style={{
+        maxWidth: 700,
+        margin: "2rem auto",
+        background: "#fff",
+        borderRadius: 10,
+        boxShadow: "0 2px 8px #0001",
+        padding: 32,
+      }}
+    >
       <h1>Generated Quiz</h1>
       {quiz ? (
         <div>
@@ -46,17 +78,32 @@ const GeneratedQuiz = () => {
                     </ul>
                   )}
                   {q.answer && (
-                    <div style={{ color: "#1976d2", marginTop: 6 }}><b>Answer:</b> {q.answer}</div>
+                    <div style={{ color: "#1976d2", marginTop: 6 }}>
+                      <b>Answer:</b> {q.answer}
+                    </div>
                   )}
                 </div>
               ))
             : <pre>{quiz}</pre>}
-          <button style={{ marginTop: 16, marginRight: 12 }} onClick={handleExportWord}>Export as Word</button>
+          <button
+            style={{ marginTop: 16, marginRight: 12 }}
+            onClick={handleExportWord}
+          >
+            Export as Word
+          </button>
+          <button
+            style={{ marginTop: 16, marginRight: 12 }}
+            onClick={handleSaveQuiz}
+          >
+            Save Quiz
+          </button>
         </div>
       ) : (
         <div>No quiz generated.</div>
       )}
-      <button style={{ marginTop: 24 }} onClick={() => navigate(-1)}>Back</button>
+      <button style={{ marginTop: 24 }} onClick={() => navigate(-1)}>
+        Back
+      </button>
     </div>
   );
 };

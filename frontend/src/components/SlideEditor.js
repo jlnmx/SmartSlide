@@ -6,6 +6,7 @@ import { saveAs } from "file-saver";
 import { FaBold, FaItalic, FaUnderline, FaAlignLeft, FaAlignCenter, FaAlignRight, FaAlignJustify, FaHighlighter } from "react-icons/fa";
 import { v4 as uuidv4 } from "uuid";
 import "../styles/SlideEditor.css";
+import { tailwindTemplates, getTailwindTemplateById } from "../templates/tailwind-templates";
 
 const SLIDE_WIDTH = 960;
 const SLIDE_HEIGHT = 540;
@@ -136,6 +137,18 @@ const SlideEditor = () => {
   const navigate = useNavigate();
   const { slides: slidesFromNav, template, presentationType, presentationId: presentationIdFromNav } = location.state || {};
 
+  // --- Load the selected template ---
+  const [currentTemplate, setCurrentTemplate] = useState(null);
+  useEffect(() => {
+    let templateObj = null;
+    if (template && typeof template === "object" && template.id) {
+      templateObj = getTailwindTemplateById(template.id) || template;
+    } else if (typeof template === "string") {
+      templateObj = getTailwindTemplateById(template) || null;
+    }
+    setCurrentTemplate(templateObj);
+  }, [template]);
+
   // --- Load slides: 1. LocalStorage, 2. Nav state, 3. Default ---
   const [slides, setSlides] = useState([]);  const [currentIdx, setCurrentIdx] = useState(0);
   const [selectedTextBoxId, setSelectedTextBoxId] = useState(null);
@@ -227,33 +240,42 @@ const SlideEditor = () => {
   const MIN_IMAGE_Z_INDEX = 0;
   const DEFAULT_IMAGE_Z_INDEX = 101; // Should match what handleImageUpload sets// 3. Handle contenteditable changes for any textbox
   const handleContentEdit = useCallback((id, e) => {
-    // Prevent event bubbling
     e.stopPropagation();
-    
     const newText = e.target.innerText;
-    
-    // Clear any existing timeout for this textbox
-    const existingRef = contentEditableRefs.current.get(id);
-    if (existingRef?.timeout) {
-      clearTimeout(existingRef.timeout);
+
+    // --- Cursor Fix: Save selection before state update ---
+    let selection = null;
+    if (document.activeElement === e.target) {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        selection = sel.getRangeAt(0);
+      }
     }
-    
+
     // Debounce the state update to prevent interference with typing
-    const timeoutId = setTimeout(() => {
-      setSlides(prev => prev.map((s, i) =>
-        i === currentIdx ? {
-          ...s,
-          textboxes: s.textboxes.map(tb => tb.id === id ? { ...tb, text: newText } : tb)
-        } : s
-      ));
-    }, 150); // Increased debounce time to 150ms for better stability
-    
-    // Store timeout for cleanup
-    const element = existingRef?.element || contentEditableRefs.current.get(id);
-    contentEditableRefs.current.set(id, { 
-      element: typeof element === 'object' ? element : e.target,
-      timeout: timeoutId 
-    });
+    setSlides(prev => prev.map((s, i) =>
+      i === currentIdx ? {
+        ...s,
+        textboxes: s.textboxes.map(tb => tb.id === id ? { ...tb, text: newText } : tb)
+      } : s
+    ));
+
+    // --- Cursor Fix: Restore selection after update ---
+    setTimeout(() => {
+      if (selection && contentEditableRefs.current.has(id)) {
+        const ref = contentEditableRefs.current.get(id);
+        if (ref && ref.element) {
+          ref.element.focus();
+          // Restore selection
+          const range = document.createRange();
+          range.selectNodeContents(ref.element);
+          range.collapse(false); // Place cursor at end
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+      }
+    }, 0);
   }, [currentIdx]);
 
   // 4. Handle drag for any textbox
@@ -587,7 +609,7 @@ const SlideEditor = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           slides,
-          template: typeof template === "object" ? template.id : template,
+          template: currentTemplate, // Pass the full template object
           presentationType,
         }),
       });
@@ -596,9 +618,16 @@ const SlideEditor = () => {
         throw new Error(errorData.error || "Failed to generate the presentation.");
       }
       const blob = await response.blob();
-      saveAs(blob, "edited_presentation.pptx");
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "generated_presentation.pptx";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
     } catch (error) {
-      alert(error.message || "An error occurred while exporting the presentation.");
+      alert(error.message || "An error occurred while generating the presentation.");
     }
   };
   // Save and return
@@ -735,6 +764,114 @@ const SlideEditor = () => {
       } : s
     ));
     setSelectedImage(null);
+  };
+
+  // Helper: get style for a textbox type from currentTemplate
+  const getTextBoxStyle = (type) => {
+    if (!currentTemplate || !currentTemplate.styles) return {};
+    if (type === "title" && currentTemplate.styles.title) return currentTemplate.styles.title;
+    if (type === "body" && currentTemplate.styles.body) return currentTemplate.styles.body;
+    return {};
+  };
+
+  // Helper: get slide background style
+  const getSlideBackground = () => {
+    if (!currentTemplate || !currentTemplate.styles || !currentTemplate.styles.slide) return { fill: "#fff" };
+    // For abstract gradient, use a linear gradient background (CSS for preview, Konva for export)
+    if (currentTemplate.id === "tailwind-abstract-gradient") {
+      return {
+        background: "linear-gradient(120deg, #d1fae5 0%, #bfdbfe 50%, #ddd6fe 100%)", // Approximation
+        // You can add more logic here for geometric shapes if you want to render them in the preview
+      };
+    }
+    // Fallback to solid color
+    if (currentTemplate.styles.slide.backgroundColor && currentTemplate.styles.slide.backgroundColor.startsWith("#")) {
+      return { background: currentTemplate.styles.slide.backgroundColor };
+    }
+    // Tailwind class fallback (not used in inline style)
+    return { background: "#fff" };
+  };
+
+  // Helper: Render Abstract Gradient background and shapes for Abstract template
+  const renderAbstractBackground = () => {
+    // Main gradient background
+    const gradient = "linear-gradient(120deg, #d1fae5 0%, #bfdbfe 50%, #a5b4fc 100%)";
+    // Squares (SVG for crispness)
+    const squares = (
+      <svg width={SLIDE_WIDTH} height={SLIDE_HEIGHT} style={{ position: 'absolute', left: 0, top: 0, zIndex: 1, pointerEvents: 'none' }}>
+        <rect x="-40" y="-40" width="220" height="220" fill="#fff" opacity="0.13" transform="rotate(35 70 70)" />
+        <rect x="120" y="-20" width="160" height="160" fill="#fff" opacity="0.13" transform="rotate(35 200 60)" />
+      </svg>
+    );
+    // Right panel and circles
+    const rightPanel = (
+      <div style={{
+        position: 'absolute',
+        right: 0,
+        top: 0,
+        width: SLIDE_WIDTH * 0.42,
+        height: SLIDE_HEIGHT,
+        background: '#f3f7fb',
+        zIndex: 2,
+      }}>
+        <svg width={SLIDE_WIDTH * 0.42} height={SLIDE_HEIGHT} style={{ position: 'absolute', right: 0, bottom: 0, zIndex: 3 }}>
+          <circle cx={SLIDE_WIDTH * 0.32} cy={SLIDE_HEIGHT * 0.85} r={SLIDE_HEIGHT * 0.32} fill="none" stroke="#bbf7d0" strokeWidth="7" opacity="0.6" />
+          <circle cx={SLIDE_WIDTH * 0.5} cy={SLIDE_HEIGHT * 0.7} r={SLIDE_HEIGHT * 0.22} fill="none" stroke="#bae6fd" strokeWidth="6" opacity="0.5" />
+        </svg>
+      </div>
+    );
+    return (
+      <>
+        <div style={{ position: 'absolute', left: 0, top: 0, width: SLIDE_WIDTH, height: SLIDE_HEIGHT, background: gradient, zIndex: 0 }} />
+        {squares}
+        {rightPanel}
+      </>
+    );
+  };
+
+  // Helper: Render Abstract content box (rounded rectangle with gradient)
+  const renderAbstractContentBox = (children, withImagePlaceholder = false) => {
+    return (
+      <div style={{
+        position: 'absolute',
+        left: 40,
+        top: 32,
+        width: SLIDE_WIDTH - 80,
+        height: SLIDE_HEIGHT - 64,
+        borderRadius: 18,
+        background: 'linear-gradient(120deg, #d1fae5 0%, #bfdbfe 50%, #a5b4fc 100%)',
+        zIndex: 10,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        padding: 0,
+      }}>
+        <div style={{ flex: withImagePlaceholder ? 0.6 : 1, padding: '36px 36px 0 36px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
+          {children}
+        </div>
+        {withImagePlaceholder && (
+          <div style={{ flex: 0.4, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+            <div style={{
+              width: '90%',
+              height: '80%',
+              borderRadius: 32,
+              border: '2px solid #222',
+              background: 'rgba(180, 220, 255, 0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 32,
+              fontWeight: 600,
+              color: '#222',
+              letterSpacing: 1,
+            }}>
+              INSERT IMAGE
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -910,175 +1047,351 @@ const SlideEditor = () => {
           </div>
 
           {/* --- Slide Preview/Editor --- */}
-                <div
-                className="slide-preview"
-                style={{
-                  position: "relative",
-                  background: slide.background?.fill || "#fff",
-                  width: `${SLIDE_WIDTH}px`, // 960px for PowerPoint 16:9 widescreen
-                  height: `${SLIDE_HEIGHT}px`, // 540px for PowerPoint 16:9 widescreen
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  margin: "auto",
-                  border: "1px solid #ccc",
-                  boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
-                  overflow: "hidden"
-                }}
-                onDragOver={e => { // ADDED onDragOver to slide-preview
-              e.preventDefault();
-              e.dataTransfer.dropEffect = "move";
+          <div
+            className="slide-preview"
+            style={{
+              position: "relative",
+              width: `${SLIDE_WIDTH}px`,
+              height: `${SLIDE_HEIGHT}px`,
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              margin: "auto",
+              border: "1px solid #ccc",
+              boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+              overflow: "hidden",
+              background: currentTemplate?.id === "tailwind-abstract-gradient" ? undefined : getSlideBackground().background,
             }}
-            onDrop={e => { // ADDED onDrop to slide-preview
+            onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
+            onDrop={e => {
               e.preventDefault();
               const dragDataString = e.dataTransfer.getData("text/plain");
               if (!dragDataString) return;
-
               try {
                 const dragData = JSON.parse(dragDataString);
                 const slidePreviewRect = e.currentTarget.getBoundingClientRect();
-
                 let newX = e.clientX - slidePreviewRect.left - dragData.offsetX;
                 let newY = e.clientY - slidePreviewRect.top - dragData.offsetY;
-
-                // Basic boundary checks
                 newX = Math.max(0, newX);
                 newY = Math.max(0, newY);
-                // Optionally, prevent dragging out of right/bottom bounds too
-                // newX = Math.min(newX, slidePreviewRect.width - dragData.width); // dragData would need width
-                // newY = Math.min(newY, slidePreviewRect.height - dragData.height); // dragData would need height
-
                 handleTextSetPosition(dragData.id, newX, newY);
-              } catch (error) {
-                console.error("Error processing drop data:", error);
-              }
+              } catch (error) { console.error("Error processing drop data:", error); }
             }}
-          >            {/* Render all textboxes */}
-            {slide.textboxes.map(tb => (              <div
-                key={`textbox-${currentIdx}-${tb.id}`} // More unique key to prevent conflicts
-                ref={el => {
-                  if (el) {
-                    const existingRef = contentEditableRefs.current.get(tb.id);
-                    contentEditableRefs.current.set(tb.id, {
-                      element: el,
-                      timeout: existingRef?.timeout || null
-                    });                  } else {
-                    const existingRef = contentEditableRefs.current.get(tb.id);
-                    if (existingRef?.timeout) {
-                      clearTimeout(existingRef.timeout);
-                    }
-                    contentEditableRefs.current.delete(tb.id);
-                  }
-                }}
-                className={"slide-textbox" + (selectedTextBoxId === tb.id ? " selected" : "")}
+          >
+            {/* Only render Abstract background on Slide 1 */}
+            {currentTemplate?.id === "tailwind-abstract-gradient" && currentIdx === 0 && renderAbstractBackground()}
+
+            {/* --- Abstract Template: Slide 1: constrain textboxes to gradient area, center, draggable, resizable --- */}
+            {currentTemplate?.id === "tailwind-abstract-gradient" && currentIdx === 0 ? (
+              <div
                 style={{
                   position: "absolute",
-                  left: `${tb.x}px`,
-                  top: `${tb.y}px`,
-                  width: `${tb.width}px`,
-                  height: `${tb.height}px`,
-                  fontSize: `${tb.fontSize}px`,
-                  fontFamily: tb.fontFamily,
-                  color: tb.fill,
-                  fontWeight: tb.fontStyle?.bold ? "bold" : "normal",
-                  fontStyle: tb.fontStyle?.italic ? "italic" : "normal",
-                  textDecoration: tb.fontStyle?.underline ? "underline" : "none",
-                  lineHeight: tb.lineHeight,
-                  textAlign: tb.align,
-                  outline: selectedTextBoxId === tb.id ? "2px solid #1976d2" : "none",
-                  background: selectedTextBoxId === tb.id ? "#f5faff" : "transparent",
-                  padding: "8px",
-                  boxSizing: "border-box",
-                  overflowWrap: "break-word",
-                  wordWrap: "break-word",
-                  overflow: "auto",
-                  resize: "both",
-                  cursor: "move",
-                  zIndex: TEXT_Z_INDEX // Added zIndex for textboxes
-                }}contentEditable
-                suppressContentEditableWarning
-                spellCheck={true}                onInput={e => {
-                  // Don't prevent default - allow normal typing
-                  e.stopPropagation();
-                  handleContentEdit(tb.id, e);                }}
-                onFocus={e => {
-                  e.stopPropagation();
-                  setSelectedTextBoxId(tb.id);
-                  setSelectedTextRange(null);
+                  left: 60,
+                  top: 60,
+                  width: SLIDE_WIDTH * 0.62 - 100, // Gradient area width
+                  height: SLIDE_HEIGHT - 120,    // Gradient area height
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  pointerEvents: "auto",
                 }}
-                onKeyDown={e => {
-                  // Allow normal keyboard navigation and editing
-                  e.stopPropagation();
-                  
-                  // Prevent delete key from removing textbox when editing text
-                  if (e.key === 'Delete' || e.key === 'Backspace') {
-                    // Only allow if there's actual content to edit
-                    const selection = window.getSelection();
-                    if (selection && selection.rangeCount > 0) {
-                      const range = selection.getRangeAt(0);
-                      if (range.toString().length > 0 || e.target.innerText.length > 0) {
-                        return; // Allow normal delete/backspace for text editing
-                      }
-                    }
-                    // If no text content, prevent the global handler from deleting the textbox
-                    e.preventDefault();
-                  }
-                }}
-                onClick={e => { 
-                  e.stopPropagation(); 
-                  setSelectedTextBoxId(tb.id); 
-                  setSelectedTextRange(null); 
-                }}// Clear text range on simple click
-                onBlur={e => {
-                  const textboxDiv = e.currentTarget;
-                  const currentWidth = textboxDiv.offsetWidth;
-                  const currentHeight = textboxDiv.offsetHeight;
-
-                  handleTextResize(tb.id, currentWidth, currentHeight);
-
-                  const relatedTarget = e.relatedTarget;
-                  const slidePreviewDiv = textboxDiv.closest('.slide-preview');
-                  if (!slidePreviewDiv) {
-                    setSelectedTextBoxId(null);
-                    setSelectedTextRange(null);
-                    return;
-                  }
-                  const mainContentArea = slidePreviewDiv.parentElement;
-                  if (!mainContentArea) {
-                    setSelectedTextBoxId(null);
-                    setSelectedTextRange(null);
-                    return;
-                  }
-                  const toolbarDiv = mainContentArea.querySelector('.slide-toolbar');
-                  if (toolbarDiv && relatedTarget && toolbarDiv.contains(relatedTarget)) {
-                    return;
-                  }
-                  setSelectedTextBoxId(null);
-                  setSelectedTextRange(null);
-                }}
-                tabIndex={0}
-                draggable // Keep draggable attribute
-                onDragStart={e => { // MODIFIED onDragStart
-                  const rect = e.target.getBoundingClientRect();
-                  const dragData = {
-                    id: tb.id,
-                    offsetX: e.clientX - rect.left,
-                    offsetY: e.clientY - rect.top
-                    // You could also include tb.width and tb.height here if needed for boundary checks in onDrop
-                    // width: rect.width,
-                    // height: rect.height
-                  };
-                  e.dataTransfer.setData("text/plain", JSON.stringify(dragData));
-                  e.dataTransfer.effectAllowed = "move";
-                  setSelectedTextBoxId(tb.id);
-                }}
-                // REMOVED onDragEnd, onDragOver, onDrop from individual textboxes
               >
-                {tb.bullets
-                  ? tb.text.split("\n").map((line, i) => <div key={i} style={{ marginBottom: tb.paragraphSpacing }}>{line ? <>&bull; {line}</> : <br />}</div>)
-                  : tb.text.split("\n").map((line, i) => <div key={i} style={{ marginBottom: tb.paragraphSpacing }}>{line || <br />}</div>)}
+                {slide.textboxes.map((tb, i) => {
+                  const gradientContainerWidth = SLIDE_WIDTH * 0.62 - 100;
+                  const textboxDefaultWidth = SLIDE_WIDTH * 0.62 - 120; // Default width for a textbox within the gradient area
+                  const currentTextboxEffectiveWidth = tb.width || textboxDefaultWidth;
+                  
+                  const defaultCenteringX_local = (gradientContainerWidth - currentTextboxEffectiveWidth) / 2;
+                  
+                  let defaultStackingY_local;
+                  if (i === 0 && tb.type === 'title') {
+                    defaultStackingY_local = 60; // Adjusted default top for title
+                  } else if (i === 1 && tb.type === 'body') {
+                    defaultStackingY_local = 150; // Adjusted default top for body
+                  } else {
+                    // Fallback for additional textboxes, stacking them below the title area
+                    defaultStackingY_local = 60 + i * 90; 
+                  }
+
+                  const gradientOffsetX = 60;
+                  const gradientOffsetY = 60;
+
+                  const styleLeft = tb.x !== undefined ? `${tb.x - gradientOffsetX}px` : `${defaultCenteringX_local}px`;
+                  const styleTop = tb.y !== undefined ? `${tb.y - gradientOffsetY}px` : `${defaultStackingY_local}px`;
+
+                  return (
+                    <div
+                      key={`textbox-${currentIdx}-${tb.id}`}
+                      ref={el => {
+                        if (el) {
+                          const existingRef = contentEditableRefs.current.get(tb.id);
+                          contentEditableRefs.current.set(tb.id, { element: el, timeout: existingRef?.timeout || null });
+                        } else {
+                          const existingRef = contentEditableRefs.current.get(tb.id);
+                          if (existingRef?.timeout) clearTimeout(existingRef.timeout);
+                          contentEditableRefs.current.delete(tb.id);
+                        }
+                      }}
+                      className={"slide-textbox" + (selectedTextBoxId === tb.id ? " selected" : "")}
+                      style={{
+                        position: "absolute",
+                        left: styleLeft,
+                        top: styleTop,
+                        width: currentTextboxEffectiveWidth,
+                        minHeight: 40,
+                        maxWidth: gradientContainerWidth, // Constrain textbox width to gradient area
+                        fontSize: `${tb.fontSize}px`,
+                        fontFamily: tb.fontFamily,
+                        color: tb.fill,
+                        fontWeight: tb.fontStyle?.bold ? "bold" : "normal",
+                        fontStyle: tb.fontStyle?.italic ? "italic" : "normal",
+                        textDecoration: tb.fontStyle?.underline ? "underline" : "none",
+                        lineHeight: tb.lineHeight,
+                        textAlign: tb.align,
+                        outline: selectedTextBoxId === tb.id ? "2px solid #1976d2" : "none",
+                        background: selectedTextBoxId === tb.id ? "#f5faff" : "transparent",
+                        padding: "8px 16px",
+                        boxSizing: "border-box",
+                        overflowWrap: "break-word",
+                        wordWrap: "break-word",
+                        overflow: "auto",
+                        resize: "both",
+                        zIndex: TEXT_Z_INDEX,
+                        cursor: "move",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                      contentEditable
+                      suppressContentEditableWarning
+                      spellCheck={true}
+                      onInput={e => { e.stopPropagation(); handleContentEdit(tb.id, e); }}
+                      onFocus={e => { e.stopPropagation(); setSelectedTextBoxId(tb.id); setSelectedTextRange(null); }}
+                      onKeyDown={e => {
+                        e.stopPropagation();
+                        if (e.key === 'Delete' || e.key === 'Backspace') {
+                          const selection = window.getSelection();
+                          if (selection && selection.rangeCount > 0) {
+                            const range = selection.getRangeAt(0);
+                            if (range.toString().length > 0 || e.target.innerText.length > 0) return;
+                          }
+                          e.preventDefault();
+                        }
+                      }}
+                      onClick={e => { e.stopPropagation(); setSelectedTextBoxId(tb.id); setSelectedTextRange(null); }}
+                      onBlur={e => {
+                        const textboxDiv = e.currentTarget;
+                        const currentWidth = textboxDiv.offsetWidth;
+                        const currentHeight = textboxDiv.offsetHeight;
+                        handleTextResize(tb.id, currentWidth, currentHeight);
+                        const relatedTarget = e.relatedTarget;
+                        const slidePreviewDiv = textboxDiv.closest('.slide-preview');
+                        if (!slidePreviewDiv) { setSelectedTextBoxId(null); setSelectedTextRange(null); return; }
+                        const mainContentArea = slidePreviewDiv.parentElement;
+                        if (!mainContentArea) { setSelectedTextBoxId(null); setSelectedTextRange(null); return; }
+                        const toolbarDiv = mainContentArea.querySelector('.slide-toolbar');
+                        if (toolbarDiv && relatedTarget && toolbarDiv.contains(relatedTarget)) return;
+                        setSelectedTextBoxId(null); setSelectedTextRange(null);
+                      }}
+                      tabIndex={0}
+                      draggable
+                      onDragStart={e => {
+                        const rect = e.target.getBoundingClientRect();
+                        const dragData = {
+                          id: tb.id,
+                          offsetX: e.clientX - rect.left,
+                          offsetY: e.clientY - rect.top
+                        };
+                        e.dataTransfer.setData("text/plain", JSON.stringify(dragData));
+                        e.dataTransfer.effectAllowed = "move";
+                        setSelectedTextBoxId(tb.id);
+                      }}
+                    >
+                      {tb.bullets
+                        ? tb.text.split("\\\\n").map((line, idx) => <div key={idx} style={{ marginBottom: tb.paragraphSpacing }}>{line ? <>&bull; {line}</> : <br />}</div>)
+                        : tb.text.split("\\\\n").map((line, idx) => <div key={idx} style={{ marginBottom: tb.paragraphSpacing }}>{line || <br />}</div>)}
+                    </div>
+                  );
+                })}
               </div>
-            ))}
+            ) :
+            // --- Abstract Template: Slides 2+ use content box layout ---
+            currentTemplate?.id === "tailwind-abstract-gradient" && currentIdx > 0 ? (
+              renderAbstractContentBox(
+                <>
+                  {slide.textboxes.map(tb => (
+                    <div
+                      key={`textbox-${currentIdx}-${tb.id}`}
+                      ref={el => {
+                        if (el) {
+                          const existingRef = contentEditableRefs.current.get(tb.id);
+                          contentEditableRefs.current.set(tb.id, { element: el, timeout: existingRef?.timeout || null });
+                        } else {
+                          const existingRef = contentEditableRefs.current.get(tb.id);
+                          if (existingRef?.timeout) clearTimeout(existingRef.timeout);
+                          contentEditableRefs.current.delete(tb.id);
+                        }
+                      }}
+                      className={"slide-textbox" + (selectedTextBoxId === tb.id ? " selected" : "")}
+                      style={{
+                        position: "relative",
+                        width: "100%",
+                        minHeight: 40,
+                        marginBottom: 18,
+                        fontSize: `${tb.fontSize}px`,
+                        fontFamily: tb.fontFamily,
+                        color: tb.fill,
+                        fontWeight: tb.fontStyle?.bold ? "bold" : "normal",
+                        fontStyle: tb.fontStyle?.italic ? "italic" : "normal",
+                        textDecoration: tb.fontStyle?.underline ? "underline" : "none",
+                        lineHeight: tb.lineHeight,
+                        textAlign: tb.align,
+                        outline: selectedTextBoxId === tb.id ? "2px solid #1976d2" : "none",
+                        background: selectedTextBoxId === tb.id ? "#f5faff" : "transparent",
+                        padding: "8px 16px",
+                        boxSizing: "border-box",
+                        overflowWrap: "break-word",
+                        wordWrap: "break-word",
+                        overflow: "auto",
+                        resize: "none",
+                        zIndex: TEXT_Z_INDEX
+                      }}
+                      contentEditable
+                      suppressContentEditableWarning
+                      spellCheck={true}
+                      onInput={e => { e.stopPropagation(); handleContentEdit(tb.id, e); }}
+                      onFocus={e => { e.stopPropagation(); setSelectedTextBoxId(tb.id); setSelectedTextRange(null); }}
+                      onKeyDown={e => {
+                        e.stopPropagation();
+                        if (e.key === 'Delete' || e.key === 'Backspace') {
+                          const selection = window.getSelection();
+                          if (selection && selection.rangeCount > 0) {
+                            const range = selection.getRangeAt(0);
+                            if (range.toString().length > 0 || e.target.innerText.length > 0) return;
+                          }
+                          e.preventDefault();
+                        }
+                      }}
+                      onClick={e => { e.stopPropagation(); setSelectedTextBoxId(tb.id); setSelectedTextRange(null); }}
+                      onBlur={e => {
+                        const textboxDiv = e.currentTarget;
+                        const currentWidth = textboxDiv.offsetWidth;
+                        const currentHeight = textboxDiv.offsetHeight;
+                        handleTextResize(tb.id, currentWidth, currentHeight);
+                        const relatedTarget = e.relatedTarget;
+                        const slidePreviewDiv = textboxDiv.closest('.slide-preview');
+                        if (!slidePreviewDiv) { setSelectedTextBoxId(null); setSelectedTextRange(null); return; }
+                        const mainContentArea = slidePreviewDiv.parentElement;
+                        if (!mainContentArea) { setSelectedTextBoxId(null); setSelectedTextRange(null); return; }
+                        const toolbarDiv = mainContentArea.querySelector('.slide-toolbar');
+                        if (toolbarDiv && relatedTarget && toolbarDiv.contains(relatedTarget)) return;
+                        setSelectedTextBoxId(null); setSelectedTextRange(null);
+                      }}
+                      tabIndex={0}
+                    >
+                      {tb.bullets
+                        ? tb.text.split("\n").map((line, i) => <div key={i} style={{ marginBottom: tb.paragraphSpacing }}>{line ? <>&bull; {line}</> : <br />}</div>)
+                        : tb.text.split("\n").map((line, i) => <div key={i} style={{ marginBottom: tb.paragraphSpacing }}>{line || <br />}</div>)}
+                    </div>
+                  ))}
+                </>,
+                // withImagePlaceholder: show placeholder if no image, else show image
+                (slide.images && slide.images.length > 0) || slide.image
+              )
+            ) : (
+              // Default: render all textboxes absolutely positioned (original logic)
+              slide.textboxes.map(tb => (
+                <div
+                  key={`textbox-${currentIdx}-${tb.id}`}
+                  ref={el => {
+                    if (el) {
+                      const existingRef = contentEditableRefs.current.get(tb.id);
+                      contentEditableRefs.current.set(tb.id, { element: el, timeout: existingRef?.timeout || null });
+                    } else {
+                      const existingRef = contentEditableRefs.current.get(tb.id);
+                      if (existingRef?.timeout) clearTimeout(existingRef.timeout);
+                      contentEditableRefs.current.delete(tb.id);
+                    }
+                  }}
+                  className={"slide-textbox" + (selectedTextBoxId === tb.id ? " selected" : "")}
+                  style={{
+                    position: "absolute",
+                    left: `${tb.x}px`,
+                    top: `${tb.y}px`,
+                    width: `${tb.width}px`,
+                    height: `${tb.height}px`,
+                    fontSize: `${tb.fontSize}px`,
+                    fontFamily: tb.fontFamily,
+                    color: tb.fill,
+                    fontWeight: tb.fontStyle?.bold ? "bold" : "normal",
+                    fontStyle: tb.fontStyle?.italic ? "italic" : "normal",
+                    textDecoration: tb.fontStyle?.underline ? "underline" : "none",
+                    lineHeight: tb.lineHeight,
+                    textAlign: tb.align,
+                    outline: selectedTextBoxId === tb.id ? "2px solid #1976d2" : "none",
+                    background: selectedTextBoxId === tb.id ? "#f5faff" : "transparent",
+                    padding: "8px",
+                    boxSizing: "border-box",
+                    overflowWrap: "break-word",
+                    wordWrap: "break-word",
+                    overflow: "auto",
+                    resize: "both",
+                    cursor: "move",
+                    zIndex: TEXT_Z_INDEX
+                  }}
+                  contentEditable
+                  suppressContentEditableWarning
+                  spellCheck={true}
+                  onInput={e => { e.stopPropagation(); handleContentEdit(tb.id, e); }}
+                  onFocus={e => { e.stopPropagation(); setSelectedTextBoxId(tb.id); setSelectedTextRange(null); }}
+                  onKeyDown={e => {
+                    e.stopPropagation();
+                    if (e.key === 'Delete' || e.key === 'Backspace') {
+                      const selection = window.getSelection();
+                      if (selection && selection.rangeCount > 0) {
+                        const range = selection.getRangeAt(0);
+                        if (range.toString().length > 0 || e.target.innerText.length > 0) return;
+                      }
+                      e.preventDefault();
+                    }
+                  }}
+                  onClick={e => { e.stopPropagation(); setSelectedTextBoxId(tb.id); setSelectedTextRange(null); }}
+                  onBlur={e => {
+                    const textboxDiv = e.currentTarget;
+                    const currentWidth = textboxDiv.offsetWidth;
+                    const currentHeight = textboxDiv.offsetHeight;
+                    handleTextResize(tb.id, currentWidth, currentHeight);
+                    const relatedTarget = e.relatedTarget;
+                    const slidePreviewDiv = textboxDiv.closest('.slide-preview');
+                    if (!slidePreviewDiv) { setSelectedTextBoxId(null); setSelectedTextRange(null); return; }
+                    const mainContentArea = slidePreviewDiv.parentElement;
+                    if (!mainContentArea) { setSelectedTextBoxId(null); setSelectedTextRange(null); return; }
+                    const toolbarDiv = mainContentArea.querySelector('.slide-toolbar');
+                    if (toolbarDiv && relatedTarget && toolbarDiv.contains(relatedTarget)) return;
+                    setSelectedTextBoxId(null); setSelectedTextRange(null);
+                  }}
+                  tabIndex={0}
+                  draggable
+                  onDragStart={e => {
+                    const rect = e.target.getBoundingClientRect();
+                    const dragData = {
+                      id: tb.id,
+                      offsetX: e.clientX - rect.left,
+                      offsetY: e.clientY - rect.top
+                    };
+                    e.dataTransfer.setData("text/plain", JSON.stringify(dragData));
+                    e.dataTransfer.effectAllowed = "move";
+                    setSelectedTextBoxId(tb.id);
+                  }}
+                >
+                  {tb.bullets
+                    ? tb.text.split("\n").map((line, i) => <div key={i} style={{ marginBottom: tb.paragraphSpacing }}>{line ? <>&bull; {line}</> : <br />}</div>)
+                    : tb.text.split("\n").map((line, i) => <div key={i} style={{ marginBottom: tb.paragraphSpacing }}>{line || <br />}</div>)}
+                </div>
+              ))
+            )}
+
             {/* Konva image rendering (below text for drag/resize) */}
             {slide.image && (
               <Stage
@@ -1117,37 +1430,27 @@ const SlideEditor = () => {
                   zIndex: typeof image.zIndex === 'number' ? image.zIndex : DEFAULT_IMAGE_Z_INDEX // Apply zIndex from image object
                 }}
                 onMouseDown={e => {
-                  // Prevent drag if clicking on resize handle
                   if (e.target.className && typeof e.target.className === 'string' && e.target.className.includes('resize-handle')) return;
-                  
-                  e.preventDefault(); // Prevent text selection/default drag behavior
+                  e.preventDefault();
                   e.stopPropagation();
-
-                  setSelectedImage(idx); // Select the image being dragged
-
+                  setSelectedImage(idx);
                   const startX = e.clientX;
                   const startY = e.clientY;
                   const initialImageX = image.x;
                   const initialImageY = image.y;
-
                   const onMouseMove = (moveEvent) => {
                     const dx = moveEvent.clientX - startX;
                     const dy = moveEvent.clientY - startY;
                     handleImageDrag(idx, initialImageX + dx, initialImageY + dy);
                   };
-
                   const onMouseUp = () => {
                     window.removeEventListener('mousemove', onMouseMove);
                     window.removeEventListener('mouseup', onMouseUp);
                   };
-
                   window.addEventListener('mousemove', onMouseMove);
                   window.addEventListener('mouseup', onMouseUp);
                 }}
-                onClick={e => {
-                  e.stopPropagation();
-                  setSelectedImage(idx);
-                }}
+                onClick={e => { e.stopPropagation(); setSelectedImage(idx); }}
               >
                 <img
                   src={image.src}
@@ -1170,25 +1473,21 @@ const SlideEditor = () => {
                       zIndex: 20, 
                     }}
                     onMouseDown={e => {
-                      e.preventDefault(); // Important to prevent parent drag
-                      e.stopPropagation(); // Stop event from bubbling to parent div's onMouseDown
-
+                      e.preventDefault();
+                      e.stopPropagation();
                       const startX = e.clientX;
                       const startY = e.clientY;
                       const initialImageWidth = image.width;
                       const initialImageHeight = image.height;
-
                       const onResizeMouseMove = (moveEvent) => {
-                        const newWidth = Math.max(20, initialImageWidth + (moveEvent.clientX - startX)); // Min width 20px
-                        const newHeight = Math.max(20, initialImageHeight + (moveEvent.clientY - startY)); // Min height 20px
+                        const newWidth = Math.max(20, initialImageWidth + (moveEvent.clientX - startX));
+                        const newHeight = Math.max(20, initialImageHeight + (moveEvent.clientY - startY));
                         handleImageResize(idx, newWidth, newHeight);
                       };
-
                       const onResizeMouseUp = () => {
                         window.removeEventListener('mousemove', onResizeMouseMove);
                         window.removeEventListener('mouseup', onResizeMouseUp);
                       };
-
                       window.addEventListener('mousemove', onResizeMouseMove);
                       window.addEventListener('mouseup', onResizeMouseUp);
                     }}

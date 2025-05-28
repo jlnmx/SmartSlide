@@ -6,8 +6,8 @@ import Navbar from "./Navbar";
 
 const SlidesGeneratingPage = () => {
   const location = useLocation();
-  const navigate = useNavigate();  // Prioritize slides from editor if available
-  let { slides: initialSlides, template, presentationType, fromEditor, presentationId } = location.state || {};
+  const navigate = useNavigate();
+  let { slides: initialSlides, template, presentationType, fromEditor, presentationId, language: navLanguage } = location.state || {};
 
   // Fallback: Load template and presentationType from localStorage if missing (for refresh/direct nav)
   if (!template) {
@@ -21,9 +21,22 @@ const SlidesGeneratingPage = () => {
     presentationType = localStorage.getItem("presentationType") || "Default";
   }
 
+  // --- NEW: Language and Quiz Question Count State ---
+  const [language, setLanguage] = useState(
+    navLanguage || localStorage.getItem("selectedLanguage") || "English"
+  );
+  const [numQuestions, setNumQuestions] = useState(5);
+
   const [isLoading, setIsLoading] = useState(true);
   // Use initialSlides from navigation state if coming from editor, otherwise use slides from props or empty array
   const [generatedSlides, setGeneratedSlides] = useState(fromEditor ? initialSlides : (location.state?.slides || []));
+
+  // --- NEW: Persist language to localStorage when it changes ---
+  useEffect(() => {
+    if (language) { // Ensure language has a value
+      localStorage.setItem("selectedLanguage", language);
+    }
+  }, [language]); // Re-run this effect if the language state changes
 
   // Always load slides from localStorage if available
   useEffect(() => {
@@ -72,9 +85,9 @@ const SlidesGeneratingPage = () => {
         }
       } catch {}
     }
-    navigate("/slide-editor", { state: { slides: slidesToEdit, template, presentationType, presentationId } });
+    // Ensure language is passed, it's already part of the component's state
+    navigate("/slide-editor", { state: { slides: slidesToEdit, template, presentationType, presentationId, language } });
   };
-
 
   const handleDownload = async () => {
     if (!template) {
@@ -89,6 +102,7 @@ const SlidesGeneratingPage = () => {
           slides: generatedSlides,
           template: typeof template === "object" ? template.id : template,
           presentationType,
+          language,
         }),
       });
 
@@ -113,19 +127,20 @@ const SlidesGeneratingPage = () => {
     }
   };
 
+  // --- UPDATED: Pass language and numQuestions to quiz/script generation ---
   const handleGenerateQuiz = async () => {
     try {
       const response = await fetch("http://localhost:5000/generate-quiz", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slides: generatedSlides }),
+        body: JSON.stringify({ slides: generatedSlides, language, numQuestions }),
       });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to generate quiz.");
       }
       const data = await response.json();
-      navigate("/generated-quiz", { state: { quiz: data.quiz } });
+      navigate("/generated-quiz", { state: { quiz: data.quiz, language } });
     } catch (error) {
       alert(error.message || "An error occurred while generating the quiz.");
     }
@@ -136,14 +151,14 @@ const SlidesGeneratingPage = () => {
       const response = await fetch("http://localhost:5000/generate-script", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slides: generatedSlides }),
+        body: JSON.stringify({ slides: generatedSlides, language }),
       });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to generate script.");
       }
       const data = await response.json();
-      navigate("/generated-script", { state: { script: data.script } });
+      navigate("/generated-script", { state: { script: data.script, language } });
     } catch (error) {
       alert(error.message || "An error occurred while generating the script.");
     }
@@ -196,6 +211,29 @@ const SlidesGeneratingPage = () => {
         <button className="edit-google-slides-btn" onClick={handleEditSlides} style={{ fontSize: "1rem", padding: "0.4rem 1.1rem" }}>
           Edit Slides
         </button>
+        {/* --- UPDATED: Language display (read-only) --- */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <label htmlFor="quiz-language-display">Language:</label>
+          <span
+            id="quiz-language-display"
+            style={{ padding: "0.3rem 0.6rem", fontSize: "1rem", fontWeight: "bold", border: "1px solid #ced4da", borderRadius: "0.25rem", backgroundColor: "#e9ecef", color: "#495057" }}
+          >
+            {language}
+          </span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <label htmlFor="num-questions-select">Quiz Questions:</label>
+          <select
+            id="num-questions-select"
+            value={numQuestions}
+            onChange={e => setNumQuestions(Number(e.target.value))}
+            style={{ padding: "0.2rem 0.5rem", fontSize: "1rem" }}
+          >
+            {[3, 5, 7, 10, 15, 20].map(n => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+        </div>
         <button className="generate-btn" style={{ fontSize: "0.95rem", padding: "0.35rem 0.9rem" }} onClick={handleGenerateQuiz}>
           Generate Quiz
         </button>

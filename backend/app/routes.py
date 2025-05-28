@@ -122,10 +122,17 @@ def generate_quiz_route():
 
     current_app.logger.info(f"Extracted content for quiz generation: {full_text_content[:500]}...")  # Log first 500 chars
 
+    # Get language and number of questions from the request
+    language = data.get("language", "English")  # Default to English
+    num_questions = int(data.get("numQuestions", 5))  # Default to 5 questions
+
     quiz_prompt = f"""
-    Based on the following presentation content, generate a quiz with 5 multiple-choice questions.
-    Each question should have 4 choices and a clear answer.
-    Format the output as a JSON array, where each object has "question", "choices" (an array of 4 strings), and "answer" (a string).
+    Based on the following presentation content, generate a quiz with exactly {num_questions} questions.
+    The quiz should include a mix of identification and multiple-choice questions.
+    For multiple-choice questions, provide 4 choices.
+    Provide a clear answer for each question.
+    The language for the quiz must be {language}.
+    Format the output as a JSON array, where each object has "question", "choices" (an array of 4 strings for multiple-choice, or an empty array/null for identification questions), and "answer" (a string).
 
     Presentation Content:
     ---
@@ -428,9 +435,10 @@ def generate_slides():
         - Use Markdown for formatting: **bold** for emphasis, *italic* for highlights, and __underline__ for key terms.
         - If applicable, include a relevant image description for each slide (e.g., \"A diagram of the water cycle\").
         - Organize the content logically:
-        - Slide 1: Introduction (overview of the topic).
-        - Slide 2: Key definitions or background information.
-        - Slide 3-{num_slides-1}: Main points, examples, or case studies.
+        - Slide 1: Title slide with the topic and description.
+        - Slide 2: Introduction (overview of the topic).
+        - Slide 3: Key definitions or background information.
+        - Slide 4-{num_slides-1}: Main points, examples, or case studies.
         - Slide {num_slides}: Conclusion or references.
         - Ensure the content is professional, insightful, and suitable for a business or academic audience.
         - Provide a JSON array where each object has:
@@ -440,6 +448,10 @@ def generate_slides():
 
         Example:
         [
+          {{
+            "title": "Renewable Energy",
+            "content": "An overview of renewable energy sources and their benefits.",
+          }}  
           {{
             "title": "Market Analysis: Renewable Energy Sector",
             "content": [
@@ -1196,7 +1208,6 @@ def paste_and_create():
                 "(a list of strings, where each string represents a paragraph or a bullet point). "
                 "The entire output must be a valid JSON list of these slide objects, or a JSON object with a 'slides' key containing the list. "
                 "Do NOT use emojis, special unicode, or non-ASCII characters. Use only plain English text and standard punctuation. "
-                "Do not include any introductory text, explanations, or markdown formatting around the JSON itself."
             )
             user_prompt_content = f"Text to process:\n---\n{text_input}\n---\n\nDo NOT use emojis, special unicode, or non-ASCII characters. Use only plain English text and standard punctuation."
 
@@ -1659,8 +1670,6 @@ def export_script_word_direct():
         doc.add_heading("Generated Presentation Script", level=1)
         doc.add_paragraph(f"Generated on: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}")
         doc.add_paragraph()  # Spacer
-        
-        # Add script content
         doc.add_paragraph(script_content)
 
         file_stream = BytesIO()

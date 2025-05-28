@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
+import { tailwindTemplates } from "../templates/tailwind-templates";
 import "../styles/PasteAndCreate.css";
 
 const PasteAndCreate = () => {
@@ -13,18 +14,10 @@ const PasteAndCreate = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetch("http://localhost:5000/templates-list")
-      .then((res) => res.json())
-      .then((data) => {
-        const allowed = ["abstract", "creative", "business", "education"];
-        const filtered = (data.templates || []).filter(
-          (t) => allowed.includes((t.title || t.name || "").toLowerCase())
-        );
-        setTemplates(filtered);
-            if (filtered.length > 0) {
-          setSelectedTemplate(filtered[0]);
-        }
-      });
+    setTemplates(tailwindTemplates);
+    if (tailwindTemplates.length > 0) {
+      setSelectedTemplate(tailwindTemplates[0]);
+    }
   }, []); // Only run once on mount
 
   const handleSubmit = async (e) => {

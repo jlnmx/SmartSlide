@@ -44,6 +44,185 @@ def update_analytics_on_slide(user_id, topic=None):
     analytics.last_generated_at = datetime.utcnow()
     db.session.commit()
 
+def load_presentation_templates():
+    """Load template definitions from templates.json"""
+    try:
+        templates_path = os.path.join(os.path.dirname(__file__), 'templates.json')
+        with open(templates_path, 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        current_app.logger.error(f"Failed to load templates.json: {e}")
+        return {}
+
+def hex_to_rgb(hex_color):
+    """Convert hex color to RGB tuple"""
+    if hex_color.startswith('#'):
+        hex_color = hex_color[1:]
+    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+def calculate_position(shape_def, position_type, slide_width_inches, slide_height_inches):
+    """Calculate position (left/top) based on shape definition"""
+    # Check for direct inch values first
+    inch_key = f"{position_type}_in"
+    if inch_key in shape_def:
+        return Inches(shape_def[inch_key])
+        
+    # Check for ratio-based positioning
+    ratio_key = f"{position_type}_ratio"
+    if ratio_key in shape_def:
+        ratio = shape_def[ratio_key]
+        if position_type == "left":
+            return Inches(ratio * slide_width_inches)
+        else:  # top
+            return Inches(ratio * slide_height_inches)
+            
+    # Default to 0
+    return Inches(0)
+
+def calculate_dimension(shape_def, dimension_type, slide_width_inches, slide_height_inches):
+    """Calculate dimension (width/height) based on shape definition"""
+    # Check for direct inch values first
+    inch_key = f"{dimension_type}_in"
+    if inch_key in shape_def:
+        return Inches(shape_def[inch_key])
+        
+    # Check for ratio-based sizing
+    ratio_key = f"{dimension_type}_ratio"
+    if ratio_key in shape_def:
+        ratio = shape_def[ratio_key]
+        if dimension_type == "width":
+            return Inches(ratio * slide_width_inches)
+        else:  # height
+            return Inches(ratio * slide_height_inches)
+            
+    # Check for slide-height-based sizing
+    height_ratio_key = f"{dimension_type}_as_ratio_of_slide_height"
+    if height_ratio_key in shape_def:
+        ratio = shape_def[height_ratio_key]
+        return Inches(ratio * slide_height_inches)
+        
+    # Default to 1 inch
+    return Inches(1)
+
+def draw_template_shape(slide, shape_def, slide_width_inches, slide_height_inches):
+    """
+    Draw a shape on the slide based on shape definition
+    
+    Args:
+        slide: PowerPoint slide object
+        shape_def: Shape definition from template
+        slide_width_inches: Slide width in inches
+        slide_height_inches: Slide height in inches
+    """
+    try:
+        shape_type = shape_def.get("type", "rectangle")
+        
+        # Calculate position and size
+        left = calculate_position(shape_def, "left", slide_width_inches, slide_height_inches)
+        top = calculate_position(shape_def, "top", slide_width_inches, slide_height_inches)
+        width = calculate_dimension(shape_def, "width", slide_width_inches, slide_height_inches)
+        height = calculate_dimension(shape_def, "height", slide_width_inches, slide_height_inches)
+        
+        # Use rounded rectangle for content box if specified
+        is_content_box = shape_def.get("comment", "") == "content_box"
+        if shape_type == "rectangle" and is_content_box:
+            from pptx.enum.shapes import MSO_SHAPE
+            shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, width, height)
+            # Set rounding if radius is specified (python-pptx uses adjustment values 0-1)
+            radius = shape_def.get("radius")
+            if radius is not None:
+                try:
+                    # Adjustment 0 is corner rounding, 0.0 (square) to 1.0 (fully round)
+                    shape.adjustments[0] = float(radius)
+                except Exception:
+                    pass
+        elif shape_type == "rectangle":
+            shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, height)
+        elif shape_type == "oval":
+            shape = slide.shapes.add_shape(MSO_SHAPE.OVAL, left, top, width, height)
+        else:
+            return  # Unsupported shape type
+            
+        # Apply fill
+        fill_style = shape_def.get("fill_style", "solid")
+        if fill_style == "none":
+            shape.fill.background()
+        else:
+            fill_color_hex = shape_def.get("fill_color_hex", "FFFFFF")
+            fill_transparency = shape_def.get("fill_transparency", 0.0)
+            
+            shape.fill.solid()
+            shape.fill.fore_color.rgb = RGBColor(*hex_to_rgb(fill_color_hex))
+            if fill_transparency > 0:
+                shape.fill.transparency = fill_transparency
+                
+        # Apply line/border
+        line_style = shape_def.get("line_style", "solid")
+        if line_style == "none":
+            shape.line.fill.background()
+        else:
+            line_color_hex = shape_def.get("line_color_hex", "000000")
+            line_width_pt = shape_def.get("line_width_pt", 1)
+            line_transparency = shape_def.get("line_transparency", 0.0)
+            
+            shape.line.color.rgb = RGBColor(*hex_to_rgb(line_color_hex))
+            shape.line.width = Pt(line_width_pt)
+            if line_transparency > 0:
+                shape.line.transparency = line_transparency
+                
+        # Apply rotation if specified
+        rotation = shape_def.get("rotation", 0)
+        if rotation != 0:
+            shape.rotation = rotation
+            
+    except Exception as e:
+        current_app.logger.error(f"Error drawing template shape: {e}")
+
+def draw_template_slide_background(slide, template_def, slide_type="default", slide_width_inches=13.33, slide_height_inches=7.5):
+    """
+    Draw template background and shapes based on template definition from templates.json
+    
+    Args:
+        slide: PowerPoint slide object
+        template_def: Template definition from templates.json
+        slide_type: "title", "content", or "default"
+        slide_width_inches: Slide width in inches
+        slide_height_inches: Slide height in inches
+    """
+    try:
+        # Get background definition for this slide type, fallback to default
+        slide_backgrounds = template_def.get("slide_backgrounds", {})
+        bg_def = slide_backgrounds.get(slide_type, slide_backgrounds.get("default", {}))
+        
+        if not bg_def:
+            return False
+            
+        bg_type = bg_def.get("type", "solid")
+        
+        if bg_type == "simulated_gradient_with_shapes":
+            # Apply base color
+            base_color_hex = bg_def.get("base_color_hex", "FFFFFF")
+            fill = slide.background.fill
+            fill.solid()
+            fill.fore_color.rgb = RGBColor(*hex_to_rgb(base_color_hex))
+            
+            # Add shapes defined in the template
+            shapes_list = bg_def.get("shapes", [])
+            for shape_def in shapes_list:
+                draw_template_shape(slide, shape_def, slide_width_inches, slide_height_inches)
+                
+        elif bg_type == "solid":
+            color_hex = bg_def.get("color_hex", "FFFFFF")
+            fill = slide.background.fill
+            fill.solid()
+            fill.fore_color.rgb = RGBColor(*hex_to_rgb(color_hex))
+            
+        return True
+        
+    except Exception as e:
+        current_app.logger.error(f"Error drawing template background: {e}")
+        return False
+
 load_dotenv()
 GOOGLE_CREDENTIALS_FILE = os.path.join(os.path.dirname(__file__), '..', 'credentials.json')
 GOOGLE_CREDENTIALS_FILE = os.path.abspath(GOOGLE_CREDENTIALS_FILE)
@@ -736,7 +915,13 @@ def generate_presentation():
 
     slides_data = data.get("slides")
     if not slides_data or not isinstance(slides_data, list):
-        return jsonify({"error": "Invalid slides data"}), 400
+        return jsonify({"error": "Invalid slides data"}), 400    # Load template definitions from templates.json
+    templates_config = load_presentation_templates()
+    global_template_id = data.get("templateId") or data.get("template")
+    
+    # Ensure global template ID is a string
+    if isinstance(global_template_id, dict):
+        global_template_id = global_template_id.get("id") or global_template_id.get("templateId")
 
     prs = PptxPresentation()
     prs.slide_width = Inches(PPTX_SLIDE_WIDTH_INCHES)
@@ -757,22 +942,54 @@ def generate_presentation():
                 key = key.strip().replace('-', '').lower()
                 value = value.strip()
                 styles[key] = value
-        return styles
-
-    for slide_item_data in slides_data:
+        return styles    
+    for slide_index, slide_item_data in enumerate(slides_data):
         slide_layout = prs.slide_layouts[6]  # BLANK layout
-        ppt_slide = prs.slides.add_slide(slide_layout)
+        ppt_slide = prs.slides.add_slide(slide_layout)        # Determine template for this slide
+        slide_template_id = slide_item_data.get("templateId") or slide_item_data.get("template") or global_template_id
+        
+        # Ensure template_id is a string, not a dict
+        if isinstance(slide_template_id, dict):
+            slide_template_id = slide_template_id.get("id") or slide_template_id.get("templateId")
+        
+        # Apply template background if available
+        template_applied = False
+        if slide_template_id and isinstance(slide_template_id, str) and slide_template_id in templates_config:
+            template_def = templates_config[slide_template_id]
+            
+            # Determine slide type based on slide position and template type
+            slide_type = "default"
+            
+            # For abstract gradient template: Slide 1 = title, Slides 2+ = content
+            if slide_template_id == "tailwind-abstract-gradient":
+                slide_type = "title" if slide_index == 0 else "content"
+            else:
+                # For other templates, use content-based detection
+                textboxes = slide_item_data.get("textboxes", [])
+                title_boxes = [tb for tb in textboxes if tb.get("type") == "title" or "title" in tb.get("text", "").lower()]
+                body_boxes = [tb for tb in textboxes if tb.get("type") == "body" or (tb.get("type") != "title" and len(tb.get("text", "")) > 50)]
+                
+                if title_boxes and len(body_boxes) <= 1:
+                    slide_type = "title"
+                elif body_boxes:
+                    slide_type = "content"
+                
+            template_applied = draw_template_slide_background(
+                ppt_slide, template_def, slide_type, 
+                PPTX_SLIDE_WIDTH_INCHES, PPTX_SLIDE_HEIGHT_INCHES
+            )
 
-        # Background (apply directly to slide, not zIndex sorted)
-        background_data = slide_item_data.get("background", {})
-        bg_fill_hex = background_data.get("fill", "#FFFFFF")
-        if bg_fill_hex:
-            try:
-                fill = ppt_slide.background.fill
-                fill.solid()
-                fill.fore_color.rgb = hex_to_rgb(bg_fill_hex)
-            except Exception as e:
-                current_app.logger.error(f"Error setting background color: {e}", exc_info=True)
+        # Fallback: apply simple background if no template was applied
+        if not template_applied:
+            background_data = slide_item_data.get("background", {})
+            bg_fill_hex = background_data.get("fill", "#FFFFFF")
+            if bg_fill_hex:
+                try:
+                    fill = ppt_slide.background.fill
+                    fill.solid()
+                    fill.fore_color.rgb = hex_to_rgb(bg_fill_hex)
+                except Exception as e:
+                    current_app.logger.error(f"Error setting background color: {e}", exc_info=True)
 
 
         # Collect elements to be rendered based on zIndex
@@ -793,22 +1010,21 @@ def generate_presentation():
                 "data": img_data,
                 "zIndex": int(img_data.get("zIndex", 101)) # Images have zIndex
             })
-        
-        # Sort elements by zIndex: lower zIndex elements are added first (appear "behind")
+          # Sort elements by zIndex: lower zIndex elements are added first (appear "behind")
         elements_to_render.sort(key=lambda el: el["zIndex"])
-
+        
         # Render elements in sorted order
         for element in elements_to_render:
             el_data = element["data"]
             el_type = element["type"]
-
+            
             if el_type == "textbox":
                 try:
                     x_px = float(el_data.get("x", 0))
                     y_px = float(el_data.get("y", 0))
                     width_px = float(el_data.get("width", 100))
                     height_px = float(el_data.get("height", 50))
-
+                    
                     left = Inches(x_px * px_to_in_x)
                     top = Inches(y_px * px_to_in_y)
                     width = Inches(width_px * px_to_in_x)
@@ -988,187 +1204,184 @@ def generate_presentation():
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def hex_to_rgb(hex_color):
-    """Convert hex color string (e.g. '#FF00AA' or 'FF00AA') to RGBColor tuple."""
-    hex_color = hex_color.lstrip('#')
-    if len(hex_color) == 6:
-        r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-        return RGBColor(r, g, b)
-    elif len(hex_color) == 3:
-        r, g, b = tuple(int(hex_color[i]*2, 16) for i in range(3))
-        return RGBColor(r, g, b)
-    else:
-        # fallback to black
-        return RGBColor(0, 0, 0)
-
-@main.route("/upload-file", methods=["POST"])
-def upload_file():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-    if not allowed_file(file.filename):
-        return jsonify({'error': 'File type not allowed'}), 400
-
-    filename = secure_filename(file.filename)
-    ext = filename.rsplit('.', 1)[1].lower()
-    slides_content = []
-
+def load_presentation_templates():
+    """Load template definitions from templates.json"""
     try:
-        import re
-        text = ""
-        topic = os.path.splitext(filename)[0].replace('_', ' ').replace('-', ' ').title()
-        if ext == 'pdf':
-            from PyPDF2 import PdfReader
-            reader = PdfReader(file)
-            for page in reader.pages:
-                page_text = page.extract_text()
-                if page_text:
-                    text += page_text + "\n"
-        elif ext == 'docx':
-            doc = Document(file)
-            for para in doc.paragraphs:
-                if para.text:
-                    text += para.text + "\n"
-        elif ext in ['csv', 'xls', 'xlsx']:
-            import pandas as pd
-            if ext == 'csv':
-                df = pd.read_csv(file)
-            else:
-                df = pd.read_excel(file)
-            text = df.to_string(index=False)
-        else:
-            text = file.read().decode(errors='ignore')
-
-        # --- Use LLM to structure slides ---
-        prompt = f"""
-        You are an expert presentation assistant.
-        Given the following extracted document content, generate a well-structured, professional presentation as a JSON array.
-        - The first slide should have a clear, relevant title based on the topic: \"{topic}\".
-        - Each slide must have a concise, informative title (do NOT use generic titles like "Slide 1").
-        - Divide the content logically across slides (introduction, main points, analysis, recommendations, summary, etc.).
-        - Use bullet points or short paragraphs for slide content.
-        - Use Markdown for formatting: **bold** for emphasis, *italic* for highlights, and __underline__ for key terms.
-        - Ensure the content is detailed, precise, and suitable for a business, academic, or formal audience.
-        - The last slide should be titled "References" and include a list of references, sources, or further reading if available from the document content.
-        - Output format: a JSON array, where each object has:
-            - "title": string (slide title)
-            - "content": array of strings (each string is a bullet point or paragraph, use Markdown)
-        - Do NOT include any text before or after the JSON array.
-
-        Example:
-        [
-          {{
-            "title": "Market Analysis: Renewable Energy Sector",
-            "content": [
-              "Overview: The renewable energy sector has experienced significant growth over the past decade, driven by technological advancements and policy support.",
-              "Global investment in renewables reached $500 billion in 2023.",
-              "- Major segments: Solar, Wind, and Hydropower.",
-              "- Key drivers: Climate change initiatives, government incentives, and declining technology costs."
-            ]
-          }},
-          {{
-            "title": "Key Trends and Opportunities",
-            "content": [
-              "Decentralization: Growth of distributed energy resources and microgrids.",
-              "Corporate Adoption: Increasing number of Fortune 500 companies committing to 100% renewable energy.",
-              "Emerging Markets: Rapid expansion in Asia-Pacific and Latin America.",
-              "Opportunity: Investment in battery storage and grid modernization."
-            ]
-          }},
-          {{
-            "title": "Challenges and Risk Factors",
-            "content": [
-              "Regulatory Uncertainty: Changes in government policy can impact project viability.",
-              "Supply Chain Constraints: Shortages of critical materials such as lithium and rare earth elements.",
-              "Market Volatility: Fluctuations in energy prices and demand.",
-              "Mitigation: Diversification of supply sources and long-term contracts."
-            ]
-          }},
-          {{
-            "title": "Strategic Recommendations",
-            "content": [
-              "Invest in Innovation: Focus on R&D for next-generation solar and wind technologies.",
-              "Partnerships: Collaborate with local governments and technology providers.",
-              "Sustainability Reporting: Enhance transparency to attract ESG-focused investors.",
-              "Action Item: Develop a roadmap for entering emerging markets."
-            ]
-          }},
-          {{
-            "title": "Conclusion and Next Steps",
-            "content": [
-              "Summary: The renewable energy sector presents robust growth opportunities, but requires careful navigation of risks.",
-              "Continue monitoring policy developments.",
-              "Prioritize investments in high-growth regions.",
-              "Schedule follow-up meeting to review implementation plan."
-            ]
-          }},
-          {{
-            "title": "References",
-            "content": [
-              "1. International Energy Agency. (2023). World Energy Outlook.",
-              "2. https://www.iea.org/reports/world-energy-outlook-2023",
-              "3. BloombergNEF. (2023). Renewable Energy Investment Trends."
-            ]
-          }}
-        ]
-
-        Document content:
-        ---
-        {text}
-        ---
-        """
-
-        headers = {
-            "Authorization": f"Bearer {GROQ_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "model": "llama3-8b-8192",
-            "messages": [
-                {"role": "system", "content": "You are a helpful assistant that generates slide content in JSON format."},
-                {"role": "user", "content": prompt}
-            ],
-            "max_tokens": 4096,
-            "temperature": 0.3
-        }
-        response = requests.post(GROQ_API_URL, headers=headers, json=payload)
-        if response.status_code != 200:
-            return jsonify({'error': 'Failed to generate slides from file.'}), 500
-
-        result = response.json()
-        model_output = result["choices"][0]["message"]["content"]
-
-        # Extract JSON array from the response
-        match = re.search(r'\[\s*{.*}\s*\]', model_output, re.DOTALL)
-        if not match:
-            return jsonify({'error': 'Failed to parse slides output.'}), 500
-        slides = json.loads(match.group(0))
-
-        if not slides:
-            return jsonify({'error': 'Could not extract slides from file.'}), 400
-
-        # Update analytics if user_id is provided
-        user_id = request.form.get("user_id")
-        if user_id:
-            update_analytics_on_slide(user_id, topic=topic)
-
-        return jsonify({'slides': slides})
+        templates_path = os.path.join(os.path.dirname(__file__), 'templates.json')
+        with open(templates_path, 'r') as f:
+            return json.load(f)
     except Exception as e:
-        return jsonify({'error': f'Failed to process file: {str(e)}'}), 500
+        current_app.logger.error(f"Failed to load templates.json: {e}")
+        return {}
+
+def hex_to_rgb(hex_color):
+    """Convert hex color to RGB tuple"""
+    if hex_color.startswith('#'):
+        hex_color = hex_color[1:]
+    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+def draw_template_slide_background(slide, template_def, slide_type="default", slide_width_inches=13.33, slide_height_inches=7.5):
+    """
+    Draw template background and shapes based on template definition from templates.json
     
+    Args:
+        slide: PowerPoint slide object
+        template_def: Template definition from templates.json
+        slide_type: "title", "content", or "default"
+        slide_width_inches: Slide width in inches
+        slide_height_inches: Slide height in inches
+    """
+    try:
+        # Get background definition for this slide type, fallback to default
+        slide_backgrounds = template_def.get("slide_backgrounds", {})
+        bg_def = slide_backgrounds.get(slide_type, slide_backgrounds.get("default", {}))
+        
+        if not bg_def:
+            return False
+            
+        bg_type = bg_def.get("type", "solid")
+        
+        if bg_type == "simulated_gradient_with_shapes":
+            # Apply base color
+            base_color_hex = bg_def.get("base_color_hex", "FFFFFF")
+            fill = slide.background.fill
+            fill.solid()
+            fill.fore_color.rgb = RGBColor(*hex_to_rgb(base_color_hex))
+            
+            # Add shapes defined in the template
+            shapes_list = bg_def.get("shapes", [])
+            for shape_def in shapes_list:
+                draw_template_shape(slide, shape_def, slide_width_inches, slide_height_inches)
+                
+        elif bg_type == "solid":
+            color_hex = bg_def.get("color_hex", "FFFFFF")
+            fill = slide.background.fill
+            fill.solid()
+            fill.fore_color.rgb = RGBColor(*hex_to_rgb(color_hex))
+            
+        return True
+        
+    except Exception as e:
+        current_app.logger.error(f"Error drawing template background: {e}")
+        return False
 
+def draw_template_shape(slide, shape_def, slide_width_inches, slide_height_inches):
+    """
+    Draw a shape on the slide based on shape definition
+    
+    Args:
+        slide: PowerPoint slide object
+        shape_def: Shape definition from template
+        slide_width_inches: Slide width in inches
+        slide_height_inches: Slide height in inches
+    """
+    try:
+        shape_type = shape_def.get("type", "rectangle")
+        
+        # Calculate position and size
+        left = calculate_position(shape_def, "left", slide_width_inches, slide_height_inches)
+        top = calculate_position(shape_def, "top", slide_width_inches, slide_height_inches)
+        width = calculate_dimension(shape_def, "width", slide_width_inches, slide_height_inches)
+        height = calculate_dimension(shape_def, "height", slide_width_inches, slide_height_inches)
+        
+        # Use rounded rectangle for content box if specified
+        is_content_box = shape_def.get("comment", "") == "content_box"
+        if shape_type == "rectangle" and is_content_box:
+            from pptx.enum.shapes import MSO_SHAPE
+            shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, width, height)
+            # Set rounding if radius is specified (python-pptx uses adjustment values 0-1)
+            radius = shape_def.get("radius")
+            if radius is not None:
+                try:
+                    # Adjustment 0 is corner rounding, 0.0 (square) to 1.0 (fully round)
+                    shape.adjustments[0] = float(radius)
+                except Exception:
+                    pass
+        elif shape_type == "rectangle":
+            shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, height)
+        elif shape_type == "oval":
+            shape = slide.shapes.add_shape(MSO_SHAPE.OVAL, left, top, width, height)
+        else:
+            return  # Unsupported shape type
+            
+        # Apply fill
+        fill_style = shape_def.get("fill_style", "solid")
+        if fill_style == "none":
+            shape.fill.background()
+        else:
+            fill_color_hex = shape_def.get("fill_color_hex", "FFFFFF")
+            fill_transparency = shape_def.get("fill_transparency", 0.0)
+            
+            shape.fill.solid()
+            shape.fill.fore_color.rgb = RGBColor(*hex_to_rgb(fill_color_hex))
+            if fill_transparency > 0:
+                shape.fill.transparency = fill_transparency
+                
+        # Apply line/border
+        line_style = shape_def.get("line_style", "solid")
+        if line_style == "none":
+            shape.line.fill.background()
+        else:
+            line_color_hex = shape_def.get("line_color_hex", "000000")
+            line_width_pt = shape_def.get("line_width_pt", 1)
+            line_transparency = shape_def.get("line_transparency", 0.0)
+            
+            shape.line.color.rgb = RGBColor(*hex_to_rgb(line_color_hex))
+            shape.line.width = Pt(line_width_pt)
+            if line_transparency > 0:
+                shape.line.transparency = line_transparency
+                
+        # Apply rotation if specified
+        rotation = shape_def.get("rotation", 0)
+        if rotation != 0:
+            shape.rotation = rotation
+            
+    except Exception as e:
+        current_app.logger.error(f"Error drawing template shape: {e}")
 
-    if presentation_type == "Tall":
-        ppt.slide_width = Inches(7.5)
-        ppt.slide_height = Inches(13.33)
-    elif presentation_type == "Traditional":
-        ppt.slide_width = Inches(10)
-        ppt.slide_height = Inches(7.5)
-    else:  # Default (Widescreen)
-        ppt.slide_width = Inches(13.33)
-        ppt.slide_height = Inches(7.5)
+def calculate_position(shape_def, position_type, slide_width_inches, slide_height_inches):
+    """Calculate position (left/top) based on shape definition"""
+    # Check for direct inch values first
+    inch_key = f"{position_type}_in"
+    if inch_key in shape_def:
+        return Inches(shape_def[inch_key])
+        
+    # Check for ratio-based positioning
+    ratio_key = f"{position_type}_ratio"
+    if ratio_key in shape_def:
+        ratio = shape_def[ratio_key]
+        if position_type == "left":
+            return Inches(ratio * slide_width_inches)
+        else:  # top
+            return Inches(ratio * slide_height_inches)
+            
+    # Default to 0
+    return Inches(0)
+
+def calculate_dimension(shape_def, dimension_type, slide_width_inches, slide_height_inches):
+    """Calculate dimension (width/height) based on shape definition"""
+    # Check for direct inch values first
+    inch_key = f"{dimension_type}_in"
+    if inch_key in shape_def:
+        return Inches(shape_def[inch_key])
+        
+    # Check for ratio-based sizing
+    ratio_key = f"{dimension_type}_ratio"
+    if ratio_key in shape_def:
+        ratio = shape_def[ratio_key]
+        if dimension_type == "width":
+            return Inches(ratio * slide_width_inches)
+        else:  # height
+            return Inches(ratio * slide_height_inches)
+            
+    # Check for slide-height-based sizing
+    height_ratio_key = f"{dimension_type}_as_ratio_of_slide_height"
+    if height_ratio_key in shape_def:
+        ratio = shape_def[height_ratio_key]
+        return Inches(ratio * slide_height_inches)
+        
+    # Default to 1 inch
+    return Inches(1)
 
 @main.route("/paste-and-create", methods=["POST", "OPTIONS"])
 def paste_and_create():
@@ -1697,6 +1910,7 @@ def export_quiz_word(quiz_id):
 
     try:
         quiz_data = json.loads(quiz.content) # Content is stored as JSON string
+
         doc = Document()
         doc.add_heading(quiz.name, level=1)
         doc.add_paragraph(f"Generated on: {quiz.created_at.strftime('%Y-%m-%d %H:%M:%S')}")

@@ -12,6 +12,66 @@ const SLIDE_WIDTH = 960;
 const SLIDE_HEIGHT = 540;
 const TEXTBOX_PADDING = 10;
 
+function getNodePath(root, node) {
+  const path = [];
+  let current = node;
+  while (current && current !== root) {
+    const parent = current.parentNode;
+    if (!parent) break;
+    const index = Array.prototype.indexOf.call(parent.childNodes, current);
+    path.unshift(index);
+    current = parent;
+  }
+  return path;
+}
+// Returns the node at a given path from root
+function getNodeByPath(root, path) {
+  let node = root;
+  for (let i = 0; i < path.length; i++) {
+    if (!node || !node.childNodes) return null;
+    node = node.childNodes[path[i]];
+  }
+  return node;
+}
+// Returns selection state (path and offset for start/end)
+function getSelectionState(element) {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  const range = sel.getRangeAt(0);
+  return {
+    start: {
+      path: getNodePath(element, range.startContainer),
+      offset: range.startOffset
+    },
+    end: {
+      path: getNodePath(element, range.endContainer),
+      offset: range.endOffset
+    }
+  };
+}
+
+// Helper for restoring selection state (ensure this is at the top of the file)
+function restoreSelectionState(element, state) {
+  if (!state) return;
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  const range = document.createRange();
+  const startNode = getNodeByPath(element, state.start.path);
+  const endNode = getNodeByPath(element, state.end.path);
+  if (startNode && endNode) {
+    try {
+      range.setStart(startNode, Math.min(state.start.offset, startNode.nodeType === Node.TEXT_NODE ? startNode.textContent.length : startNode.childNodes.length));
+      range.setEnd(endNode, Math.min(state.end.offset, endNode.nodeType === Node.TEXT_NODE ? endNode.textContent.length : endNode.childNodes.length));
+      sel.addRange(range);
+    } catch (e) {
+      // Fallback: place cursor at end
+      range.selectNodeContents(element);
+      range.collapse(false);
+      sel.addRange(range);
+    }
+  }
+}
+
 function SlideImage({ src, x, y, width, height, isSelected, onSelect, onChange }) {
   const [image] = useImage(src);
   return (
@@ -154,6 +214,7 @@ const SlideEditor = () => {
   const [selectedTextBoxId, setSelectedTextBoxId] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedTextRange, setSelectedTextRange] = useState(null);
+  const [selectionRestore, setSelectionRestore] = useState(null); // For cursor position restoration
   const fileInputRef = useRef();
   const stageRef = useRef();
   const contentEditableRefs = useRef(new Map()); // Track contentEditable DOM elements  
@@ -215,7 +276,6 @@ const SlideEditor = () => {
       contentEditableRefs.current.clear();
     };
   }, []);
-
   // Cleanup timeouts when textboxes are deleted
   useEffect(() => {
     const currentTextboxIds = new Set(slide.textboxes.map(tb => tb.id));
@@ -234,6 +294,23 @@ const SlideEditor = () => {
     refsToDelete.forEach(id => {
       contentEditableRefs.current.delete(id);
     });  }, [slide.textboxes]);
+
+  // Restore cursor position after slides state updates
+  useEffect(() => {
+    if (selectionRestore) {
+      const { textboxId, state } = selectionRestore;
+      const element = document.querySelector(`[data-tbid="${textboxId}"]`);
+      if (element) {
+        // Small delay to ensure DOM is updated
+        setTimeout(() => {
+          restoreSelectionState(element, state);
+          setSelectionRestore(null);
+        }, 10);
+      } else {
+        setSelectionRestore(null);
+      }
+    }
+  }, [slides, selectionRestore]);
 
   // Define zIndex constants for clarity
   const TEXT_Z_INDEX = 100;

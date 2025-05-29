@@ -134,25 +134,6 @@ const AccountProfile = () => {
               {message && <div className="save-message">{message}</div>}
             </div>
 
-            {/* Display Settings Section */}
-            <div className="account-section">
-              <h2 className="section-title">Display Settings</h2>
-              <div className="theme-options">
-                <button
-                  className={`theme-btn ${theme === "Light" ? "active" : ""}`}
-                  onClick={() => handleThemeChange("Light")}
-                >
-                  Light
-                </button>
-                <button
-                  className={`theme-btn ${theme === "Dark" ? "active" : ""}`}
-                  onClick={() => handleThemeChange("Dark")}
-                >
-                  Dark
-                </button>
-              </div>
-            </div>
-
             {/* Analytics Section */}
             <div className="account-section">
               <h2 className="section-title">Analytics</h2>

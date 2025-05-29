@@ -309,10 +309,10 @@ CORS(main,
 
 @main.after_request
 def after_request(response):
-    # The following CORS headers are now handled by the CORS() call above for the blueprint.
-    # response.headers.add("Access-Control-Allow-Origin", "*") # Handled by Flask-CORS
-    # response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization") # Handled by Flask-CORS
-    # response.headers.add("Access-Control-Allow-Methods", "GET,POST,OPTIONS,DELETE") # Handled by Flask-CORS
+    response.headers.add('Access-Control-Allow-Origin', 'http://localhost:3000')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
     return response
 
 @main.route('/generate-quiz', methods=['POST', 'OPTIONS'])
@@ -1754,3 +1754,822 @@ def draw_template_slide_background(slide, template_def, slide_type="default", sl
     except Exception as e:
         current_app.logger.error(f"Error drawing template background: {e}")
         return False
+
+def calculate_position(shape_def, position_type, slide_width_inches, slide_height_inches):
+    """Calculate position (left/top) based on shape definition"""
+    # Check for direct inch values first
+    inch_key = f"{position_type}_in"
+    if inch_key in shape_def:
+        return Inches(shape_def[inch_key])
+        
+    # Check for ratio-based positioning
+    ratio_key = f"{position_type}_ratio"
+    if ratio_key in shape_def:
+        ratio = shape_def[ratio_key]
+        if position_type == "left":
+            return Inches(ratio * slide_width_inches)
+        else:  # top
+            return Inches(ratio * slide_height_inches)
+            
+    # Default to 0
+    return Inches(0)
+
+def calculate_dimension(shape_def, dimension_type, slide_width_inches, slide_height_inches):
+    """Calculate dimension (width/height) based on shape definition"""
+    # Check for direct inch values first
+    inch_key = f"{dimension_type}_in"
+    if inch_key in shape_def:
+        return Inches(shape_def[inch_key])
+        
+    # Check for ratio-based sizing
+    ratio_key = f"{dimension_type}_ratio"
+    if ratio_key in shape_def:
+        ratio = shape_def[ratio_key]
+        if dimension_type == "width":
+            return Inches(ratio * slide_width_inches)
+        else:  # height
+            return Inches(ratio * slide_height_inches)
+            
+    # Check for slide-height-based sizing
+    height_ratio_key = f"{dimension_type}_as_ratio_of_slide_height"
+    if height_ratio_key in shape_def:
+        ratio = shape_def[height_ratio_key]
+        return Inches(ratio * slide_height_inches)
+        
+    # Default to 1 inch
+    return Inches(1)
+
+def draw_template_shape(slide, shape_def, slide_width_inches, slide_height_inches):
+    """
+    Draw a shape on the slide based on shape definition
+    
+    Args:
+        slide: PowerPoint slide object
+        shape_def: Shape definition from template
+        slide_width_inches: Slide width in inches
+        slide_height_inches: Slide height in inches
+    
+    Returns:
+        bool: True if shape was drawn successfully, False otherwise
+    """
+    try:
+        if not shape_def:
+            current_app.logger.warning("Empty shape definition provided")
+            return False
+            
+        shape_type = shape_def.get("type", "rectangle")
+        current_app.logger.debug(f"Drawing template shape: type={shape_type}, def={shape_def}")
+        
+        # Calculate position and size with validation
+        left = calculate_position(shape_def, "left", slide_width_inches, slide_height_inches)
+        top = calculate_position(shape_def, "top", slide_width_inches, slide_height_inches)
+        width = calculate_dimension(shape_def, "width", slide_width_inches, slide_height_inches)
+        height = calculate_dimension(shape_def, "height", slide_width_inches, slide_height_inches)
+        
+        # Validate dimensions
+        if width <= 0 or height <= 0:
+            current_app.logger.warning(f"Invalid shape dimensions: width={width}, height={height}")
+            return False
+        
+        from pptx.enum.shapes import MSO_SHAPE
+        
+        # Use rounded rectangle for content box if specified
+        is_content_box = shape_def.get("comment", "") == "content_box"
+        if shape_type == "rectangle" and is_content_box:
+            shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, width, height)
+            # Set rounding if radius is specified (python-pptx uses adjustment values 0-1)
+            radius = shape_def.get("radius")
+            if radius is not None:
+                try:
+                    # Adjustment 0 is corner rounding, 0.0 (square) to 1.0 (fully round)
+                    shape.adjustments[0] = float(radius)
+                except Exception as radius_error:
+                    current_app.logger.warning(f"Failed to set shape radius: {radius_error}")
+        elif shape_type == "rectangle":
+            shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, height)
+        elif shape_type == "oval":
+            shape = slide.shapes.add_shape(MSO_SHAPE.OVAL, left, top, width, height)
+        else:
+            current_app.logger.warning(f"Unsupported shape type: {shape_type}")
+            return False
+            
+        # Apply fill
+        fill_style = shape_def.get("fill_style", "solid")
+        try:
+            if fill_style == "none":
+                shape.fill.background()
+            else:
+                fill_color_hex = shape_def.get("fill_color_hex", "FFFFFF")
+                fill_transparency = shape_def.get("fill_transparency", 0.0)
+                
+                shape.fill.solid()
+                shape.fill.fore_color.rgb = RGBColor(*hex_to_rgb(fill_color_hex))
+                if fill_transparency > 0:
+                    shape.fill.transparency = fill_transparency
+        except Exception as fill_error:
+            current_app.logger.warning(f"Failed to apply shape fill: {fill_error}")
+                
+        # Apply line/border
+        line_style = shape_def.get("line_style", "solid")
+        try:
+            if line_style == "none":
+                shape.line.fill.background()
+            else:
+                line_color_hex = shape_def.get("line_color_hex", "000000")
+                line_width_pt = shape_def.get("line_width_pt", 1)
+                line_transparency = shape_def.get("line_transparency", 0.0)
+                
+                shape.line.color.rgb = RGBColor(*hex_to_rgb(line_color_hex))
+                shape.line.width = Pt(line_width_pt)
+                if line_transparency > 0:
+                    shape.line.transparency = line_transparency
+        except Exception as line_error:
+            current_app.logger.warning(f"Failed to apply shape line: {line_error}")
+                
+        # Apply rotation if specified
+        rotation = shape_def.get("rotation", 0)
+        if rotation != 0:
+            try:
+                shape.rotation = rotation
+            except Exception as rotation_error:
+                current_app.logger.warning(f"Failed to apply shape rotation: {rotation_error}")
+        
+        current_app.logger.debug(f"Successfully drew template shape: {shape_type}")
+        return True
+            
+    except Exception as e:
+        current_app.logger.error(f"Error drawing template shape: {e}")
+        return False
+
+def draw_template_slide_background(slide, template_def, slide_type="default", slide_width_inches=13.33, slide_height_inches=7.5):
+    """
+    Draw template background and shapes based on template definition from templates.json
+    Simulate a gradient by adding a large rectangle with a gradient fill if gradient_layers are present.
+    """
+    try:
+        slide_backgrounds = template_def.get("slide_backgrounds", {})
+        bg_def = slide_backgrounds.get(slide_type, slide_backgrounds.get("default", {}))
+        if not bg_def:
+            return False
+        bg_type = bg_def.get("type", "solid")
+        base_color_hex = bg_def.get("base_color_hex", "bfdbfe")
+        gradient_layers = bg_def.get("gradient_layers", [])
+        # Simulate gradient with a large rectangle if gradient_layers are present
+        if gradient_layers and len(gradient_layers) >= 2:
+            from pptx.enum.shapes import MSO_SHAPE
+            left = 0
+            top = 0
+            width = Inches(slide_width_inches)
+            height = Inches(slide_height_inches)
+            rect = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, height)
+            fill = rect.fill
+            fill.gradient()
+            # Set gradient stops (python-pptx only supports two stops for now)
+            stop1 = gradient_layers[0]["color_hex"]
+            stop2 = gradient_layers[1]["color_hex"]
+            fill.gradient_stops[0].color.rgb = RGBColor(*hex_to_rgb(stop1, default_color=base_color_hex))
+            fill.gradient_stops[1].color.rgb = RGBColor(*hex_to_rgb(stop2, default_color=base_color_hex))
+            # Send rectangle to back
+            rect.z_order = 0
+        else:
+            # Fallback: solid fill with base color
+            fill = slide.background.fill
+            fill.solid()
+            fill.fore_color.rgb = RGBColor(*hex_to_rgb(base_color_hex, default_color=base_color_hex))
+        # Add shapes defined in the template
+        shapes_list = bg_def.get("shapes", [])
+        for shape_def in shapes_list:
+            draw_template_shape(slide, shape_def, slide_width_inches, slide_height_inches)
+        return True
+    except Exception as e:
+        current_app.logger.error(f"Error drawing template background: {e}")
+        return False
+
+def calculate_position(shape_def, position_type, slide_width_inches, slide_height_inches):
+    """Calculate position (left/top) based on shape definition"""
+    # Check for direct inch values first
+    inch_key = f"{position_type}_in"
+    if inch_key in shape_def:
+        return Inches(shape_def[inch_key])
+        
+    # Check for ratio-based positioning
+    ratio_key = f"{position_type}_ratio"
+    if ratio_key in shape_def:
+        ratio = shape_def[ratio_key]
+        if position_type == "left":
+            return Inches(ratio * slide_width_inches)
+        else:  # top
+            return Inches(ratio * slide_height_inches)
+            
+    # Default to 0
+    return Inches(0)
+
+def calculate_dimension(shape_def, dimension_type, slide_width_inches, slide_height_inches):
+    """Calculate dimension (width/height) based on shape definition"""
+    # Check for direct inch values first
+    inch_key = f"{dimension_type}_in"
+    if inch_key in shape_def:
+        return Inches(shape_def[inch_key])
+        
+    # Check for ratio-based sizing
+    ratio_key = f"{dimension_type}_ratio"
+    if ratio_key in shape_def:
+        ratio = shape_def[ratio_key]
+        if dimension_type == "width":
+            return Inches(ratio * slide_width_inches)
+        else:  # height
+            return Inches(ratio * slide_height_inches)
+            
+    # Check for slide-height-based sizing
+    height_ratio_key = f"{dimension_type}_as_ratio_of_slide_height"
+    if height_ratio_key in shape_def:
+        ratio = shape_def[height_ratio_key]
+        return Inches(ratio * slide_height_inches)
+        
+    # Default to 1 inch
+    return Inches(1)
+
+def draw_template_shape(slide, shape_def, slide_width_inches, slide_height_inches):
+    """
+    Draw a shape on the slide based on shape definition
+    
+    Args:
+        slide: PowerPoint slide object
+        shape_def: Shape definition from template
+        slide_width_inches: Slide width in inches
+        slide_height_inches: Slide height in inches
+    
+    Returns:
+        bool: True if shape was drawn successfully, False otherwise
+    """
+    try:
+        if not shape_def:
+            current_app.logger.warning("Empty shape definition provided")
+            return False
+            
+        shape_type = shape_def.get("type", "rectangle")
+        current_app.logger.debug(f"Drawing template shape: type={shape_type}, def={shape_def}")
+        
+        # Calculate position and size with validation
+        left = calculate_position(shape_def, "left", slide_width_inches, slide_height_inches)
+        top = calculate_position(shape_def, "top", slide_width_inches, slide_height_inches)
+        width = calculate_dimension(shape_def, "width", slide_width_inches, slide_height_inches)
+        height = calculate_dimension(shape_def, "height", slide_width_inches, slide_height_inches)
+        
+        # Validate dimensions
+        if width <= 0 or height <= 0:
+            current_app.logger.warning(f"Invalid shape dimensions: width={width}, height={height}")
+            return False
+        
+        from pptx.enum.shapes import MSO_SHAPE
+        
+        # Use rounded rectangle for content box if specified
+        is_content_box = shape_def.get("comment", "") == "content_box"
+        if shape_type == "rectangle" and is_content_box:
+            shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, width, height)
+            # Set rounding if radius is specified (python-pptx uses adjustment values 0-1)
+            radius = shape_def.get("radius")
+            if radius is not None:
+                try:
+                    # Adjustment 0 is corner rounding, 0.0 (square) to 1.0 (fully round)
+                    shape.adjustments[0] = float(radius)
+                except Exception as radius_error:
+                    current_app.logger.warning(f"Failed to set shape radius: {radius_error}")
+        elif shape_type == "rectangle":
+            shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, height)
+        elif shape_type == "oval":
+            shape = slide.shapes.add_shape(MSO_SHAPE.OVAL, left, top, width, height)
+        else:
+            current_app.logger.warning(f"Unsupported shape type: {shape_type}")
+            return False
+            
+        # Apply fill
+        fill_style = shape_def.get("fill_style", "solid")
+        try:
+            if fill_style == "none":
+                shape.fill.background()
+            else:
+                fill_color_hex = shape_def.get("fill_color_hex", "FFFFFF")
+                fill_transparency = shape_def.get("fill_transparency", 0.0)
+                
+                shape.fill.solid()
+                shape.fill.fore_color.rgb = RGBColor(*hex_to_rgb(fill_color_hex))
+                if fill_transparency > 0:
+                    shape.fill.transparency = fill_transparency
+        except Exception as fill_error:
+            current_app.logger.warning(f"Failed to apply shape fill: {fill_error}")
+                
+        # Apply line/border
+        line_style = shape_def.get("line_style", "solid")
+        try:
+            if line_style == "none":
+                shape.line.fill.background()
+            else:
+                line_color_hex = shape_def.get("line_color_hex", "000000")
+                line_width_pt = shape_def.get("line_width_pt", 1)
+                line_transparency = shape_def.get("line_transparency", 0.0)
+                
+                shape.line.color.rgb = RGBColor(*hex_to_rgb(line_color_hex))
+                shape.line.width = Pt(line_width_pt)
+                if line_transparency > 0:
+                    shape.line.transparency = line_transparency
+        except Exception as line_error:
+            current_app.logger.warning(f"Failed to apply shape line: {line_error}")
+                
+        # Apply rotation if specified
+        rotation = shape_def.get("rotation", 0)
+        if rotation != 0:
+            try:
+                shape.rotation = rotation
+            except Exception as rotation_error:
+                current_app.logger.warning(f"Failed to apply shape rotation: {rotation_error}")
+        
+        current_app.logger.debug(f"Successfully drew template shape: {shape_type}")
+        return True
+            
+    except Exception as e:
+        current_app.logger.error(f"Error drawing template shape: {e}")
+        return False
+
+def draw_template_slide_background(slide, template_def, slide_type="default", slide_width_inches=13.33, slide_height_inches=7.5):
+    """
+    Draw template background and shapes based on template definition from templates.json
+    Simulate a gradient by adding a large rectangle with a gradient fill if gradient_layers are present.
+    """
+    try:
+        slide_backgrounds = template_def.get("slide_backgrounds", {})
+        bg_def = slide_backgrounds.get(slide_type, slide_backgrounds.get("default", {}))
+        if not bg_def:
+            return False
+        bg_type = bg_def.get("type", "solid")
+        base_color_hex = bg_def.get("base_color_hex", "bfdbfe")
+        gradient_layers = bg_def.get("gradient_layers", [])
+        # Simulate gradient with a large rectangle if gradient_layers are present
+        if gradient_layers and len(gradient_layers) >= 2:
+            from pptx.enum.shapes import MSO_SHAPE
+            left = 0
+            top = 0
+            width = Inches(slide_width_inches)
+            height = Inches(slide_height_inches)
+            rect = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, height)
+            fill = rect.fill
+            fill.gradient()
+            # Set gradient stops (python-pptx only supports two stops for now)
+            stop1 = gradient_layers[0]["color_hex"]
+            stop2 = gradient_layers[1]["color_hex"]
+            fill.gradient_stops[0].color.rgb = RGBColor(*hex_to_rgb(stop1, default_color=base_color_hex))
+            fill.gradient_stops[1].color.rgb = RGBColor(*hex_to_rgb(stop2, default_color=base_color_hex))
+            # Send rectangle to back
+            rect.z_order = 0
+        else:
+            # Fallback: solid fill with base color
+            fill = slide.background.fill
+            fill.solid()
+            fill.fore_color.rgb = RGBColor(*hex_to_rgb(base_color_hex, default_color=base_color_hex))
+        # Add shapes defined in the template
+        shapes_list = bg_def.get("shapes", [])
+        for shape_def in shapes_list:
+            draw_template_shape(slide, shape_def, slide_width_inches, slide_height_inches)
+        return True
+    except Exception as e:
+        current_app.logger.error(f"Error drawing template background: {e}")
+        return False
+
+@main.route('/login', methods=['POST', 'OPTIONS'])
+def login():
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200  # Handle preflight
+    data = request.get_json()
+    if not data or not data.get('email') or not data.get('password'):
+        return jsonify({'error': 'Email and password are required'}), 400
+    email = data['email']
+    password = data['password']
+    user = User.query.filter_by(email=email).first()
+    if user and user.check_password(password):
+        # Update last_active for analytics
+        analytics = Analytics.query.filter_by(user_id=user.id).first()
+        if analytics:
+            analytics.last_active = datetime.utcnow()
+            db.session.commit()
+        else:
+            new_analytics = Analytics(user_id=user.id, last_active=datetime.utcnow())
+            db.session.add(new_analytics)
+            db.session.commit()
+            current_app.logger.warning(f"Analytics record created for user {user.id} at login as it was missing.")
+        return jsonify({'message': 'Login successful', 'user': {'id': user.id, 'email': user.email}}), 200
+    return jsonify({'error': 'Invalid email or password'}), 
+    
+
+@main.route('/user/<int:user_id>', methods=['GET', 'PUT', 'OPTIONS'])
+def manage_user_profile(user_id):
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200  # Handle CORS preflight
+
+    user = User.query.get_or_404(user_id)
+
+    if request.method == 'GET':
+        return jsonify({
+            'id': user.id,
+            'email': user.email
+            # Add other user details here if needed in the future
+        }), 200
+
+    if request.method == 'PUT':
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid JSON payload'}), 400
+
+        # Update email if provided and different
+        if 'email' in data and data['email'] != user.email:
+            # Optional: Check if the new email is already taken by another user
+            existing_user_with_new_email = User.query.filter(User.email == data['email'], User.id != user.id).first()
+            if existing_user_with_new_email:
+                return jsonify({'error': 'New email address is already in use'}), 409
+            user.email = data['email']
+
+        # Update password if provided
+        if 'password' in data and data['password']:
+            user.set_password(data['password'])
+        
+        try:
+            db.session.commit()
+            return jsonify({'message': 'User profile updated successfully', 'user': {'id': user.id, 'email': user.email}}), 200
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': 'Failed to update user profile'}), 500
+
+@main.route('/analytics/<int:user_id>', methods=['GET', 'OPTIONS'])
+def get_user_analytics(user_id):
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    # Check if user exists
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    analytics_record = Analytics.query.filter_by(user_id=user_id).first()
+    presentations = Presentation.query.filter_by(user_id=user_id).all()
+
+    # Slides created over time (monthly)
+    from collections import Counter
+    monthly_slides_counter = Counter()
+    if presentations:
+        for p in presentations:
+            if p.created_at:
+                month_year = p.created_at.strftime('%Y-%m')
+                monthly_slides_counter[month_year] += 1
+    
+    # Most common topics (using presentation titles)
+    topic_counts_counter = Counter()
+    if presentations:
+        for p in presentations:
+            if p.title: # Assuming title is the topic
+                topic_counts_counter[p.title.lower()] += 1
+    
+    # Prepare summary data
+    slides_generated = analytics_record.slides_created if analytics_record and analytics_record.slides_created is not None else 0
+    quizzes_generated = SavedQuiz.query.filter_by(user_id=user_id).count()
+    scripts_generated = SavedScript.query.filter_by(user_id=user_id).count()
+    last_active_iso = analytics_record.last_active.isoformat() if analytics_record and analytics_record.last_active else None
+
+    return jsonify({
+        "monthly": dict(monthly_slides_counter),
+        "topics": dict(topic_counts_counter),
+        "slides_generated": slides_generated,
+        "quizzes_generated": quizzes_generated,
+        "scripts_generated": scripts_generated,
+        "last_active": last_active_iso
+    }), 200
+
+@main.route('/saved-items/<int:user_id>', methods=['GET', 'OPTIONS'])
+def get_saved_items(user_id):
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    quizzes = SavedQuiz.query.filter_by(user_id=user_id).order_by(SavedQuiz.created_at.desc()).all()
+    scripts = SavedScript.query.filter_by(user_id=user_id).order_by(SavedScript.created_at.desc()).all()
+    return jsonify({
+        "quizzes": [
+            {
+                "id": q.id,
+                "name": q.name,
+                "created_at": q.created_at.isoformat() if q.created_at else None,
+                "content": q.content
+            } for q in quizzes
+        ],
+        "scripts": [
+            {
+                "id": s.id,
+                "name": s.name,
+                "created_at": s.created_at.isoformat() if s.created_at else None,
+                "content": s.content
+            } for s in scripts
+        ]
+    }), 200
+    
+@main.route('/save-quiz', methods=['POST', 'OPTIONS'])
+def save_quiz():
+    if request.method == 'OPTIONS':
+        # Handle CORS preflight
+        return jsonify({'status': 'ok'}), 200
+    data = request.get_json()
+    if not data or not data.get('user_id') or not data.get('name') or not data.get('content'):
+        return jsonify({'error': 'Missing required fields'}), 400
+    try:
+        user_id = data['user_id']
+        name = data['name']
+        content = data['content']
+        # Optionally, check if user exists
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        quiz = SavedQuiz(user_id=user_id, name=name, content=content)
+        db.session.add(quiz)
+        db.session.commit()
+        return jsonify({'message': 'Quiz saved successfully', 'quiz_id': quiz.id}), 200
+    except Exception as e:
+        current_app.logger.error(f"Error saving quiz: {e}")
+
+@main.route('/save-script', methods=['POST', 'OPTIONS'])
+def save_script():
+    if request.method == 'OPTIONS':
+        # Handle CORS preflight
+        return jsonify({'status': 'ok'}), 200
+    data = request.get_json()
+    if not data or not data.get('user_id') or not data.get('name') or not data.get('content'):
+        return jsonify({'error': 'Missing required fields'}), 400
+    try:
+        user_id = data['user_id']
+        name = data['name']
+        content = data['content']
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        script = SavedScript(user_id=user_id, name=name, content=content)
+        db.session.add(script)
+        db.session.commit()
+        return jsonify({'message': 'Script saved successfully', 'script_id': script.id}), 200
+    except Exception as e:
+        current_app.logger.error(f"Error saving script: {e}")
+        return jsonify({'error': 'Failed to save script'}), 
+
+@main.route('/saved-quiz/<int:quiz_id>', methods=['DELETE', 'OPTIONS'])
+def delete_saved_quiz(quiz_id):
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    quiz = SavedQuiz.query.get(quiz_id)
+    if not quiz:
+        return jsonify({'error': 'Quiz not found'}), 404
+    try:
+        db.session.delete(quiz)
+        db.session.commit()
+        return jsonify({'message': 'Quiz deleted successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting quiz {quiz_id}: {e}")
+        return jsonify({'error': 'Failed to delete quiz'}), 500
+
+@main.route('/saved-script/<int:script_id>', methods=['DELETE', 'OPTIONS'])
+def delete_saved_script(script_id):
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    script = SavedScript.query.get(script_id)
+    if not script:
+        return jsonify({'error': 'Script not found'}), 404
+    try:
+        db.session.delete(script)
+        db.session.commit()
+        return jsonify({'message': 'Script deleted successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting script {script_id}: {e}")
+        return jsonify({'error': 'Failed to delete script'}), 500
+
+@main.route('/paste-and-create', methods=['POST', 'OPTIONS'])
+def paste_and_create():
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    data = request.get_json()
+    pasted_text = data.get('text', '').strip()
+    language = data.get('language', 'English')
+    num_slides = int(data.get('numSlides', 6))
+
+    if not pasted_text:
+        return jsonify({'error': 'No text provided'}), 400
+
+    # --- 1. Extract topic/title ---
+    # Simple heuristic: use the first non-empty line as the topic/title
+    lines = [line.strip() for line in pasted_text.split('\n') if line.strip()]
+    topic = lines[0] if lines else "Untitled Topic"
+
+    # --- 2. Structure the text for slides ---
+    # Prompt the LLM to structure the pasted text into slides
+    prompt = f"""
+You are an assistant that structures pasted text into a professional presentation outline.
+Given the following text, extract the main topic as the title, and organize the content into {num_slides} slides.
+Each slide should have a concise title and clear, structured content (bullet points or short paragraphs).
+If possible, use Markdown for formatting: **bold** for emphasis, *italic* for highlights, and __underline__ for key terms.
+If the text is long, summarize and split it logically across slides.
+
+Text:
+---
+{pasted_text}
+---
+
+Output a JSON array where each object has:
+- 'title': string (slide title)
+- 'content': array of strings (slide content, Markdown allowed)
+- 'image_prompt': string (optional, for relevant image description)
+The first slide should be a title slide with the topic and a short description.
+"""
+
+    try:
+        headers = {
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "llama3-8b-8192",
+            "messages": [
+                {"role": "system", "content": "You are a helpful assistant that generates slide content in JSON format."},
+                {"role": "user", "content": prompt}
+            ],
+            "max_tokens": 4096,
+            "temperature": 0.4
+        }
+        response = requests.post(GROQ_API_URL, headers=headers, json=payload)
+        response.raise_for_status()
+        result = response.json()
+        model_output = result["choices"][0]["message"]["content"]
+
+        # Extract JSON array from the response
+        import re, json
+        match = re.search(r'\[\s*{.*}\s*\]', model_output, re.DOTALL)
+        if not match:
+            return jsonify({"error": "Failed to parse slides output."}), 500
+        slides_data = json.loads(match.group(0))
+
+        # Use the first slide's title as the topic if possible
+        detected_topic = slides_data[0]["title"] if slides_data and "title" in slides_data[0] else topic
+
+        return jsonify({
+            "slides": slides_data,
+            "topic": detected_topic
+        }), 200
+
+    except Exception as e:
+        current_app.logger.error(f"Error in /paste-and-create: {e}", exc_info=True)
+        return jsonify({"error": "Failed to generate slides from pasted text."}), 500
+    
+@main.route('/upload-file', methods=['POST', 'OPTIONS'])
+def upload_file_and_generate_slides():
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part in the request'}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
+    # Optional: language and numSlides from form data
+    language = request.form.get('language', 'English')
+    num_slides = int(request.form.get('numSlides', 6))
+
+    # --- 1. Extract text from file ---
+    filename = file.filename.lower()
+    text = ""
+    try:
+        if filename.endswith('.pdf'):
+            # Use pdf2image and pytesseract for OCR if needed, or PyPDF2 for text
+            from PyPDF2 import PdfReader
+            reader = PdfReader(file)
+            for page in reader.pages:
+                text += page.extract_text() or ""
+        elif filename.endswith('.docx'):
+            from docx import Document
+            doc = Document(file)
+            for para in doc.paragraphs:
+                text += para.text + "\n"
+        elif filename.endswith('.txt'):
+            text = file.read().decode('utf-8', errors='ignore')
+        elif filename.endswith('.csv'):
+            import pandas as pd
+            df = pd.read_csv(file)
+            text = df.to_string(index=False)
+        elif filename.endswith('.xlsx') or filename.endswith('.xls'):
+            import pandas as pd
+            df = pd.read_excel(file)
+            text = df.to_string(index=False)
+        else:
+            return jsonify({'error': 'Unsupported file type'}), 400
+    except Exception as e:
+        current_app.logger.error(f"Error extracting text from file: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to extract text from file'}), 500
+
+    if not text.strip():
+        return jsonify({'error': 'No text extracted from file'}), 400
+
+    # --- 2. Extract topic/title ---
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+    topic = lines[0] if lines else "Untitled Topic"
+
+    # --- 3. Structure the text for slides using LLM ---
+    prompt = f"""
+You are an assistant that structures uploaded file content into a professional presentation outline.
+Given the following text, extract the main topic as the title, and organize the content into {num_slides} slides.
+Each slide should have a concise title and clear, structured content (bullet points or short paragraphs).
+If possible, use Markdown for formatting: **bold** for emphasis, *italic* for highlights, and __underline__ for key terms.
+If the text is long, summarize and split it logically across slides.
+
+Text:
+---
+{text[:12000]}  # Limit to 12k chars for LLM safety
+---
+
+Output a JSON array where each object has:
+- 'title': string (slide title)
+- 'content': array of strings (slide content, Markdown allowed)
+- 'image_prompt': string (optional, for relevant image description)
+The first slide should be a title slide with the topic and a short description.
+"""
+
+    try:
+        headers = {
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "llama3-8b-8192",
+            "messages": [
+                {"role": "system", "content": "You are a helpful assistant that generates slide content in JSON format."},
+                {"role": "user", "content": prompt}
+            ],
+            "max_tokens": 4096,
+            "temperature": 0.4
+        }
+        import requests, re, json
+        response = requests.post(GROQ_API_URL, headers=headers, json=payload)
+        response.raise_for_status()
+        result = response.json()
+        model_output = result["choices"][0]["message"]["content"]
+
+        # Extract JSON array from the response
+        match = re.search(r'\[\s*{.*}\s*\]', model_output, re.DOTALL)
+        if not match:
+            return jsonify({"error": "Failed to parse slides output."}), 500
+        slides_data = json.loads(match.group(0))
+
+        # Use the first slide's title as the topic if possible
+        detected_topic = slides_data[0]["title"] if slides_data and "title" in slides_data[0] else topic
+
+        return jsonify({
+            "slides": slides_data,
+            "topic": detected_topic
+        }), 200
+
+    except Exception as e:
+        current_app.logger.error(f"Error in /upload-file: {e}", exc_info=True)
+        return jsonify({"error": "Failed to generate slides from file."}), 500
+    
+@main.route('/save-presentation', methods=['POST', 'OPTIONS'])
+def save_presentation():
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200  # CORS preflight
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+
+    user_id = data.get('user_id')
+    title = data.get('title', 'Untitled Presentation')
+    slides = data.get('slides')
+    template = data.get('template', 'default')
+    presentation_type = data.get('presentation_type', 'Default')
+
+    if not user_id or not slides:
+        return jsonify({'error': 'Missing required fields (user_id, slides)'}), 400
+
+    try:
+        now = datetime.utcnow()
+        new_presentation = Presentation(
+            user_id=user_id,
+            title=title,
+            slides_json=json.dumps(slides),
+            template=template,
+            presentation_type=presentation_type,
+            created_at=now,
+            updated_at=now
+        )
+        db.session.add(new_presentation)
+        db.session.commit()
+        return jsonify({'message': 'Presentation saved successfully', 'presentationId': new_presentation.id}), 201
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error saving presentation: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to save presentation'}), 500

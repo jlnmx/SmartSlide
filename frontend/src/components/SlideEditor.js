@@ -310,8 +310,8 @@ const defaultSlide = (templateId) => {
     case "tailwind-education":
       return {
         textboxes: [
-          { ...defaultTextBox("title"), y: 60, x: 320, width: 600 },
-          { ...defaultTextBox("body"), y: 180, x: 340, width: 560 }
+          { ...defaultTextBox("title"), x: 180, y: 90, width: 600, height: 60 }, // Centered in white box
+          { ...defaultTextBox("body"), x: 200, y: 180, width: 560, height: 320 } // Centered in white box
         ],
         background: { fill: "#fff" },
         image: null

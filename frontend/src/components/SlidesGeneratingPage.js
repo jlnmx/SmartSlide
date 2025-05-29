@@ -204,119 +204,119 @@ const SlidesGeneratingPage = () => {
 
   return (
     <div><Navbar />
-    <div className="slides-preview-root">
-      {getTemplateInfo()}
-      <h2 className="outline-title">Outline</h2>
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.2rem" }}>
-        <button className="edit-google-slides-btn" onClick={handleEditSlides} style={{ fontSize: "1rem", padding: "0.4rem 1.1rem" }}>
-          Edit Slides
-        </button>
-        {/* --- UPDATED: Language display (read-only) --- */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <label htmlFor="quiz-language-display">Language:</label>
-          <span
-            id="quiz-language-display"
-            style={{ padding: "0.3rem 0.6rem", fontSize: "1rem", fontWeight: "bold", border: "1px solid #ced4da", borderRadius: "0.25rem", backgroundColor: "#e9ecef", color: "#495057" }}
-          >
-            {language}
-          </span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <label htmlFor="num-questions-select">Quiz Questions:</label>
-          <select
-            id="num-questions-select"
-            value={numQuestions}
-            onChange={e => setNumQuestions(Number(e.target.value))}
-            style={{ padding: "0.2rem 0.5rem", fontSize: "1rem" }}
-          >
-            {[3, 5, 7, 10, 15, 20].map(n => (
-              <option key={n} value={n}>{n}</option>
-            ))}
-          </select>
-        </div>
-        <button className="generate-btn" style={{ fontSize: "0.95rem", padding: "0.35rem 0.9rem" }} onClick={handleGenerateQuiz}>
-          Generate Quiz
-        </button>
-        <button className="generate-btn" style={{ fontSize: "0.95rem", padding: "0.35rem 0.9rem" }} onClick={handleGenerateScript}>
-          Generate Script
-        </button>
-      </div>
-      <div className="slides-outline-list">
-        {isLoading ? (
-          <div className="loading-container">
-            <div className="spinner"></div>
-            <p>Generating slides... Please wait.</p>
+    <div className="slides-preview-outer-center">
+      <div className="slides-preview-root">
+        {getTemplateInfo()}
+        <h2 className="outline-title">Outline</h2>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.2rem" }}>
+          <button className="edit-google-slides-btn" onClick={handleEditSlides} style={{ fontSize: "1rem", padding: "0.4rem 1.1rem" }}>
+            Edit Slides
+          </button>
+          {/* --- UPDATED: Language display (read-only) --- */}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <label htmlFor="quiz-language-display">Language:</label>
+            <span
+              id="quiz-language-display"
+              style={{ padding: "0.3rem 0.6rem", fontSize: "1rem", fontWeight: "bold", border: "1px solid #ced4da", borderRadius: "0.25rem", backgroundColor: "#e9ecef", color: "#495057" }}
+            >
+              {language}
+            </span>
           </div>
-        ) : generatedSlides && generatedSlides.length > 0 ? (
-          generatedSlides.map((slideData, index) => {
-            let title, contentForRender, imageUrl;
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <label htmlFor="num-questions-select">Quiz Questions:</label>
+            <select
+              id="num-questions-select"
+              value={numQuestions}
+              onChange={e => setNumQuestions(Number(e.target.value))}
+              style={{ padding: "0.2rem 0.5rem", fontSize: "1rem" }}
+            >
+              {[3, 5, 7, 10, 15, 20].map(n => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </div>
+          <button className="generate-btn" style={{ fontSize: "0.95rem", padding: "0.35rem 0.9rem" }} onClick={handleGenerateQuiz}>
+            Generate Quiz
+          </button>
+          <button className="generate-btn" style={{ fontSize: "0.95rem", padding: "0.35rem 0.9rem" }} onClick={handleGenerateScript}>
+            Generate Script
+          </button>
+        </div>
+        <div className="slides-outline-list">
+          {isLoading ? (
+            <div className="loading-container">
+              <div className="spinner"></div>
+              <p>Generating slides... Please wait.</p>
+            </div>
+          ) : generatedSlides && generatedSlides.length > 0 ? (
+            generatedSlides.map((slideData, index) => {
+              let title, contentForRender, imageUrl;
 
-            // Check if the slide is in editor format or original format
-            if (slideData.textboxes && Array.isArray(slideData.textboxes)) {
-              // Editor format
-              const titleBox = slideData.textboxes.find(tb => tb.type === 'title');
-              const bodyBox = slideData.textboxes.find(tb => tb.type === 'body');
-              
-              title = titleBox ? titleBox.text : 'Untitled';
-              
-              if (bodyBox) {
-                if (bodyBox.bullets) {
-                  contentForRender = bodyBox.text.split('\\n'); // Pass as array for bullet rendering
+              // Check if the slide is in editor format or original format
+              if (slideData.textboxes && Array.isArray(slideData.textboxes)) {
+                // Editor format
+                const titleBox = slideData.textboxes.find(tb => tb.type === 'title');
+                const bodyBox = slideData.textboxes.find(tb => tb.type === 'body');
+                
+                title = titleBox ? titleBox.text : 'Untitled';
+                
+                if (bodyBox) {
+                  if (bodyBox.bullets) {
+                    contentForRender = bodyBox.text.split('\\n'); // Pass as array for bullet rendering
+                  } else {
+                    contentForRender = bodyBox.text; // Pass as string
+                  }
                 } else {
-                  contentForRender = bodyBox.text; // Pass as string
+                  contentForRender = '';
                 }
+                imageUrl = slideData.image ? slideData.image.src : null;
               } else {
-                contentForRender = '';
+                // Original format
+                title = slideData.title;
+                contentForRender = slideData.content;
+                imageUrl = slideData.image_url;
               }
-              imageUrl = slideData.image ? slideData.image.src : null;
-            } else {
-              // Original format
-              title = slideData.title;
-              contentForRender = slideData.content;
-              imageUrl = slideData.image_url;
-            }
 
-            return (
-              <div key={index} className="slide-split-preview-card">
-                <div className="slide-split-left">
-                  <div className="slide-split-title">{title}</div>
-                  <div className="slide-split-content">
-                    {renderSlideContent(contentForRender)}
-                  </div>
-                  {slideData.author && ( // Assuming author might not be in editor format
-                    <div className="slide-split-author">
-                      <span className="slide-split-author-avatar"></span>
-                      <span>
-                        <b>{slideData.author}</b>
-                        <br />
-                        <span className="slide-split-author-edit">Last edited just now</span>
-                      </span>
+              return (
+                <div key={index} className="slide-split-preview-card">
+                  <div className="slide-split-left">
+                    <div className="slide-split-title">{title}</div>
+                    <div className="slide-split-content">
+                      {renderSlideContent(contentForRender)}
                     </div>
-                  )}
+                    {slideData.author && ( // Assuming author might not be in editor format
+                      <div className="slide-split-author">
+                        <span className="slide-split-author-avatar"></span>
+                        <span>
+                          <b>{slideData.author}</b>
+                          <br />
+                          <span className="slide-split-author-edit">Last edited just now</span>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="slide-split-right">
+                    {imageUrl ? (
+                      <img
+                        src={imageUrl}
+                        alt="Slide visual"
+                        className="slide-split-image"
+                      />
+                    ) : null}
+                  </div>
                 </div>
-                <div className="slide-split-right">
-                  {imageUrl ? (
-                    <img
-                      src={imageUrl}
-                      alt="Slide visual"
-                      className="slide-split-image"
-                    />
-                  ) : (
-                    <div className="slide-split-image-placeholder">No image</div>
-                  )}
-                </div>
-              </div>
-            );
-          })
-        ) : (
-          <p>No slides available. Please try again.</p>
-        )}
-      </div>
-      <div className="slides-preview-footer">
-        <span className="slides-count">{generatedSlides.length} cards total</span>
-        <button className="generate-btn" onClick={handleDownload}>
-          Download as PowerPoint
-        </button>
+              );
+            })
+          ) : (
+            <p>No slides available. Please try again.</p>
+          )}
+        </div>
+        <div className="slides-preview-footer">
+          <span className="slides-count">{generatedSlides.length} cards total</span>
+          <button className="generate-btn" onClick={handleDownload}>
+            Download as PowerPoint
+          </button>
+        </div>
       </div>
     </div>
     </div>

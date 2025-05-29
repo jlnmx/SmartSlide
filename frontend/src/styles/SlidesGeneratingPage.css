@@ -1,3 +1,15 @@
+.slides-preview-outer-center {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.slides-preview-root {
+  max-width: 950px;
+  width: 100%;
+  margin: 0 auto;
+}
+
 .slide-split-preview-card {
   display: flex;
   background: #fff;

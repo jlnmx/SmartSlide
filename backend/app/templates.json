@@ -2,48 +2,142 @@
   "tailwind-abstract-gradient": {
     "name": "Abstract Gradient (Tailwind)",
     "slide_backgrounds": {
-      "default": { 
+      "default": {
         "type": "simulated_gradient_with_shapes",
-        "base_color_hex": "d1fae5",
+        "base_color_hex": "bfdbfe",
         "gradient_layers": [
-          {"color_hex": "bfdbfe", "transparency": 0.35},
-          {"color_hex": "ddd6fe", "transparency": 0.55}
+          { "color_hex": "bfdbfe", "transparency": 0.35 },
+          { "color_hex": "a5b4fc", "transparency": 0.55 }
         ],
         "shapes": [
-          {"type": "rectangle", "left_in": -0.42, "top_in": -0.42, "width_in": 2.29, "height_in": 2.29, "fill_color_hex": "FFFFFF", "fill_transparency": 0.87, "rotation": 35, "line_style": "none"},
-          {"type": "rectangle", "left_in": 1.25, "top_in": -0.21, "width_in": 1.67, "height_in": 1.67, "fill_color_hex": "FFFFFF", "fill_transparency": 0.87, "rotation": 35, "line_style": "none"},
-          {"type": "rectangle", "left_ratio": 0.58, "top_in": 0, "width_ratio": 0.42, "height_ratio": 1.0, "fill_color_hex": "f3f7fb", "line_style": "none", "comment": "right_panel"},
-          {"type": "oval", "left_ratio": 0.32, "top_ratio": 0.85, "width_as_ratio_of_slide_height": 0.64, "height_as_ratio_of_slide_height": 0.64, "fill_style": "none", "line_color_hex": "bbf7d0", "line_width_pt": 7, "line_transparency": 0.4},
-          {"type": "oval", "left_ratio": 0.5, "top_ratio": 0.7, "width_as_ratio_of_slide_height": 0.44, "height_as_ratio_of_slide_height": 0.44, "fill_style": "none", "line_color_hex": "bae6fd", "line_width_pt": 6, "line_transparency": 0.5}
+          { "type": "rectangle", "left_ratio": 0.58, "top_in": 0, "width_ratio": 0.42, "height_ratio": 1.0, "fill_color_hex": "f3f7fb", "fill_transparency": 1.0, "line_style": "none", "comment": "right_panel" }
         ]
       },
       "title": {
         "type": "simulated_gradient_with_shapes",
-        "base_color_hex": "d1fae5",
+        "base_color_hex": "bfdbfe",
         "gradient_layers": [
-          {"color_hex": "bfdbfe", "transparency": 0.35},
-          {"color_hex": "ddd6fe", "transparency": 0.55}
+          { "color_hex": "bfdbfe", "transparency": 0.35 },
+          { "color_hex": "a5b4fc", "transparency": 0.55 }
         ],
         "shapes": [
-          {"type": "rectangle", "left_in": -0.42, "top_in": -0.42, "width_in": 2.29, "height_in": 2.29, "fill_color_hex": "FFFFFF", "fill_transparency": 0.87, "rotation": 35, "line_style": "none"},
-          {"type": "rectangle", "left_in": 1.25, "top_in": -0.21, "width_in": 1.67, "height_in": 1.67, "fill_color_hex": "FFFFFF", "fill_transparency": 0.87, "rotation": 35, "line_style": "none"},
-          {"type": "rectangle", "left_ratio": 0.58, "top_in": 0, "width_ratio": 0.42, "height_ratio": 1.0, "fill_color_hex": "f3f7fb", "line_style": "none", "comment": "right_panel"},
-          {"type": "oval", "left_ratio": 0.32, "top_ratio": 0.85, "width_as_ratio_of_slide_height": 0.64, "height_as_ratio_of_slide_height": 0.64, "fill_style": "none", "line_color_hex": "bbf7d0", "line_width_pt": 7, "line_transparency": 0.4},
-          {"type": "oval", "left_ratio": 0.5, "top_ratio": 0.7, "width_as_ratio_of_slide_height": 0.44, "height_as_ratio_of_slide_height": 0.44, "fill_style": "none", "line_color_hex": "bae6fd", "line_width_pt": 6, "line_transparency": 0.5}
+          { "type": "rectangle", "left_ratio": 0.58, "top_in": 0, "width_ratio": 0.42, "height_ratio": 1.0, "fill_color_hex": "f3f7fb", "fill_transparency": 1.0, "line_style": "none", "comment": "right_panel" }
         ]
       },
       "content": {
         "type": "simulated_gradient_with_shapes",
-        "base_color_hex": "d1fae5",
+        "base_color_hex": "bfdbfe",
         "gradient_layers": [
-          {"color_hex": "bfdbfe", "transparency": 0.35},
-          {"color_hex": "ddd6fe", "transparency": 0.55}
-        ],        "shapes": [
-          {"type": "rectangle", "left_in": -0.42, "top_in": -0.42, "width_in": 2.29, "height_in": 2.29, "fill_color_hex": "FFFFFF", "fill_transparency": 0.87, "rotation": 35, "line_style": "none"},
-          {"type": "rectangle", "left_in": 1.25, "top_in": -0.21, "width_in": 1.67, "height_in": 1.67, "fill_color_hex": "FFFFFF", "fill_transparency": 0.87, "rotation": 35, "line_style": "none"},
-          {"type": "oval", "left_ratio": 0.32, "top_ratio": 0.85, "width_as_ratio_of_slide_height": 0.64, "height_as_ratio_of_slide_height": 0.64, "fill_style": "none", "line_color_hex": "bbf7d0", "line_width_pt": 7, "line_transparency": 0.4},
-          {"type": "oval", "left_ratio": 0.5, "top_ratio": 0.7, "width_as_ratio_of_slide_height": 0.44, "height_as_ratio_of_slide_height": 0.44, "fill_style": "none", "line_color_hex": "bae6fd", "line_width_pt": 6, "line_transparency": 0.5},
-          {"type": "rectangle", "left_ratio": 0.1, "top_ratio": 0.12, "width_ratio": 0.8, "height_ratio": 0.76, "fill_color_hex": "FFFFFF", "fill_transparency": 0.15, "line_style": "none", "radius": 0.06, "comment": "content_box"}
+          { "color_hex": "bfdbfe", "transparency": 0.35 },
+          { "color_hex": "a5b4fc", "transparency": 0.55 }
+        ],
+        "shapes": [
+          { "type": "rectangle", "left_ratio": 0.04, "top_ratio": 0.06, "width_ratio": 0.92, "height_ratio": 0.88, "fill_color_hex": "FFFFFF", "fill_transparency": 0.15, "line_style": "none", "radius": 0.033, "comment": "content_box" }
+        ]
+      }
+    }
+  },
+  "tailwind-business": {
+    "name": "Business (Tailwind)",
+    "slide_backgrounds": {
+      "default": {
+        "type": "simulated_gradient_with_shapes",
+        "base_color_hex": "e5e7eb",
+        "gradient_layers": [
+          { "color_hex": "e5e7eb", "transparency": 0.2 },
+          { "color_hex": "d1d5db", "transparency": 0.4 }
+        ]
+      },
+      "title": {
+        "type": "simulated_gradient_with_shapes",
+        "base_color_hex": "e5e7eb",
+        "gradient_layers": [
+          { "color_hex": "e5e7eb", "transparency": 0.2 },
+          { "color_hex": "d1d5db", "transparency": 0.4 }
+        ],
+        "shapes": [
+          { "type": "rectangle", "left_ratio": 0, "top_ratio": 0.85, "width_ratio": 1.0, "height_ratio": 0.15, "fill_color_hex": "2563eb", "fill_transparency": 0.1, "line_style": "none", "comment": "footer_accent" }
+        ]
+      },
+      "content": {
+        "type": "simulated_gradient_with_shapes",
+        "base_color_hex": "e5e7eb",
+        "gradient_layers": [
+          { "color_hex": "e5e7eb", "transparency": 0.2 },
+          { "color_hex": "d1d5db", "transparency": 0.4 }
+        ],
+        "shapes": [
+          { "type": "rectangle", "left_ratio": 0.05, "top_ratio": 0.05, "width_ratio": 0.9, "height_ratio": 0.9, "fill_color_hex": "FFFFFF", "line_style": "solid", "line_color_hex": "2563eb", "comment": "content_box" }
+        ]
+      }
+    }
+  },
+  "tailwind-creative": {
+    "name": "Creative (Tailwind)",
+    "slide_backgrounds": {
+      "default": {
+        "type": "simulated_gradient_with_shapes",
+        "base_color_hex": "fef9c3",
+        "gradient_layers": [
+          { "color_hex": "fef9c3", "transparency": 0.2 },
+          { "color_hex": "fcd34d", "transparency": 0.4 }
+        ]
+      },
+      "title": {
+        "type": "simulated_gradient_with_shapes",
+        "base_color_hex": "fef9c3",
+        "gradient_layers": [
+          { "color_hex": "fef9c3", "transparency": 0.2 },
+          { "color_hex": "fcd34d", "transparency": 0.4 }
+        ],
+        "shapes": [
+          { "type": "oval", "left_ratio": 0.1, "top_ratio": 0.1, "width_ratio": 0.3, "height_ratio": 0.3, "fill_color_hex": "f9fafb", "fill_transparency": 0.2, "line_style": "none", "comment": "decorative_shape_1" }
+        ]
+      },
+      "content": {
+        "type": "simulated_gradient_with_shapes",
+        "base_color_hex": "fef9c3",
+        "gradient_layers": [
+          { "color_hex": "fef9c3", "transparency": 0.2 },
+          { "color_hex": "fcd34d", "transparency": 0.4 }
+        ],
+        "shapes": [
+          { "type": "rectangle", "left_ratio": 0.05, "top_ratio": 0.05, "width_ratio": 0.9, "height_ratio": 0.9, "fill_color_hex": "FFFFFF", "fill_transparency": 0.1, "radius": 0.02, "line_style": "none", "comment": "content_box" }
+        ]
+      }
+    }
+  },
+  "tailwind-education": {
+    "name": "Education (Tailwind)",
+    "slide_backgrounds": {
+      "default": {
+        "type": "simulated_gradient_with_shapes",
+        "base_color_hex": "fefce8",
+        "gradient_layers": [
+          { "color_hex": "fefce8", "transparency": 0.2 },
+          { "color_hex": "fde68a", "transparency": 0.4 }
+        ]
+      },
+      "title": {
+        "type": "simulated_gradient_with_shapes",
+        "base_color_hex": "fefce8",
+        "gradient_layers": [
+          { "color_hex": "fefce8", "transparency": 0.2 },
+          { "color_hex": "fde68a", "transparency": 0.4 }
+        ],
+        "shapes": [
+          { "type": "rectangle", "left_ratio": 0, "top_ratio": 0, "width_ratio": 0.3, "height_ratio": 1.0, "fill_color_hex": "2563eb", "fill_transparency": 0.1, "line_style": "none", "comment": "sidebar_accent" }
+        ]
+      },
+      "content": {
+        "type": "simulated_gradient_with_shapes",
+        "base_color_hex": "fefce8",
+        "gradient_layers": [
+          { "color_hex": "fefce8", "transparency": 0.2 },
+          { "color_hex": "fde68a", "transparency": 0.4 }
+        ],
+        "shapes": [
+          { "type": "rectangle", "left_ratio": 0.05, "top_ratio": 0.05, "width_ratio": 0.9, "height_ratio": 0.9, "fill_color_hex": "FFFFFF", "line_style": "solid", "line_color_hex": "b45309", "comment": "content_box" }
         ]
       }
     }

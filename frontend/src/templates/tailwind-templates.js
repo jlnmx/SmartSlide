@@ -1,63 +1,5 @@
 export const tailwindTemplates = [
   {
-    id: "tailwind-modern-dark",
-    name: "Modern Dark (Tailwind)",
-    preview: "/images/preview-modern-dark.png", // Placeholder for actual preview image
-    description: "A sleek, dark-themed template using Tailwind conventions.",
-    styles: {
-      slide: {
-        backgroundColor: "bg-gray-800", // Tailwind class for background
-      },
-      title: {
-        fontFamily: "Arial, sans-serif", // Standard font family
-        fontSize: "text-4xl", // Tailwind class for size
-        textColor: "text-white", // Tailwind class for color
-        fontWeight: "font-bold", // Tailwind class for weight
-        textAlign: "center", // Konva direct value
-      },
-      body: {
-        fontFamily: "Arial, sans-serif",
-        fontSize: "text-lg",
-        textColor: "text-gray-300",
-        lineHeight: 1.5, // Konva direct value
-        textAlign: "left",
-      },
-      accent: { // Example for an accent color that might be used for shapes or highlights
-        backgroundColor: "bg-blue-500",
-        textColor: "text-blue-100",
-      }
-    }
-  },
-  {
-    id: "tailwind-light-professional",
-    name: "Light Professional (Tailwind)",
-    preview: "/images/preview-light-pro.png", // Placeholder
-    description: "A clean, light-themed template for professional presentations.",
-    styles: {
-      slide: {
-        backgroundColor: "bg-white",
-      },
-      title: {
-        fontFamily: "Verdana, sans-serif",
-        fontSize: "text-5xl",
-        textColor: "text-gray-900",
-        fontWeight: "font-bold",
-        textAlign: "left",
-      },
-      body: {
-        fontFamily: "Verdana, sans-serif",
-        fontSize: "text-xl",
-        textColor: "text-gray-700",
-        lineHeight: 1.6,
-        textAlign: "left",
-      },
-      accent: {
-        backgroundColor: "bg-green-600",
-        textColor: "text-green-50",
-      }
-    }
-  },
-  {
     id: "tailwind-abstract-gradient",
     name: "Abstract Gradient (Tailwind)",
     preview: "/images/preview-abstract-gradient.png", // Create this preview image
@@ -129,10 +71,96 @@ export const tailwindTemplates = [
       // You might add more specific styles for different layouts if needed
       // e.g., titleSlideTextAlignment, contentSlideTextAlignment
     }
+  },
+  {
+    id: "tailwind-business",
+    name: "Business (Tailwind)",
+    preview: "/images/preview-business.png", // Add or update preview image as needed
+    description: "A professional, clean template for business presentations.",
+    styles: {
+      slide: {
+        backgroundColor: "bg-gray-100",
+      },
+      title: {
+        fontFamily: "Arial, sans-serif",
+        fontSize: "text-4xl",
+        textColor: "text-gray-900",
+        fontWeight: "font-bold",
+        textAlign: "left",
+      },
+      body: {
+        fontFamily: "Arial, sans-serif",
+        fontSize: "text-lg",
+        textColor: "text-gray-700",
+        lineHeight: 1.5,
+        textAlign: "left",
+      },
+      accent: {
+        backgroundColor: "bg-blue-600",
+        textColor: "text-white",
+      }
+    }
+  },
+  {
+    id: "tailwind-creative",
+    name: "Creative (Tailwind)",
+    preview: "/images/preview-creative.png", // Add or update preview image as needed
+    description: "A vibrant, visually engaging template for creative presentations.",
+    styles: {
+      slide: {
+        backgroundColor: "bg-yellow-100",
+      },
+      title: {
+        fontFamily: "Trebuchet MS, Arial, sans-serif",
+        fontSize: "text-5xl",
+        textColor: "text-orange-600",
+        fontWeight: "font-bold",
+        textAlign: "left",
+      },
+      body: {
+        fontFamily: "Georgia, serif",
+        fontSize: "text-2xl",
+        textColor: "text-purple-700",
+        lineHeight: 1.5,
+        textAlign: "left",
+      },
+      accent: {
+        backgroundColor: "bg-green-400",
+        textColor: "text-white",
+      }
+    }
+  },
+  {
+    id: "tailwind-education",
+    name: "Education (Tailwind)",
+    preview: "/images/preview-education.png", // Add or update preview image as needed
+    description: "A template designed for school or academic presentations.",
+    styles: {
+      slide: {
+        backgroundColor: "bg-yellow-50",
+      },
+      title: {
+        fontFamily: "Times New Roman, serif",
+        fontSize: "text-4xl",
+        textColor: "text-blue-900",
+        fontWeight: "font-bold",
+        textAlign: "left",
+      },
+      body: {
+        fontFamily: "Arial, sans-serif",
+        fontSize: "text-lg",
+        textColor: "text-gray-800",
+        lineHeight: 1.5,
+        textAlign: "left",
+      },
+      accent: {
+        backgroundColor: "bg-yellow-300",
+        textColor: "text-yellow-900",
+      }
+    }
   }
 ];
 
-// Helper to get a template by ID (optional, but can be useful)
 export const getTailwindTemplateById = (id) => {
   return tailwindTemplates.find(t => t.id === id);
 };

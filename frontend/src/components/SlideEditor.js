@@ -135,14 +135,198 @@ const defaultTextBox = (type = "body") => {
   }
 };
 
-const defaultSlide = () => ({
-  textboxes: [
-    { ...defaultTextBox("title"), y: 60 },
-    { ...defaultTextBox("body"), y: 150 }
-  ],
-  background: { fill: "#fff" },
-  image: null
-});
+// --- Template-specific background and layout helpers ---
+
+// --- BUSINESS TEMPLATE ---
+function renderBusinessBackground({ isTitle = false } = {}) { // Added isTitle parameter
+  const contentBoxX = SLIDE_WIDTH * 0.05;
+  const contentBoxY = SLIDE_HEIGHT * 0.1;
+  const contentBoxWidth = SLIDE_WIDTH * 0.9;
+  const contentBoxHeight = SLIDE_HEIGHT * 0.8;
+
+  return (
+    <g>
+      {/* Dark blue background */}
+      <rect x={0} y={0} width={SLIDE_WIDTH} height={SLIDE_HEIGHT} fill="#003366" />
+      {/* Light blue decorative wave/swoosh at the bottom */}
+      <path d={`M0,${SLIDE_HEIGHT * 0.75} Q${SLIDE_WIDTH * 0.25},${SLIDE_HEIGHT * 0.6} ${SLIDE_WIDTH * 0.5},${SLIDE_HEIGHT * 0.8} T${SLIDE_WIDTH},${SLIDE_HEIGHT * 0.7}`} fill="rgba(173, 216, 230, 0.3)" />
+      <path d={`M0,${SLIDE_HEIGHT * 0.8} Q${SLIDE_WIDTH * 0.3},${SLIDE_HEIGHT * 0.7} ${SLIDE_WIDTH * 0.6},${SLIDE_HEIGHT * 0.9} T${SLIDE_WIDTH},${SLIDE_HEIGHT * 0.85}`} fill="rgba(173, 216, 230, 0.2)" />
+
+      {/* Visuals from old renderBusinessContentBox */}
+      <defs>
+        <filter id="softShadow" x="-5%" y="-5%" width="110%" height="110%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
+          <feOffset in="blur" dx="2" dy="2" result="offsetBlur" />
+          <feMerge>
+            <feMergeNode in="offsetBlur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      <rect
+        x={contentBoxX}
+        y={contentBoxY}
+        width={contentBoxWidth}
+        height={contentBoxHeight}
+        fill="#FFFFFF"
+        rx={15}
+        ry={15}
+        filter="url(#softShadow)"
+      />
+      {isTitle && (
+        <line
+          x1={contentBoxX + 20}
+          y1={contentBoxY + 80} // Assuming title text starts around here
+          x2={contentBoxX + contentBoxWidth - 20}
+          y2={contentBoxY + 80}
+          stroke="#003366"
+          strokeWidth={2}
+        />
+      )}
+    </g>
+  );
+}
+
+function renderBusinessContentBox(children, { isTitle = false } = {}) {
+  // This function now simply passes through the children (HTML textboxes).
+  // The visual "box" is drawn by renderBusinessBackground.
+  return <>{children}</>;
+}
+
+// --- CREATIVE TEMPLATE ---
+function renderCreativeBackground({ isTitle = false }) {
+  // Assuming Creative template's "content box" is implicitly defined by textbox placement
+  // over its artistic background. If a specific box visual is needed, add its SVG here.
+  return (
+    <g>
+      {/* Base light cream background */}
+      <rect x={0} y={0} width={SLIDE_WIDTH} height={SLIDE_HEIGHT} fill="#FFF8DC" /> {/* Cornsilk as a base */}
+
+      {/* Abstract shapes - inspired by the PDF's organic/colorful feel */}
+      {/* Large, soft, semi-transparent blobs */}
+      <ellipse cx={SLIDE_WIDTH * 0.2} cy={SLIDE_HEIGHT * 0.3} rx={SLIDE_WIDTH * 0.25} ry={SLIDE_HEIGHT * 0.2} fill="rgba(255, 192, 203, 0.4)" /> {/* Light Pink */}
+      <ellipse cx={SLIDE_WIDTH * 0.8} cy={SLIDE_HEIGHT * 0.7} rx={SLIDE_WIDTH * 0.3} ry={SLIDE_HEIGHT * 0.25} fill="rgba(173, 216, 230, 0.4)" /> {/* Light Blue */}
+      <ellipse cx={SLIDE_WIDTH * 0.5} cy={SLIDE_HEIGHT * 0.85} rx={SLIDE_WIDTH * 0.2} ry={SLIDE_HEIGHT * 0.15} fill="rgba(144, 238, 144, 0.3)" /> {/* Light Green */}
+
+      {/* Smaller, more defined accent shapes/lines */}
+      <path d={`M${SLIDE_WIDTH * 0.1},${SLIDE_HEIGHT * 0.1} Q${SLIDE_WIDTH * 0.3},${SLIDE_HEIGHT * 0.05} ${SLIDE_WIDTH * 0.4},${SLIDE_HEIGHT * 0.2}`} stroke="#FFD700" strokeWidth={5} fill="none" strokeLinecap="round" />
+      <path d={`M${SLIDE_WIDTH * 0.9},${SLIDE_HEIGHT * 0.9} Q${SLIDE_WIDTH * 0.7},${SLIDE_HEIGHT * 0.95} ${SLIDE_WIDTH * 0.6},${SLIDE_HEIGHT * 0.8}`} stroke="#FF69B4" strokeWidth={5} fill="none" strokeLinecap="round" />
+
+      {isTitle && (
+        <>
+          <circle cx={SLIDE_WIDTH * 0.15} cy={SLIDE_HEIGHT * 0.8} r={30} fill="rgba(255, 165, 0, 0.5)" /> {/* Orange accent */}
+          <rect x={SLIDE_WIDTH * 0.7} y={SLIDE_HEIGHT * 0.1} width={50} height={50} fill="rgba(0, 128, 128, 0.4)" transform={`rotate(15 ${SLIDE_WIDTH * 0.7 + 25} ${SLIDE_HEIGHT * 0.1 + 25})`} /> {/* Teal accent */}
+        </>
+      )}
+    </g>
+  );
+}
+
+function renderCreativeContentBox(children, { isTitle = false } = {}) {
+  // Passes through children. Visuals are part of renderCreativeBackground.
+  return <>{children}</>;
+}
+
+// --- EDUCATION TEMPLATE ---
+function renderEducationBackground({ isTitle = false } = {}) { // Added isTitle parameter
+  const boxX = SLIDE_WIDTH * 0.12;
+  const boxY = SLIDE_HEIGHT * 0.1;
+  const boxWidth = SLIDE_WIDTH * 0.83;
+  const boxHeight = SLIDE_HEIGHT * 0.8;
+
+  return (
+    <g>
+      {/* Light, friendly background color */}
+      <rect x={0} y={0} width={SLIDE_WIDTH} height={SLIDE_HEIGHT} fill="#E0F7FA" /> {/* Light Cyan */}
+
+      {/* Decorative elements: simple geometric shapes, "notebook paper" lines, etc. */}
+      {/* Left sidebar accent (as in original) */}
+      <rect x={0} y={0} width={SLIDE_WIDTH * 0.08} height={SLIDE_HEIGHT} fill="#00ACC1" /> {/* Teal accent */}
+
+      {/* Subtle pattern - e.g., faint polka dots or lines */}
+      <defs>
+        <pattern id="eduPattern" patternUnits="userSpaceOnUse" width="20" height="20">
+          <circle cx="10" cy="10" r="1" fill="rgba(0, 172, 193, 0.2)" />
+        </pattern>
+      </defs>
+      <rect x={SLIDE_WIDTH * 0.08} y={0} width={SLIDE_WIDTH * 0.92} height={SLIDE_HEIGHT} fill="url(#eduPattern)" />
+
+      {/* Corner "bookmark" or "tab" element */}
+      <path d={`M${SLIDE_WIDTH - 80},0 L${SLIDE_WIDTH},0 L${SLIDE_WIDTH},80 Z`} fill="#FFB74D" /> {/* Orange accent */}
+      <text x={SLIDE_WIDTH - 40} y={45} fill="#fff" textAnchor="middle" fontSize="16" fontWeight="bold">EDU</text>
+
+      {/* Visuals for the content box area */}
+      <rect
+        x={boxX}
+        y={boxY}
+        width={boxWidth}
+        height={boxHeight}
+        fill="#FFFFFF"
+        rx={10}
+        ry={10}
+        stroke="#B0BEC5" // Light grey border
+        strokeWidth={1}
+      />
+      {isTitle && (
+        <line
+          x1={boxX + 20}
+          y1={boxY + 70} // Assuming title text starts around here
+          x2={boxX + boxWidth - 20}
+          y2={boxY + 70}
+          stroke="#00ACC1"
+          strokeWidth={1.5}
+        />
+      )}
+    </g>
+  );
+}
+
+function renderEducationContentBox(children, { isTitle = false } = {}) {
+  // Passes through children. Visuals are part of renderEducationBackground.
+  return <>{children}</>;
+}
+
+// --- Template-specific default slide layouts ---
+const defaultSlide = (templateId) => {
+  switch (templateId) {
+    case "tailwind-business":
+      return {
+        textboxes: [
+          { ...defaultTextBox("title"), y: 80, x: 80, width: 800 },
+          { ...defaultTextBox("body"), y: 180, x: 100, width: 760 }
+        ],
+        background: { fill: "#fff" },
+        image: null
+      };
+    case "tailwind-creative":
+      return {
+        textboxes: [
+          { ...defaultTextBox("title"), y: 70, x: 70, width: 820 },
+          { ...defaultTextBox("body"), y: 200, x: 120, width: 720 }
+        ],
+        background: { fill: "#FFF8DC" },
+        image: null
+      };
+    case "tailwind-education":
+      return {
+        textboxes: [
+          { ...defaultTextBox("title"), y: 60, x: 320, width: 600 },
+          { ...defaultTextBox("body"), y: 180, x: 340, width: 560 }
+        ],
+        background: { fill: "#fff" },
+        image: null
+      };
+    default:
+      return {
+        textboxes: [
+          { ...defaultTextBox("title"), y: 60 },
+          { ...defaultTextBox("body"), y: 150 }
+        ],
+        background: { fill: "#fff" },
+        image: null
+      };
+  }
+};
 
 function mapGeneratedSlideToEditorFormat(s) {
   return {
@@ -260,7 +444,7 @@ const SlideEditor = () => {
       localStorage.setItem('latestEditedSlides', JSON.stringify(slides));
     }  }, [slides]); // This effect runs when 'slides' state changes
 
-  const slide = slides[currentIdx] || defaultSlide(); // Ensure slide is always defined
+  const slide = slides[currentIdx] || defaultSlide(currentTemplate?.id); // Ensure slide is always defined
   const selectedTextBox = slide.textboxes.find(tb => tb.id === selectedTextBoxId);
   const isFormattingEnabled = !!selectedTextBox || selectedImage;
 
@@ -870,87 +1054,224 @@ const SlideEditor = () => {
   };
 
   // Helper: Render Abstract Gradient background and shapes for Abstract template
-  const renderAbstractBackground = () => {
-    // Main gradient background
+  const renderAbstractBackground = ({ isTitle = false }) => {
     const gradient = "linear-gradient(120deg, #d1fae5 0%, #bfdbfe 50%, #a5b4fc 100%)";
-    // Squares (SVG for crispness)
     const squares = (
-      <svg width={SLIDE_WIDTH} height={SLIDE_HEIGHT} style={{ position: 'absolute', left: 0, top: 0, zIndex: 1, pointerEvents: 'none' }}>
+      <svg width={SLIDE_WIDTH} height={SLIDE_HEIGHT} style={{ position: 'absolute', top: 0, left: 0, zIndex: 1, pointerEvents: 'none' }}>
         <rect x="-40" y="-40" width="220" height="220" fill="#fff" opacity="0.13" transform="rotate(35 70 70)" />
         <rect x="120" y="-20" width="160" height="160" fill="#fff" opacity="0.13" transform="rotate(35 200 60)" />
       </svg>
     );
-    // Right panel and circles
-    const rightPanel = (
-      <div style={{
-        position: 'absolute',
-        right: 0,
-        top: 0,
-        width: SLIDE_WIDTH * 0.42,
-        height: SLIDE_HEIGHT,
-        background: '#f3f7fb',
-        zIndex: 2,
-      }}>
-        <svg width={SLIDE_WIDTH * 0.42} height={SLIDE_HEIGHT} style={{ position: 'absolute', right: 0, bottom: 0, zIndex: 3 }}>
-          <circle cx={SLIDE_WIDTH * 0.32} cy={SLIDE_HEIGHT * 0.85} r={SLIDE_HEIGHT * 0.32} fill="none" stroke="#bbf7d0" strokeWidth="7" opacity="0.6" />
-          <circle cx={SLIDE_WIDTH * 0.5} cy={SLIDE_HEIGHT * 0.7} r={SLIDE_HEIGHT * 0.22} fill="none" stroke="#bae6fd" strokeWidth="6" opacity="0.5" />
-        </svg>
-      </div>
+
+    const baseBackground = (
+      <div style={{ position: 'absolute', left: 0, top: 0, width: SLIDE_WIDTH, height: SLIDE_HEIGHT, background: gradient, zIndex: 0 }} />
     );
-    return (
-      <>
-        <div style={{ position: 'absolute', left: 0, top: 0, width: SLIDE_WIDTH, height: SLIDE_HEIGHT, background: gradient, zIndex: 0 }} />
-        {squares}
-        {rightPanel}
-      </>
-    );
+
+    if (isTitle) { // Title slide: half-half layout
+      const rightPanel = (
+        <div style={{
+          position: 'absolute',
+          right: 0,
+          top: 0,
+          width: SLIDE_WIDTH * 0.42,
+          height: SLIDE_HEIGHT,
+          background: '#f3f7fb', // Light grey/white panel
+          zIndex: 2,
+        }}>
+          <svg width="100%" height="100%" style={{ position: 'absolute', right: 0, bottom: 0, zIndex: 3, pointerEvents: 'none' }}>
+            <circle cx="70%" cy="85%" r="32%" fill="none" stroke="#bbf7d0" strokeWidth="7" opacity="0.6" />
+            <circle cx="110%" cy="70%" r="22%" fill="none" stroke="#bae6fd" strokeWidth="6" opacity="0.5" />
+          </svg>
+        </div>
+      );
+      return <>{baseBackground}{squares}{rightPanel}</>;
+    } else { // Content slide: full gradient background + squares
+      return <>{baseBackground}{squares}</>;
+    }
   };
 
-  // Helper: Render Abstract content box (rounded rectangle with gradient)
-  const renderAbstractContentBox = (children, withImagePlaceholder = false) => {
+  // Helper: Render Abstract content box
+  const renderAbstractContentBox = (children, { isTitleSlide = false }) => {
+    if (isTitleSlide) { // Title Slide (currentIdx === 0)
+      // Textboxes (children) are absolutely positioned by the main render loop.
+      // This function only adds the image placeholder on the right.
+      const imagePlaceholder = (
+        <div style={{
+          position: 'absolute',
+          right: SLIDE_WIDTH * 0.04, // Adjusted to be within the typical white panel area
+          top: SLIDE_HEIGHT * 0.15,
+          width: SLIDE_WIDTH * 0.34, // Adjusted size
+          height: SLIDE_HEIGHT * 0.7,
+          borderRadius: 24, // Slightly smaller radius
+          border: '2px solid #4A5568', // Darker border
+          background: 'rgba(226, 232, 240, 0.4)', // Slightly different placeholder bg
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: SLIDE_WIDTH / 38, // Adjusted font size
+          fontWeight: '600',
+          color: '#2D3748', // Darker text
+          letterSpacing: 0.5,
+          textAlign: 'center',
+          zIndex: 15, // Ensure it's above the rightPanel background
+        }}>
+          INSERT IMAGE
+        </div>
+      );
+      return <>{children}{imagePlaceholder}</>;
+    } else { // Content Slides (currentIdx > 0)
+      // This div is the rounded gradient box that contains the textboxes.
+      return (
+        <div style={{
+          position: 'absolute',
+          left: SLIDE_WIDTH * 0.05, // e.g., 48px
+          top: SLIDE_HEIGHT * 0.06,  // e.g., 32.4px
+          width: SLIDE_WIDTH * 0.9,  // e.g., 864px
+          height: SLIDE_HEIGHT * 0.88, // e.g., 475.2px
+          borderRadius: 22, // Rounded corners as per image.png
+          background: 'linear-gradient(120deg, #d1fae5 0%, #bfdbfe 50%, #a5b4fc 100%)', // Gradient from image.png
+          boxShadow: '0 4px 15px rgba(0,0,0,0.08)', // Subtle shadow
+          padding: '30px', // Padding for the text content
+          boxSizing: 'border-box',
+          zIndex: 10, // Above the full gradient background
+          display: 'flex',
+          flexDirection: 'column',
+          // justifyContent: 'center', // If text needs to be centered vertically
+        }}>
+          {children} {/* Textboxes will be rendered here by the modified main loop */}
+        </div>
+      );
+    }
+  };
+
+  // --- Template-specific background rendering ---
+  function renderTemplateBackground() {
+    if (!currentTemplate) return null;
+    const templateId = currentTemplate.id;
+    const isTitleSlide = currentIdx === 0;
+
+    if (templateId === "tailwind-abstract-gradient") {
+      // renderAbstractBackground now handles logic for title vs content slide
+      return renderAbstractBackground({ isTitle: isTitleSlide });
+    }
+
+    // For other templates that return SVG fragments (<g>...</g>)
+    let svgContent = null;
+    if (templateId === "tailwind-creative") {
+      svgContent = renderCreativeBackground({ isTitle: isTitleSlide });
+    } else if (templateId === "tailwind-business") {
+      svgContent = renderBusinessBackground({ isTitle: isTitleSlide });
+    } else if (templateId === "tailwind-education") {
+      svgContent = renderEducationBackground({ isTitle: isTitleSlide });
+    }
+
+    if (svgContent) {
+      return (
+        <svg
+          width={SLIDE_WIDTH}
+          height={SLIDE_HEIGHT}
+          viewBox={`0 0 ${SLIDE_WIDTH} ${SLIDE_HEIGHT}`}
+          style={{ position: 'absolute', top: 0, left: 0, zIndex: 1 }}
+        >
+          {svgContent}
+        </svg>
+      );
+    }
+    return null;
+  }
+
+  // --- Template-specific content box rendering ---
+  function renderTemplateContentBox(children) {
+    if (!currentTemplate) return children;
+    const templateId = currentTemplate.id;
+    const isTitleSlide = currentIdx === 0;
+
+    // Shared split layout for Slide 1 of all templates
+    if (isTitleSlide) {
+      if (templateId === 'tailwind-abstract-gradient') {
+        return renderSplitTitleSlide(children, {
+          gradient: 'linear-gradient(120deg, #d1fae5 0%, #bfdbfe 50%, #a5b4fc 100%)',
+          color: undefined,
+        });
+      } else if (templateId === 'tailwind-business') {
+        return renderSplitTitleSlide(children, {
+          color: '#003366',
+          gradient: undefined,
+        });
+      } else if (templateId === 'tailwind-creative') {
+        return renderSplitTitleSlide(children, {
+          color: '#FFF8DC',
+          gradient: undefined,
+        });
+      } else if (templateId === 'tailwind-education') {
+        return renderSplitTitleSlide(children, {
+          color: '#E0F7FA',
+          gradient: undefined,
+        });
+      }
+    }
+    if (templateId === 'tailwind-abstract-gradient') {
+      return renderAbstractContentBox(children, { isTitleSlide: isTitleSlide });
+    } else if (templateId === 'tailwind-creative') {
+      return renderCreativeContentBox(children, { isTitle: isTitleSlide });
+    } else if (templateId === 'tailwind-business') {
+      return renderBusinessContentBox(children, { isTitle: isTitleSlide });
+    } else if (templateId === 'tailwind-education') {
+      return renderEducationContentBox(children, { isTitle: isTitleSlide });
+    }
+    return children;
+  }
+
+  // --- Helper: Shared split layout for Slide 1 (Title slide) ---
+  function renderSplitTitleSlide(children, { color = '#fff', gradient = null }) {
+    // Left area: colored or gradient, right area: empty
     return (
       <div style={{
         position: 'absolute',
-        left: 40,
-        top: 32,
-        width: SLIDE_WIDTH - 80,
-        height: SLIDE_HEIGHT - 64,
-        borderRadius: 18,
-        background: 'linear-gradient(120deg, #d1fae5 0%, #bfdbfe 50%, #a5b4fc 100%)',
-        zIndex: 10,
-        boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+        top: 0,
+        left: 0,
+        width: SLIDE_WIDTH,
+        height: SLIDE_HEIGHT,
         display: 'flex',
         flexDirection: 'row',
-        alignItems: 'flex-start',
-        padding: 0,
+        zIndex: 10,
       }}>
-        <div style={{ flex: withImagePlaceholder ? 0.6 : 1, padding: '36px 36px 0 36px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
+        {/* Left colored/gradient area */}
+        <div style={{
+          width: `${Math.round(SLIDE_WIDTH * 0.58)}px`,
+          height: '100%',
+          background: gradient ? gradient : color,
+          borderTopLeftRadius: 32,
+          borderBottomLeftRadius: 32,
+          borderTopRightRadius: 0,
+          borderBottomRightRadius: 0,
+          boxShadow: '0 4px 15px rgba(0,0,0,0.08)',
+          position: 'relative',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'flex-start',
+          alignItems: 'flex-start',
+          padding: '48px 36px 36px 48px',
+          boxSizing: 'border-box',
+        }}>
           {children}
         </div>
-        {withImagePlaceholder && (
-          <div style={{ flex: 0.4, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-            <div style={{
-              width: '90%',
-              height: '80%',
-              borderRadius: 32,
-              border: '2px solid #222',
-              background: 'rgba(180, 220, 255, 0.25)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 32,
-              fontWeight: 600,
-              color: '#222',
-              letterSpacing: 1,
-            }}>
-              INSERT IMAGE
-            </div>
-          </div>
-        )}
+        {/* Right area: empty, but keeps the split layout */}
+        <div style={{
+          width: `${Math.round(SLIDE_WIDTH * 0.42)}px`,
+          height: '100%',
+          background: '#f3f7fb', // For Abstract, or use template color for others if needed
+          borderTopRightRadius: 32,
+          borderBottomRightRadius: 32,
+          borderTopLeftRadius: 0,
+          borderBottomLeftRadius: 0,
+        }} />
       </div>
     );
-  };
+  }
 
+  // --- Main slide preview rendering ---
   return (
     <div className="slide-editor-root">
       {/* Canva-style slide selector */}
@@ -1155,320 +1476,185 @@ const SlideEditor = () => {
               } catch (error) { console.error("Error processing drop data:", error); }
             }}
           >
-            {/* Only render Abstract background on Slide 1 */}
-            {currentTemplate?.id === "tailwind-abstract-gradient" && currentIdx === 0 && renderAbstractBackground()}
+            {/* Always render template-specific background for ALL templates */}
+            {renderTemplateBackground()}
 
-            {/* --- Abstract Template: Slide 1: constrain textboxes to gradient area, center, draggable, resizable --- */}
-            {currentTemplate?.id === "tailwind-abstract-gradient" && currentIdx === 0 ? (
-              <div
-                style={{
-                  position: "absolute",
-                  left: 60,
-                  top: 60,
-                  width: SLIDE_WIDTH * 0.62 - 100, // Gradient area width
-                  height: SLIDE_HEIGHT - 120,    // Gradient area height
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  pointerEvents: "auto",
-                }}
-              >
-                {slide.textboxes.map((tb, i) => {
-                  const gradientContainerWidth = SLIDE_WIDTH * 0.62 - 100;
-                  const textboxDefaultWidth = SLIDE_WIDTH * 0.62 - 120; // Default width for a textbox within the gradient area
-                  const currentTextboxEffectiveWidth = tb.width || textboxDefaultWidth;
-                  
-                  const defaultCenteringX_local = (gradientContainerWidth - currentTextboxEffectiveWidth) / 2;
-                  
-                  let defaultStackingY_local;
-                  if (i === 0 && tb.type === 'title') {
-                    defaultStackingY_local = 60; // Adjusted default top for title
-                  } else if (i === 1 && tb.type === 'body') {
-                    defaultStackingY_local = 150; // Adjusted default top for body
-                  } else {
-                    // Fallback for additional textboxes, stacking them below the title area
-                    defaultStackingY_local = 60 + i * 90; 
-                  }
-
-                  const gradientOffsetX = 60;
-                  const gradientOffsetY = 60;
-
-                  const styleLeft = tb.x !== undefined ? `${tb.x - gradientOffsetX}px` : `${defaultCenteringX_local}px`;
-                  const styleTop = tb.y !== undefined ? `${tb.y - gradientOffsetY}px` : `${defaultStackingY_local}px`;
-
-                  return (
-                    <div
-                      key={`textbox-${currentIdx}-${tb.id}`}
-                      ref={el => {
-                        if (el) {
-                          const existingRef = contentEditableRefs.current.get(tb.id);
-                          contentEditableRefs.current.set(tb.id, { element: el, timeout: existingRef?.timeout || null });
-                        } else {
-                          const existingRef = contentEditableRefs.current.get(tb.id);
-                          if (existingRef?.timeout) clearTimeout(existingRef.timeout);
-                          contentEditableRefs.current.delete(tb.id);
-                        }
-                      }}
-                      className={"slide-textbox" + (selectedTextBoxId === tb.id ? " selected" : "")}
-                      style={{
-                        position: "absolute",
-                        left: styleLeft,
-                        top: styleTop,
-                        width: currentTextboxEffectiveWidth,
-                        minHeight: 40,
-                        maxWidth: gradientContainerWidth, // Constrain textbox width to gradient area
-                        fontSize: `${tb.fontSize}px`,
-                        fontFamily: tb.fontFamily,
-                        color: tb.fill,
-                        fontWeight: tb.fontStyle?.bold ? "bold" : "normal",
-                        fontStyle: tb.fontStyle?.italic ? "italic" : "normal",
-                        textDecoration: tb.fontStyle?.underline ? "underline" : "none",
-                        lineHeight: tb.lineHeight,
-                        textAlign: tb.align,
-                        outline: selectedTextBoxId === tb.id ? "2px solid #1976d2" : "none",
-                        background: selectedTextBoxId === tb.id ? "#f5faff" : "transparent",
-                        padding: "8px 16px",
-                        boxSizing: "border-box",
-                        overflowWrap: "break-word",
-                        wordWrap: "break-word",
-                        overflow: "auto",
-                        resize: "both",
-                        zIndex: TEXT_Z_INDEX,
-                        cursor: "move",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                      contentEditable
-                      suppressContentEditableWarning
-                      spellCheck={true}
-                      onInput={e => { e.stopPropagation(); handleContentEdit(tb.id, e); }}
-                      onFocus={e => { e.stopPropagation(); setSelectedTextBoxId(tb.id); setSelectedTextRange(null); }}
-                      onKeyDown={e => {
-                        e.stopPropagation();
-                        if (e.key === 'Delete' || e.key === 'Backspace') {
-                          const selection = window.getSelection();
-                          if (selection && selection.rangeCount > 0) {
-                            const range = selection.getRangeAt(0);
-                            if (range.toString().length > 0 || e.target.innerText.length > 0) return;
-                          }
-                          e.preventDefault();
-                        }
-                      }}
-                      onClick={e => { e.stopPropagation(); setSelectedTextBoxId(tb.id); setSelectedTextRange(null); }}
-                      onBlur={e => {
-                        const textboxDiv = e.currentTarget;
-                        const currentWidth = textboxDiv.offsetWidth;
-                        const currentHeight = textboxDiv.offsetHeight;
-                        handleTextResize(tb.id, currentWidth, currentHeight);
-                        const relatedTarget = e.relatedTarget;
-                        const slidePreviewDiv = textboxDiv.closest('.slide-preview');
-                        if (!slidePreviewDiv) { setSelectedTextBoxId(null); setSelectedTextRange(null); return; }
-                        const mainContentArea = slidePreviewDiv.parentElement;
-                        if (!mainContentArea) { setSelectedTextBoxId(null); setSelectedTextRange(null); return; }
-                        const toolbarDiv = mainContentArea.querySelector('.slide-toolbar');
-                        if (toolbarDiv && relatedTarget && toolbarDiv.contains(relatedTarget)) return;
-                        setSelectedTextBoxId(null); setSelectedTextRange(null);
-                      }}
-                      tabIndex={0}
-                      draggable
-                      onDragStart={e => {
-                        const rect = e.target.getBoundingClientRect();
-                        const dragData = {
-                          id: tb.id,
-                          offsetX: e.clientX - rect.left,
-                          offsetY: e.clientY - rect.top
-                        };
-                        e.dataTransfer.setData("text/plain", JSON.stringify(dragData));
-                        e.dataTransfer.effectAllowed = "move";
-                        setSelectedTextBoxId(tb.id);
-                      }}
-                    >
-                      {tb.bullets
-                        ? tb.text.split("\\\\n").map((line, idx) => <div key={idx} style={{ marginBottom: tb.paragraphSpacing }}>{line ? <>&bull; {line}</> : <br />}</div>)
-                        : tb.text.split("\\\\n").map((line, idx) => <div key={idx} style={{ marginBottom: tb.paragraphSpacing }}>{line || <br />}</div>)}
-                    </div>
-                  );
-                })}
-              </div>
-            ) :
-            // --- Abstract Template: Slides 2+ use content box layout ---
-            currentTemplate?.id === "tailwind-abstract-gradient" && currentIdx > 0 ? (
-              renderAbstractContentBox(
-                <>
-                  {slide.textboxes.map(tb => (
-                    <div
-                      key={`textbox-${currentIdx}-${tb.id}`}
-                      ref={el => {
-                        if (el) {
-                          const existingRef = contentEditableRefs.current.get(tb.id);
-                          contentEditableRefs.current.set(tb.id, { element: el, timeout: existingRef?.timeout || null });
-                        } else {
-                          const existingRef = contentEditableRefs.current.get(tb.id);
-                          if (existingRef?.timeout) clearTimeout(existingRef.timeout);
-                          contentEditableRefs.current.delete(tb.id);
-                        }
-                      }}
-                      className={"slide-textbox" + (selectedTextBoxId === tb.id ? " selected" : "")}
-                      style={{
-                        position: "relative",
-                        width: "100%",
-                        minHeight: 40,
-                        marginBottom: 18,
-                        fontSize: `${tb.fontSize}px`,
-                        fontFamily: tb.fontFamily,
-                        color: tb.fill,
-                        fontWeight: tb.fontStyle?.bold ? "bold" : "normal",
-                        fontStyle: tb.fontStyle?.italic ? "italic" : "normal",
-                        textDecoration: tb.fontStyle?.underline ? "underline" : "none",
-                        lineHeight: tb.lineHeight,
-                        textAlign: tb.align,
-                        outline: selectedTextBoxId === tb.id ? "2px solid #1976d2" : "none",
-                        background: selectedTextBoxId === tb.id ? "#f5faff" : "transparent",
-                        padding: "8px 16px",
-                        boxSizing: "border-box",
-                        overflowWrap: "break-word",
-                        wordWrap: "break-word",
-                        overflow: "auto",
-                        resize: "none",
-                        zIndex: TEXT_Z_INDEX
-                      }}
-                      contentEditable
-                      suppressContentEditableWarning
-                      spellCheck={true}
-                      onInput={e => { e.stopPropagation(); handleContentEdit(tb.id, e); }}
-                      onFocus={e => { e.stopPropagation(); setSelectedTextBoxId(tb.id); setSelectedTextRange(null); }}
-                      onKeyDown={e => {
-                        e.stopPropagation();
-                        if (e.key === 'Delete' || e.key === 'Backspace') {
-                          const selection = window.getSelection();
-                          if (selection && selection.rangeCount > 0) {
-                            const range = selection.getRangeAt(0);
-                            if (range.toString().length > 0 || e.target.innerText.length > 0) return;
-                          }
-                          e.preventDefault();
-                        }
-                      }}
-                      onClick={e => { e.stopPropagation(); setSelectedTextBoxId(tb.id); setSelectedTextRange(null); }}
-                      onBlur={e => {
-                        const textboxDiv = e.currentTarget;
-                        const currentWidth = textboxDiv.offsetWidth;
-                        const currentHeight = textboxDiv.offsetHeight;
-                        handleTextResize(tb.id, currentWidth, currentHeight);
-                        const relatedTarget = e.relatedTarget;
-                        const slidePreviewDiv = textboxDiv.closest('.slide-preview');
-                        if (!slidePreviewDiv) { setSelectedTextBoxId(null); setSelectedTextRange(null); return; }
-                        const mainContentArea = slidePreviewDiv.parentElement;
-                        if (!mainContentArea) { setSelectedTextBoxId(null); setSelectedTextRange(null); return; }
-                        const toolbarDiv = mainContentArea.querySelector('.slide-toolbar');
-                        if (toolbarDiv && relatedTarget && toolbarDiv.contains(relatedTarget)) return;
-                        setSelectedTextBoxId(null); setSelectedTextRange(null);
-                      }}
-                      tabIndex={0}
-                    >
-                      {tb.bullets
-                        ? tb.text.split("\n").map((line, i) => <div key={i} style={{ marginBottom: tb.paragraphSpacing }}>{line ? <>&bull; {line}</> : <br />}</div>)
-                        : tb.text.split("\n").map((line, i) => <div key={i} style={{ marginBottom: tb.paragraphSpacing }}>{line || <br />}</div>)}
-                    </div>
-                  ))}
-                </>,
-                // withImagePlaceholder: show placeholder if no image, else show image
-                (slide.images && slide.images.length > 0) || slide.image
-              )
-            ) : (
-              // Default: render all textboxes absolutely positioned (original logic)
-              slide.textboxes.map(tb => (
-                <div
-                  key={`textbox-${currentIdx}-${tb.id}`}
-                  ref={el => {
-                    if (el) {
-                      const existingRef = contentEditableRefs.current.get(tb.id);
-                      contentEditableRefs.current.set(tb.id, { element: el, timeout: existingRef?.timeout || null });
-                    } else {
-                      const existingRef = contentEditableRefs.current.get(tb.id);
-                      if (existingRef?.timeout) clearTimeout(existingRef.timeout);
-                      contentEditableRefs.current.delete(tb.id);
-                    }
-                  }}
-                  className={"slide-textbox" + (selectedTextBoxId === tb.id ? " selected" : "")}
-                  style={{
-                    position: "absolute",
-                    left: `${tb.x}px`,
-                    top: `${tb.y}px`,
-                    width: `${tb.width}px`,
-                    height: `${tb.height}px`,
-                    fontSize: `${tb.fontSize}px`,
-                    fontFamily: tb.fontFamily,
-                    color: tb.fill,
-                    fontWeight: tb.fontStyle?.bold ? "bold" : "normal",
-                    fontStyle: tb.fontStyle?.italic ? "italic" : "normal",
-                    textDecoration: tb.fontStyle?.underline ? "underline" : "none",
-                    lineHeight: tb.lineHeight,
-                    textAlign: tb.align,
-                    outline: selectedTextBoxId === tb.id ? "2px solid #1976d2" : "none",
-                    background: selectedTextBoxId === tb.id ? "#f5faff" : "transparent",
-                    padding: "8px",
-                    boxSizing: "border-box",
-                    overflowWrap: "break-word",
-                    wordWrap: "break-word",
-                    overflow: "auto",
-                    resize: "both",
-                    cursor: "move",
-                    zIndex: TEXT_Z_INDEX
-                  }}
-                  contentEditable
-                  suppressContentEditableWarning
-                  spellCheck={true}
-                  onInput={e => { e.stopPropagation(); handleContentEdit(tb.id, e); }}
-                  onFocus={e => { e.stopPropagation(); setSelectedTextBoxId(tb.id); setSelectedTextRange(null); }}
-                  onKeyDown={e => {
-                    e.stopPropagation();
-                    if (e.key === 'Delete' || e.key === 'Backspace') {
-                      const selection = window.getSelection();
-                      if (selection && selection.rangeCount > 0) {
-                        const range = selection.getRangeAt(0);
-                        if (range.toString().length > 0 || e.target.innerText.length > 0) return;
-                      }
-                      e.preventDefault();
-                    }
-                  }}
-                  onClick={e => { e.stopPropagation(); setSelectedTextBoxId(tb.id); setSelectedTextRange(null); }}
-                  onBlur={e => {
-                    const textboxDiv = e.currentTarget;
-                    const currentWidth = textboxDiv.offsetWidth;
-                    const currentHeight = textboxDiv.offsetHeight;
-                    handleTextResize(tb.id, currentWidth, currentHeight);
-                    const relatedTarget = e.relatedTarget;
-                    const slidePreviewDiv = textboxDiv.closest('.slide-preview');
-                    if (!slidePreviewDiv) { setSelectedTextBoxId(null); setSelectedTextRange(null); return; }
-                    const mainContentArea = slidePreviewDiv.parentElement;
-                    if (!mainContentArea) { setSelectedTextBoxId(null); setSelectedTextRange(null); return; }
-                    const toolbarDiv = mainContentArea.querySelector('.slide-toolbar');
-                    if (toolbarDiv && relatedTarget && toolbarDiv.contains(relatedTarget)) return;
-                    setSelectedTextBoxId(null); setSelectedTextRange(null);
-                  }}
-                  tabIndex={0}
-                  draggable
-                  onDragStart={e => {
-                    const rect = e.target.getBoundingClientRect();
-                    const dragData = {
-                      id: tb.id,
-                      offsetX: e.clientX - rect.left,
-                      offsetY: e.clientY - rect.top
+            {/* Always wrap textboxes/content in template-specific content box for ALL templates */}
+            {renderTemplateContentBox(
+              <>
+                {/* For Slide 1 of all templates, render textboxes inside the left area only */}
+                {currentIdx === 0 ? (
+                  slide.textboxes.map((tb, i) => {
+                    // Only render title and body textboxes
+                    if (tb.type !== "title" && tb.type !== "body") return null;
+                    // Fit inside the left area (gradient/colored)
+                    const leftAreaWidth = Math.round(SLIDE_WIDTH * 0.58) - 96; // account for padding
+                    const currentTemplateId = currentTemplate?.id;
+                    const style = {
+                      position: "relative",
+                      width: leftAreaWidth,
+                      minHeight: tb.type === 'title' ? 56 : 80,
+                      fontSize: tb.fontSize || (tb.type === "title" ? 48 : 28),
+                      fontFamily: tb.fontFamily || 'Arial',
+                      color: (() => {
+                        if (currentTemplateId === 'tailwind-business') return '#fff';
+                        return '#111';
+                      })(),
+                      fontWeight: tb.fontStyle?.bold ? "bold" : (tb.type === "title" ? "bold" : "normal"),
+                      fontStyle: tb.fontStyle?.italic ? "italic" : "normal",
+                      textDecoration: tb.fontStyle?.underline ? "underline" : "none",
+                      lineHeight: tb.lineHeight || 1.1,
+                      textAlign: tb.align || "left",
+                      outline: selectedTextBoxId === tb.id ? "2px solid #1976d2" : "none",
+                      background: selectedTextBoxId === tb.id ? "#f5faff" : "transparent",
+                      padding: "4px 8px",
+                      boxSizing: "border-box",
+                      overflowWrap: "break-word",
+                      wordWrap: "break-word",
+                      overflow: "auto",
+                      resize: "none",
+                      zIndex: 20,
+                      marginBottom: tb.type === 'title' ? 16 : 0,
+                      letterSpacing: tb.type === "title" ? 2 : 0,
+                      textShadow: tb.type === "title" && currentTemplateId === 'tailwind-business' ? "2px 2px 0 #003366" : undefined,
                     };
-                    e.dataTransfer.setData("text/plain", JSON.stringify(dragData));
-                    e.dataTransfer.effectAllowed = "move";
-                    setSelectedTextBoxId(tb.id);
-                  }}
-                >
-                  {tb.bullets
-                    ? tb.text.split("\n").map((line, i) => <div key={i} style={{ marginBottom: tb.paragraphSpacing }}>{line ? <>&bull; {line}</> : <br />}</div>)
-                    : tb.text.split("\n").map((line, i) => <div key={i} style={{ marginBottom: tb.paragraphSpacing }}>{line || <br />}</div>)}
-                </div>
-              ))
+                    return (
+                      <div
+                        key={`textbox-${currentIdx}-${tb.id}`}
+                        ref={el => {
+                          if (el) {
+                            const existingRef = contentEditableRefs.current.get(tb.id);
+                            contentEditableRefs.current.set(tb.id, { element: el, timeout: existingRef?.timeout || null });
+                          } else {
+                            const existingRef = contentEditableRefs.current.get(tb.id);
+                            if (existingRef?.timeout) clearTimeout(existingRef.timeout);
+                            contentEditableRefs.current.delete(tb.id);
+                          }
+                        }}
+                        className={"slide-textbox" + (selectedTextBoxId === tb.id ? " selected" : "")}
+                        style={style}
+                        contentEditable
+                        suppressContentEditableWarning
+                        spellCheck={true}
+                        onInput={e => { e.stopPropagation(); handleContentEdit(tb.id, e); }}
+                        onFocus={e => { e.stopPropagation(); setSelectedTextBoxId(tb.id); setSelectedTextRange(null); }}
+                        onKeyDown={e => {
+                          e.stopPropagation();
+                          if (e.key === 'Delete' || e.key === 'Backspace') {
+                            const selection = window.getSelection();
+                            if (selection && selection.rangeCount > 0) {
+                              const range = selection.getRangeAt(0);
+                              if (range.toString().length > 0 || e.target.innerText.length > 0) return;
+                            }
+                            e.preventDefault();
+                          }
+                        }}
+                        onClick={e => { e.stopPropagation(); setSelectedTextBoxId(tb.id); setSelectedTextRange(null); }}
+                        onBlur={e => {
+                          const textboxDiv = e.currentTarget;
+                          const currentWidth = textboxDiv.offsetWidth;
+                          const currentHeight = textboxDiv.offsetHeight;
+                          handleTextResize(tb.id, currentWidth, currentHeight);
+                          const relatedTarget = e.relatedTarget;
+                          const slidePreviewDiv = textboxDiv.closest('.slide-preview');
+                          if (!slidePreviewDiv) { setSelectedTextBoxId(null); setSelectedTextRange(null); return; }
+                          const mainContentArea = slidePreviewDiv.parentElement;
+                          if (!mainContentArea) { setSelectedTextBoxId(null); setSelectedTextRange(null); return; }
+                          const toolbarDiv = mainContentArea.querySelector('.slide-toolbar');
+                          if (toolbarDiv && relatedTarget && toolbarDiv.contains(relatedTarget)) return;
+                          setSelectedTextBoxId(null); setSelectedTextRange(null);
+                        }}
+                        tabIndex={0}
+                      >
+                        {tb.text}
+                      </div>
+                    );
+                  })
+                ) : (
+                  // All other slides: default textbox rendering
+                  slide.textboxes.map((tb, i) => {
+                    const style = {
+                      position: "absolute",
+                      left: `${tb.x}px`,
+                      top: `${tb.y}px`,
+                      width: `${tb.width}px`,
+                      height: `${tb.height}px`,
+                      fontSize: `${tb.fontSize}px`,
+                      fontFamily: tb.fontFamily,
+                      color: tb.fill,
+                      fontWeight: tb.fontStyle?.bold ? "bold" : "normal",
+                      fontStyle: tb.fontStyle?.italic ? "italic" : "normal",
+                      textDecoration: tb.fontStyle?.underline ? "underline" : "none",
+                      lineHeight: tb.lineHeight,
+                      textAlign: tb.align,
+                      outline: selectedTextBoxId === tb.id ? "2px solid #1976d2" : "none",
+                      background: selectedTextBoxId === tb.id ? "#f5faff" : "transparent",
+                      padding: "8px",
+                      boxSizing: "border-box",
+                      overflowWrap: "break-word",
+                      wordWrap: "break-word",
+                      overflow: "auto",
+                      resize: "both",
+                      cursor: "move",
+                      zIndex: TEXT_Z_INDEX
+                    };
+                    return (
+                      <div
+                        key={`textbox-${currentIdx}-${tb.id}`}
+                        ref={el => {
+                          if (el) {
+                            const existingRef = contentEditableRefs.current.get(tb.id);
+                            contentEditableRefs.current.set(tb.id, { element: el, timeout: existingRef?.timeout || null });
+                          } else {
+                            const existingRef = contentEditableRefs.current.get(tb.id);
+                            if (existingRef?.timeout) clearTimeout(existingRef.timeout);
+                            contentEditableRefs.current.delete(tb.id);
+                          }
+                        }}
+                        className={"slide-textbox" + (selectedTextBoxId === tb.id ? " selected" : "")}
+                        style={style}
+                        contentEditable
+                        suppressContentEditableWarning
+                        spellCheck={true}
+                        onInput={e => { e.stopPropagation(); handleContentEdit(tb.id, e); }}
+                        onFocus={e => { e.stopPropagation(); setSelectedTextBoxId(tb.id); setSelectedTextRange(null); }}
+                        onKeyDown={e => {
+                          e.stopPropagation();
+                          if (e.key === 'Delete' || e.key === 'Backspace') {
+                            const selection = window.getSelection();
+                            if (selection && selection.rangeCount > 0) {
+                              const range = selection.getRangeAt(0);
+                              if (range.toString().length > 0 || e.target.innerText.length > 0) return;
+                            }
+                            e.preventDefault();
+                          }
+                        }}
+                        onClick={e => { e.stopPropagation(); setSelectedTextBoxId(tb.id); setSelectedTextRange(null); }}
+                        onBlur={e => {
+                          const textboxDiv = e.currentTarget;
+                          const currentWidth = textboxDiv.offsetWidth;
+                          const currentHeight = textboxDiv.offsetHeight;
+                          handleTextResize(tb.id, currentWidth, currentHeight);
+                          const relatedTarget = e.relatedTarget;
+                          const slidePreviewDiv = textboxDiv.closest('.slide-preview');
+                          if (!slidePreviewDiv) { setSelectedTextBoxId(null); setSelectedTextRange(null); return; }
+                          const mainContentArea = slidePreviewDiv.parentElement;
+                          if (!mainContentArea) { setSelectedTextBoxId(null); setSelectedTextRange(null); return; }
+                          const toolbarDiv = mainContentArea.querySelector('.slide-toolbar');
+                          if (toolbarDiv && relatedTarget && toolbarDiv.contains(relatedTarget)) return;
+                          setSelectedTextBoxId(null); setSelectedTextRange(null);
+                        }}
+                        tabIndex={0}
+                      >
+                        {tb.bullets
+                          ? tb.text.split("\n").map((line, i) => <div key={i} style={{ marginBottom: tb.paragraphSpacing }}>{line ? <>&bull; {line}</> : <br />}</div>)
+                          : tb.text.split("\n").map((line, i) => <div key={i} style={{ marginBottom: tb.paragraphSpacing }}>{line || <br />}</div>)}
+                      </div>
+                    );
+                  })
+                )}
+              </>
             )}
-
             {/* Konva image rendering (below text for drag/resize) */}
             {slide.image && (
               <Stage
@@ -1504,72 +1690,24 @@ const SlideEditor = () => {
                   boxSizing: 'border-box',
                   userSelect: 'none',
                   background: 'transparent',
-                  zIndex: typeof image.zIndex === 'number' ? image.zIndex : DEFAULT_IMAGE_Z_INDEX // Apply zIndex from image object
+                  zIndex: typeof image.zIndex === 'number' ? image.zIndex : DEFAULT_IMAGE_Z_INDEX
                 }}
                 onMouseDown={e => {
-                  if (e.target.className && typeof e.target.className === 'string' && e.target.className.includes('resize-handle')) return;
-                  e.preventDefault();
-                  e.stopPropagation();
                   setSelectedImage(idx);
-                  const startX = e.clientX;
-                  const startY = e.clientY;
-                  const initialImageX = image.x;
-                  const initialImageY = image.y;
-                  const onMouseMove = (moveEvent) => {
-                    const dx = moveEvent.clientX - startX;
-                    const dy = moveEvent.clientY - startY;
-                    handleImageDrag(idx, initialImageX + dx, initialImageY + dy);
-                  };
-                  const onMouseUp = () => {
-                    window.removeEventListener('mousemove', onMouseMove);
-                    window.removeEventListener('mouseup', onMouseUp);
-                  };
-                  window.addEventListener('mousemove', onMouseMove);
-                  window.addEventListener('mouseup', onMouseUp);
+                  e.stopPropagation();
                 }}
-                onClick={e => { e.stopPropagation(); setSelectedImage(idx); }}
+                draggable
+                onDragStart={e => {
+                  e.dataTransfer.setData('image-idx', idx);
+                  e.dataTransfer.effectAllowed = 'move';
+                }}
               >
                 <img
                   src={image.src}
-                  alt="Slide illustration"
-                  style={{ width: '100%', height: '100%', pointerEvents: 'none', userSelect: 'none' }}
+                  alt="slide visual"
+                  style={{ width: '100%', height: '100%', pointerEvents: 'none', borderRadius: 8 }}
                   draggable={false}
                 />
-                {selectedImage === idx && (
-                  <div
-                    className="resize-handle"
-                    style={{
-                      position: 'absolute',
-                      right: 0,
-                      bottom: 0,
-                      width: 16,
-                      height: 16,
-                      background: '#1976d2',
-                      borderRadius: '50%',
-                      cursor: 'nwse-resize',
-                      zIndex: 20, 
-                    }}
-                    onMouseDown={e => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      const startX = e.clientX;
-                      const startY = e.clientY;
-                      const initialImageWidth = image.width;
-                      const initialImageHeight = image.height;
-                      const onResizeMouseMove = (moveEvent) => {
-                        const newWidth = Math.max(20, initialImageWidth + (moveEvent.clientX - startX));
-                        const newHeight = Math.max(20, initialImageHeight + (moveEvent.clientY - startY));
-                        handleImageResize(idx, newWidth, newHeight);
-                      };
-                      const onResizeMouseUp = () => {
-                        window.removeEventListener('mousemove', onResizeMouseMove);
-                        window.removeEventListener('mouseup', onResizeMouseUp);
-                      };
-                      window.addEventListener('mousemove', onResizeMouseMove);
-                      window.addEventListener('mouseup', onResizeMouseUp);
-                    }}
-                  />
-                )}
               </div>
             ))}
           </div>
@@ -1590,12 +1728,12 @@ const SlideEditor = () => {
     {/* ...existing code ... */}
     <button onClick={() => navigate("/slides-generating")}>Return to Slides</button>
     <button onClick={handleAddSlide}>Add Slide</button>
-    <button onClick={handleDeleteSlide}>Delete Slide</button>
-    <button onClick={handleSave}>Save</button>
+    <button onClick={handleDeleteSlide} disabled={slides.length === 1}>Delete Slide</button>
     <button onClick={handleExportPowerPoint}>Export to PowerPoint</button>
+    <button onClick={handleSave}>Save</button>
   </div>
 </div>
-);
-}
+  );
+};
 
 export default SlideEditor;

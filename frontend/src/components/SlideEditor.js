@@ -835,11 +835,9 @@ const handleParagraphSpacing = value => {
     } else {
       setSlides(prev => prev.map((s, i) => i === currentIdx ? { ...s, body: { ...s.body, highlight: color } } : s));
     }
-  };
-
-  const handleExportPowerPoint = async () => {
+  };  const handleExportPowerPoint = async () => {
     try {
-      const response = await fetch("/generate-presentation", {
+      const response = await fetch(`${config.API_BASE_URL}/generate-presentation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -849,8 +847,20 @@ const handleParagraphSpacing = value => {
         }),
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to generate the presentation.");
+        let errorMessage = `Failed to generate presentation. Status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (jsonError) {
+          // If response is not valid JSON, try to get text
+          try {
+            const errorText = await response.text();
+            errorMessage = errorText || errorMessage;
+          } catch (textError) {
+            // Keep default error message
+          }
+        }
+        throw new Error(errorMessage);
       }
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
@@ -867,7 +877,8 @@ const handleParagraphSpacing = value => {
   };
   // Save and return
   const handleSave = async () => {
-    const user = JSON.parse(localStorage.getItem('user'));
+    const userStr = localStorage.getItem('user');
+    const user = userStr ? JSON.parse(userStr) : null;
     const userId = user && user.id ? user.id : null;
 
     if (!userId) {
@@ -906,18 +917,26 @@ const handleParagraphSpacing = value => {
       ...presentationData,
       slides: `[${processedSlides.length} slides]`, 
       presentationId: presentationId
-    });
-
-    try {
-      const response = await fetch("/api/save-slides-state", {
+    });    try {
+      const response = await fetch(`${config.API_BASE_URL}/api/save-slides-state`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(presentationData),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        let errorData = null;
+        try {
+          const text = await response.text();
+          if (text) {
+            errorData = JSON.parse(text);
+            errorMessage = errorData.error || errorMessage;
+          }
+        } catch (e) {
+          // Ignore JSON parse errors, keep default errorMessage
+        }
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();

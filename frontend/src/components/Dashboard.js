@@ -7,6 +7,8 @@ import config from "../config";
 const Dashboard = () => {
   const navigate = useNavigate();
   const [presentations, setPresentations] = useState([]);
+  const [showLogoutModal, setShowLogoutModal] = useState(false); // Add this line
+
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
@@ -29,9 +31,19 @@ const Dashboard = () => {
   };
 
   const handleLogoutClick = () => {
+    setShowLogoutModal(true);
+  };
+
+   const confirmLogout = () => {
     localStorage.removeItem("user");
     navigate("/auth");
   };
+
+  const cancelLogout = () => {
+    setShowLogoutModal(false);
+  };
+
+
   const handlePresentationClick = async (presentation) => {
     try {
       const res = await axios.get(`${config.API_BASE_URL}/presentation/${presentation.id}`);
@@ -128,6 +140,24 @@ const Dashboard = () => {
 
       <button className="need-help-btn" onClick={handleHelpClick}>
       </button>
+
+      {/* Add the logout modal before the closing div */}
+      {showLogoutModal && (
+        <div className="logout-modal-overlay">
+          <div className="logout-modal">
+            <h3>Confirm Logout</h3>
+            <p>Are you sure you want to log out?</p>
+            <div className="logout-modal-buttons">
+              <button className="logout-confirm-btn" onClick={confirmLogout}>
+                Proceed
+              </button>
+              <button className="logout-cancel-btn" onClick={cancelLogout}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

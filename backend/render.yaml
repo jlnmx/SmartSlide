@@ -3,7 +3,7 @@ services:
     name: smartslide-backend
     env: python
     buildCommand: pip install -r backend/requirements.txt
-    startCommand: python backend/run.py
+    startCommand: python run.py
     envVars:
       - key: GROQ_API_KEY
         sync: false

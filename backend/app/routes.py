@@ -251,6 +251,11 @@ main = Blueprint("main", __name__)
 #     response.headers.add('Access-Control-Allow-Credentials', 'true')
 #     return response
 
+# --- SIMPLE HEALTH CHECK FOR CORS TESTING ---
+@main.route('/health', methods=['GET', 'OPTIONS'])
+def health_check():
+    return jsonify({'status': 'ok', 'message': 'Backend is running'}), 200
+
 # --- FIREBASE USER REGISTRATION ---
 @main.route('/register', methods=['POST'])
 def register():
@@ -1220,7 +1225,6 @@ def generate_presentation():
                     y_px = float(el_data.get("y", 0))
                     width_px = float(el_data.get("width", 100))
                     height_px = float(el_data.get("height", 50))
-                    
                     left = Inches(x_px * px_to_in_x)
                     top = Inches(y_px * px_to_in_y)
                     width = Inches(width_px * px_to_in_x)

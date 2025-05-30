@@ -6,11 +6,18 @@ from app.models import db
 
 def create_app():
     app = Flask(__name__)
-    # Enable CORS for both local dev and Vercel frontend
-    CORS(app, origins=[
-        "http://localhost:3000",
-        "https://smartslide.vercel.app"
-    ], allow_headers=["Content-Type", "Authorization"], supports_credentials=True)
+    # Enable CORS for both local dev and Vercel frontend with more comprehensive settings
+    # Temporarily allowing all origins to debug CORS issue
+    CORS(app, 
+         resources={
+             r"/*": {
+                 "origins": "*",
+                 "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+                 "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
+                 "supports_credentials": False  # Disabled for wildcard origin
+             }
+         }
+    )
     app.config.from_object(Config)
     db.init_app(app)
 

@@ -4,7 +4,6 @@ import Navbar from "./Navbar"; // Import the Navbar component
 import "../styles/AccountProfile.css";
 import config from "../../config";
 
-
 const AccountProfile = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

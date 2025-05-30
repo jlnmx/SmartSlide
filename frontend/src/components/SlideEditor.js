@@ -159,7 +159,6 @@ const defaultTextBox = (type = "body") => {
   }
 };
 
-// --- Template-specific background and layout helpers ---
 
 // --- BUSINESS TEMPLATE ---
 function renderBusinessBackground({ isTitle = false } = {}) {
@@ -185,8 +184,6 @@ function renderBusinessBackground({ isTitle = false } = {}) {
 }
 
 function renderBusinessContentBox(children, { isTitle = false } = {}) {
-  // This function now simply passes through the children (HTML textboxes).
-  // The visual "box" is drawn by renderBusinessBackground.
   return <>{children}</>;
 }
 
@@ -214,7 +211,6 @@ function renderCreativeBackground({ isTitle = false } = {}) {
 }
 
 function renderCreativeContentBox(children, { isTitle = false } = {}) {
-  // Passes through children. Visuals are part of renderCreativeBackground.
   return <>{children}</>;
 }
 
@@ -242,7 +238,6 @@ function renderEducationBackground({ isTitle = false } = {}) {
 }
 
 function renderEducationContentBox(children, { isTitle = false } = {}) {
-  // Passes through children. Visuals are part of renderEducationBackground.
   return <>{children}</>;
 }
 
@@ -274,11 +269,9 @@ function renderAbstractBackground({ isTitle = false } = {}) {
 }
 
 function renderAbstractContentBox(children, { isTitleSlide = false }) {
-  // No extra visuals, just return children
   return <>{children}</>;
 }
 
-// --- Template-specific default slide layouts ---
 const defaultSlide = (templateId) => {
   switch (templateId) {
     case "tailwind-business":
@@ -333,18 +326,14 @@ function mapGeneratedSlideToEditorFormat(s) {
   };
 }
 
-// --- Helper function to ensure slides are in editor format ---
 const mapIfNeeded = (slideArray) => {
   if (!slideArray || !Array.isArray(slideArray) || slideArray.length === 0) {
-    return [defaultSlide()]; // Return a default slide if input is invalid or empty
+    return [defaultSlide()]; 
   }
-  // Check if the first slide is already in editor format
   const firstSlide = slideArray[0];
   if (firstSlide && typeof firstSlide === 'object' && Array.isArray(firstSlide.textboxes)) {
-    // Already in editor format (or compatible)
     return slideArray;
   }
-  // Needs mapping
   return slideArray.map(mapGeneratedSlideToEditorFormat);
 };
 
@@ -373,7 +362,6 @@ const SlideEditor = () => {
   const navigate = useNavigate();
   const { slides: slidesFromNav, template, presentationType, presentationId: presentationIdFromNav } = location.state || {};
 
-  // --- Load the selected template ---
   const [currentTemplate, setCurrentTemplate] = useState(null);
   useEffect(() => {
     let templateObj = null;
@@ -385,7 +373,6 @@ const SlideEditor = () => {
     setCurrentTemplate(templateObj);
   }, [template]);
 
-  // --- Load slides: 1. LocalStorage, 2. Nav state, 3. Default ---
   const [slides, setSlides] = useState([]);  const [currentIdx, setCurrentIdx] = useState(0);
   const [selectedTextBoxId, setSelectedTextBoxId] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -396,7 +383,6 @@ const SlideEditor = () => {
   const contentEditableRefs = useRef(new Map()); // Track contentEditable DOM elements  
   const [presentationId, setPresentationId] = useState(presentationIdFromNav || null); // Added to store presentation ID
 
-  // Debug log for presentationId
   useEffect(() => {
     console.log("SlideEditor presentationId:", presentationId, "from nav:", presentationIdFromNav);
   }, [presentationId, presentationIdFromNav]);
@@ -488,7 +474,6 @@ const SlideEditor = () => {
     }
   }, [slides, selectionRestore]);
 
-  // Define zIndex constants for clarity
   const TEXT_Z_INDEX = 100;
   const MIN_IMAGE_Z_INDEX = 0;
   const DEFAULT_IMAGE_Z_INDEX = 101; // Should match what handleImageUpload sets// 3. Handle contenteditable changes for any textbox
@@ -496,7 +481,6 @@ const SlideEditor = () => {
     e.stopPropagation();
     const newText = e.target.innerText;
 
-    // --- Cursor Fix: Save selection before state update ---
     let selection = null;
     if (document.activeElement === e.target) {
       const sel = window.getSelection();
@@ -505,7 +489,6 @@ const SlideEditor = () => {
       }
     }
 
-    // Debounce the state update to prevent interference with typing
     setSlides(prev => prev.map((s, i) =>
       i === currentIdx ? {
         ...s,
@@ -620,25 +603,25 @@ const SlideEditor = () => {
           break;
         case 'forward':
           if (currentZ < TEXT_Z_INDEX) {
-            newZ = TEXT_Z_INDEX + 1; // Bring in front of text
+            newZ = TEXT_Z_INDEX + 1; 
           } else {
-            newZ = currentZ + 1; // Increment zIndex
+            newZ = currentZ + 1; 
           }
           break;
         case 'backward':
           if (currentZ > TEXT_Z_INDEX) {
             newZ = currentZ - 1;
-            if (newZ === TEXT_Z_INDEX) { // If decrementing lands on text\'s zIndex
-              newZ = TEXT_Z_INDEX - 1; // Send behind text
+            if (newZ === TEXT_Z_INDEX) { 
+              newZ = TEXT_Z_INDEX - 1;
             }
-          } else { // currentZ <= TEXT_Z_INDEX
-            newZ = currentZ - 1; // Decrement further
+          } else { 
+            newZ = currentZ - 1;
           }
-          newZ = Math.max(newZ, MIN_IMAGE_Z_INDEX); // Ensure not less than MIN_IMAGE_Z_INDEX
+          newZ = Math.max(newZ, MIN_IMAGE_Z_INDEX); 
           break;
         default:
           console.warn(`Unknown image position command: ${effectiveCommand}`);
-          return prevSlides; // No change
+          return prevSlides; 
       }
 
       const updatedImage = { ...imageToUpdate, zIndex: newZ };
@@ -654,7 +637,6 @@ const SlideEditor = () => {
     });
   };
 
-  // Toolbar actions
   const handleToolbarChange = (prop, value) => {
     if (selectedTextBoxId) {
       setSlides(prev => prev.map((s, i) => {
@@ -756,12 +738,12 @@ const SlideEditor = () => {
       } : s
     ));
     setSelectedTextBoxId(null);
-  };  // 8. Keyboard support for deleting selected textbox
+  }; 
   useEffect(() => {
     const handleKeyDown = e => {
-      // Don't delete textbox if user is typing in a contentEditable element
+    
       if (e.target && e.target.contentEditable === 'true') {
-        return; // Let the contentEditable handle its own keystrokes
+        return; 
       }
       
       if ((e.key === "Backspace" || e.key === "Delete") && selectedTextBoxId) {
@@ -773,7 +755,6 @@ const SlideEditor = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedTextBoxId]);
 
-  // 9. Handle formatting changes for any textbox
   const handleTextBoxFormat = (id, prop, value) => {
     setSlides(prev => prev.map((s, i) =>
       i === currentIdx ? {
@@ -783,7 +764,6 @@ const SlideEditor = () => {
     ));
   };
 
-  // 10. Handle fontStyle toggles (bold, italic, underline)
   const handleTextBoxStyleToggle = (id, styleProp) => {
     setSlides(prev => prev.map((s, i) =>
       i === currentIdx ? {
@@ -796,7 +776,6 @@ const SlideEditor = () => {
     ));
   };
 
-  // Slide navigation
   const handleAddSlide = () => {
     setSlides(prev => {
       const updated = [...prev];
@@ -822,7 +801,6 @@ const SlideEditor = () => {
       return updated;
     });
   };
-  // Font and paragraph controls
   const handleFontChange = (key, prop, value) => {
     setSlides(prev => {
       const updated = prev.map((s, i) =>
@@ -831,7 +809,6 @@ const SlideEditor = () => {
       return updated;
     });
   };
-  // Toolbar handlers
   const handleToolbarToggleSection = (section, prop) => {
     if (section === "title") {
       setSlides(prev => prev.map((s, i) => i === currentIdx ? { ...s, title: { ...s.title, fontStyle: { ...s.title.fontStyle, [prop]: !s.title.fontStyle?.[prop] } } } : s));
@@ -893,17 +870,12 @@ const SlideEditor = () => {
       return;
     }
 
-    // Ensure consistency between legacy image and images array before saving
     const processedSlides = slides.map(slide => {
       const processedSlide = { ...slide };
       
-      // If legacy image is null but images array exists and has items, legacy was intentionally removed
       if (processedSlide.image === null && processedSlide.images && processedSlide.images.length > 0) {
-        // Keep both as they are - legacy is intentionally null
       } 
-      // If there's no images array but legacy image exists, it's legacy-only mode
       else if ((!processedSlide.images || processedSlide.images.length === 0) && processedSlide.image) {
-        // Create images array from legacy image
         processedSlide.images = [{
           src: processedSlide.image.src,
           x: processedSlide.image.x,
@@ -926,7 +898,7 @@ const SlideEditor = () => {
 
     console.log("Saving presentation with data:", {
       ...presentationData,
-      slides: `[${processedSlides.length} slides]`, // Don't log full slides, just count
+      slides: `[${processedSlides.length} slides]`, 
       presentationId: presentationId
     });
 
@@ -967,7 +939,7 @@ const SlideEditor = () => {
             width: 200,
             height: 150,
             id: uuidv4(),
-            zIndex: 101 // Default zIndex for new images, in front of textboxes (at 100)
+            zIndex: 101 
           });
         };
         reader.readAsDataURL(file);

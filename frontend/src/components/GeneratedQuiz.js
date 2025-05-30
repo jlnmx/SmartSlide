@@ -9,7 +9,6 @@ const GeneratedQuiz = () => {
   const navigate = useNavigate();
   const quiz = location.state?.quiz;
 
-  // Export quiz as Word file
   const handleExportWord = async () => {
     try {
       const response = await fetch(`${config.API_BASE_URL}/export-quiz-word`, {

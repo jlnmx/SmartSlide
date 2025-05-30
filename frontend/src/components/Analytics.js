@@ -3,7 +3,7 @@ import Navbar from "./Navbar";
 import { Bar, Pie } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend } from "chart.js";
 import "../styles/Analytics.css";
-import config from "../config";
+import config from "../../config";
 
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);

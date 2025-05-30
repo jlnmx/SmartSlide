@@ -4,7 +4,7 @@ import { Slide } from "react-slideshow-image"; // Import the Slide component
 import "react-slideshow-image/dist/styles.css"; // Import default styles
 import axios from "axios";
 import "../styles/Auth.css";
-import config from "../config";
+import config from "../../config";
 
 
 const slideImages = [

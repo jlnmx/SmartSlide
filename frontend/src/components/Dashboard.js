@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import "../styles/Dashboard.css";
-import config from "../config";
+import config from "../../config";
 
 const Dashboard = () => {
   const navigate = useNavigate();

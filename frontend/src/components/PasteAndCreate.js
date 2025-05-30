@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
 import "../styles/PasteAndCreate.css";
-import config from "../config";
+import config from "../../config";
 
 
 const templates = [    {

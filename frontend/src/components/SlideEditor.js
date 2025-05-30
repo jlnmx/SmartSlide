@@ -1370,9 +1370,16 @@ const handleParagraphSpacing = value => {
                           if (toolbarDiv && relatedTarget && toolbarDiv.contains(relatedTarget)) return;
                           setSelectedTextBoxId(null); setSelectedTextRange(null);
                         }}
-                        tabIndex={0}
-                      >
-                        <div dangerouslySetInnerHTML={{ __html: tb.text }} />
+                        tabIndex={0}                      >
+                        {tb.paragraphSpacing && tb.paragraphSpacing > 0 ? (
+                          <div 
+                            dangerouslySetInnerHTML={{ 
+                              __html: tb.text.split('\n').map(line => `<p>${line || '<br>'}</p>`).join('') 
+                            }} 
+                          />
+                        ) : (
+                          <div dangerouslySetInnerHTML={{ __html: tb.text }} />
+                        )}
 
                       </div>
                     );                  })

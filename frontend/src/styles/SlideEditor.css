@@ -226,6 +226,16 @@
 }
 
 /* Handle line breaks with spacing */
+.slide-textbox.paragraph-spacing-0 { line-height: 1.2 !important; }
+.slide-textbox.paragraph-spacing-4 { line-height: 1.4 !important; }
+.slide-textbox.paragraph-spacing-8 { line-height: 1.6 !important; }
+.slide-textbox.paragraph-spacing-12 { line-height: 1.8 !important; }
+.slide-textbox.paragraph-spacing-16 { line-height: 2.0 !important; }
+.slide-textbox.paragraph-spacing-20 { line-height: 2.2 !important; }
+.slide-textbox.paragraph-spacing-24 { line-height: 2.4 !important; }
+.slide-textbox.paragraph-spacing-28 { line-height: 2.6 !important; }
+.slide-textbox.paragraph-spacing-32 { line-height: 2.8 !important; }
+
 .slide-textbox.paragraph-spacing-4 br { line-height: 1.4; }
 .slide-textbox.paragraph-spacing-8 br { line-height: 1.6; }
 .slide-textbox.paragraph-spacing-12 br { line-height: 1.8; }

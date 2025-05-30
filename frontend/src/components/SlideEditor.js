@@ -703,23 +703,27 @@ const SlideEditor = () => {
       } : s
     ));
   };
-  // Paragraph spacing
-  const handleParagraphSpacing = value => {
-    if (!selectedTextBoxId) return;
-    setSlides(prev =>
-      prev.map((s, i) =>
-        i === currentIdx
-          ? {
-              ...s,
-              textboxes: s.textboxes.map(tb =>
-                tb.id === selectedTextBoxId ? { ...tb, paragraphSpacing: value } : tb
-              ),
-            }
-          : s
-      )
-    );
-  };
-  // 6. Add textbox (title/body)
+  
+const handleParagraphSpacing = value => {
+  if (!selectedTextBoxId) return;
+  
+  setSlides(prev =>
+    prev.map((s, i) =>
+      i === currentIdx
+        ? {
+            ...s,
+            textboxes: s.textboxes.map(tb =>
+              tb.id === selectedTextBoxId ? { ...tb, paragraphSpacing: value } : tb
+            ),
+          }
+        : s
+    )
+  );
+  
+  setTimeout(() => {
+    setSelectedTextBoxId(selectedTextBoxId);
+  }, 10);
+};
   const handleAddTextBox = type => {
     setSlides(prev => prev.map((s, i) =>
       i === currentIdx ? {
@@ -1263,39 +1267,34 @@ const SlideEditor = () => {
                 {/* Render textboxes using standard positioning for all slides */}
                 {slide.textboxes.map((tb, i) => {
                   const style = {
-                      position: "absolute",
-                      left: `${tb.x}px`,
-                      top: `${tb.y}px`,
-                      width: `${tb.width}px`,
-                      height: `${tb.height}px`,
-                      fontSize: `${tb.fontSize}px`,
-                      fontFamily: tb.fontFamily,
-                      color: tb.fill,
-                      fontWeight: tb.fontStyle?.bold ? "bold" : "normal",
-                      fontStyle: tb.fontStyle?.italic ? "italic" : "normal",
-                      textDecoration: tb.fontStyle?.underline ? "underline" : "none",                      lineHeight: tb.lineHeight || 1.2,
-                      textAlign: tb.align,
-                      outline: selectedTextBoxId === tb.id ? "2px solid #1976d2" : "none",
-                      background: "transparent",
-                      padding: "8px",
-                      '--paragraph-spacing': `${tb.paragraphSpacing || 0}px`,
-                      boxSizing: "border-box",
-                      overflowWrap: "break-word",
-                      wordWrap: "break-word",
-                      overflow: "auto",
-                      resize: "both",
-                      cursor: "grab",
-                      zIndex: TEXT_Z_INDEX,
-                      userSelect: "text",
-                      transition: "all 0.2s ease",
-                      '& p': {
-                        marginBottom: `${tb.paragraphSpacing || 0}px`,
-                        marginTop: 0
-                      },
-                      '& div': {
-                        marginBottom: `${tb.paragraphSpacing || 0}px`
-                      }
-                    };
+                    position: "absolute",
+                    left: `${tb.x}px`,
+                    top: `${tb.y}px`,
+                    width: `${tb.width}px`,
+                    height: `${tb.height}px`,
+                    fontSize: `${tb.fontSize}px`,
+                    fontFamily: tb.fontFamily,
+                    color: tb.fill,
+                    fontWeight: tb.fontStyle?.bold ? "bold" : "normal",
+                    fontStyle: tb.fontStyle?.italic ? "italic" : "normal",
+                    textDecoration: tb.fontStyle?.underline ? "underline" : "none",
+                    lineHeight: tb.lineHeight || 1.2,
+                    textAlign: tb.align,
+                    outline: selectedTextBoxId === tb.id ? "2px solid #1976d2" : "none",
+                    background: "transparent",
+                    padding: "8px",
+                    boxSizing: "border-box",
+                    overflowWrap: "break-word",
+                    wordWrap: "break-word",
+                    overflow: "auto",
+                    resize: "both",
+                    cursor: "grab",
+                    zIndex: TEXT_Z_INDEX,
+                    userSelect: "text",
+                    transition: "all 0.2s ease"
+                    // Remove the paragraph spacing from inline styles
+                  };
+
                     if (tb.bullets) {
                       // Add bullet styles
                     }
@@ -1317,7 +1316,9 @@ const SlideEditor = () => {
                         contentEditable
                         suppressContentEditableWarning
                         spellCheck={true}
-                        draggable={true}                        onDragStart={e => {
+                        draggable={true} 
+                        data-tbid={tb.id}
+                       onDragStart={e => {
                           e.stopPropagation();
                           const rect = e.currentTarget.getBoundingClientRect();
                           const offsetX = e.clientX - rect.left;
@@ -1371,7 +1372,8 @@ const SlideEditor = () => {
                         }}
                         tabIndex={0}
                       >
-                        {tb.text}
+                        <div dangerouslySetInnerHTML={{ __html: tb.text }} />
+
                       </div>
                     );                  })
                 }

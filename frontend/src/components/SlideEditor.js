@@ -705,17 +705,19 @@ const SlideEditor = () => {
   };
   // Paragraph spacing
   const handleParagraphSpacing = value => {
-    if (!selectedTextBox) return;
-    setSlides(prev => prev.map((s, i) =>
-      i === currentIdx
-        ? {
-            ...s,
-            textboxes: s.textboxes.map(tb =>
-              tb.id === selectedTextBox.id ? { ...tb, paragraphSpacing: value } : tb
-            ),
-          }
-        : s
-    ));
+    if (!selectedTextBoxId) return;
+    setSlides(prev =>
+      prev.map((s, i) =>
+        i === currentIdx
+          ? {
+              ...s,
+              textboxes: s.textboxes.map(tb =>
+                tb.id === selectedTextBoxId ? { ...tb, paragraphSpacing: value } : tb
+              ),
+            }
+          : s
+      )
+    );
   };
   // 6. Add textbox (title/body)
   const handleAddTextBox = type => {

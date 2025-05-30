@@ -6,7 +6,11 @@ from app.models import db
 
 def create_app():
     app = Flask(__name__)
-    CORS(app, origins=["http://localhost:3000"], supports_credentials=True)
+    # Enable CORS for both local dev and Vercel frontend
+    CORS(app, origins=[
+        "http://localhost:3000",
+        "https://smartslide.vercel.app"
+    ], allow_headers=["Content-Type", "Authorization"], supports_credentials=True)
     app.config.from_object(Config)
     db.init_app(app)
 

@@ -233,16 +233,15 @@ if not GROQ_API_KEY:
     raise RuntimeError("GROQ_API_KEY environment variable is not set. Please set it in your environment or .env file.")
 
 main = Blueprint("main", __name__)
-# CORS(main, resources={r"/*": {"origins": "http://localhost:3000"}}) # Commented out old line
-CORS(main, 
-    resources={r"/*": {"origins": [
-        "http://localhost:3000",
-        "https://smartslide.vercel.app"
-    ]}},
-    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization"],
-    supports_credentials=True
-)
+# CORS(main, 
+#     resources={r"/*": {"origins": [
+#         "http://localhost:3000",
+#         "https://smartslide.vercel.app"
+#     ]}},
+#     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+#     allow_headers=["Content-Type", "Authorization"],
+#     supports_credentials=True
+# )
 
 # @main.after_request
 # def after_request(response):

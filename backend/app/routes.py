@@ -719,6 +719,7 @@ def save_slides_state():
 
         slides_json_str = json.dumps(slides)
         now = datetime.utcnow()        
+        
         if presentation_id:
             # Update existing presentation
             presentation_ref = firestore_db.collection('presentations').document(str(presentation_id))
@@ -776,7 +777,6 @@ def save_slides_state():
                 'updated_at': now
             })
             return jsonify({"message": "Presentation created successfully", "presentationId": doc.id}), 201
-
     except Exception as e:
         current_app.logger.error(f"Error in /api/save-slides-state: {e}", exc_info=True)
         return jsonify({"error": "An error occurred while saving the presentation."}), 500
@@ -1156,26 +1156,10 @@ def generate_presentation():
         if slide_template_id and isinstance(slide_template_id, str):
             # Create a simple template definition object
             template_def = {"id": slide_template_id}
-            
-            # Determine slide type based on slide position and template type
-            slide_type = "default"
-            
-            # For abstract gradient template: Slide 1 = title, Slides 2+ = content
-            if slide_template_id == "tailwind-abstract-gradient":
-                slide_type = "title" if slide_index == 0 else "content"
-                current_app.logger.debug(f"Tailwind template - Slide {slide_index} set to type: {slide_type}")
-            else:
-                # For other templates, use content-based detection
-                textboxes = slide_item_data.get("textboxes", [])
-                title_boxes = [tb for tb in textboxes if tb.get("type") == "title" or "title" in tb.get("text", "").lower()]
-                body_boxes = [tb for tb in textboxes if tb.get("type") == "body" or (tb.get("type") != "title" and len(tb.get("text", "")) > 50)]
-                
-                if title_boxes and len(body_boxes) <= 1:
-                    slide_type = "title"
-                elif body_boxes:
-                    slide_type = "content"
-                
-                current_app.logger.debug(f"Content-based detection - Slide {slide_index} set to type: {slide_type}")
+              # Determine slide type based on slide position
+            # Slide 1 = title, Slides 2+ = content for ALL templates
+            slide_type = "title" if slide_index == 0 else "content"
+            current_app.logger.debug(f"Template '{slide_template_id}' - Slide {slide_index} set to type: {slide_type}")
                 
             template_applied = draw_template_slide_background(
                 ppt_slide, template_def, slide_type, 

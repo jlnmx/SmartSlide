@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom"; // Import useNavigate
 import Navbar from "./Navbar"; // Import the Navbar component
 import "../styles/AccountProfile.css";
+import config from "../config";
+
 
 const AccountProfile = () => {
   const [email, setEmail] = useState("");
@@ -23,7 +25,7 @@ const AccountProfile = () => {
       return;
     }
     // setLoading(true); // Set loading true before fetch
-    fetch(`http://localhost:5000/user/${user.id}`)
+    fetch(`${config.API_BASE_URL}/user/${user.id}`)
       .then((res) => {
         if (!res.ok) {
           // If response is not OK, try to parse error message from backend if available
@@ -64,7 +66,7 @@ const AccountProfile = () => {
     // Only send fields that changed
     const payload = { email };
     if (password) payload.password = password;
-    fetch(`http://localhost:5000/user/${user.id}`, {
+    fetch(`${config.API_BASE_URL}/user/${user.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

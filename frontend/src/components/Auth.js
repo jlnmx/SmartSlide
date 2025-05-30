@@ -4,6 +4,8 @@ import { Slide } from "react-slideshow-image"; // Import the Slide component
 import "react-slideshow-image/dist/styles.css"; // Import default styles
 import axios from "axios";
 import "../styles/Auth.css";
+import config from "../config";
+
 
 const slideImages = [
   "/images/preview1.png",
@@ -35,14 +37,14 @@ const AuthPage = ({ isLogin }) => {
     }
     try {
       if (isLogin) {
-        const res = await axios.post("http://localhost:5000/login", { email, password });
+        const res = await axios.post(`${config.API_BASE_URL}/login`, { email, password });
         localStorage.setItem("user", JSON.stringify(res.data.user));
         navigate("/dashboard");
       } else {
-        await axios.post("http://localhost:5000/register", { email, password });
+        await axios.post(`${config.API_BASE_URL}/register`, { email, password });
         alert("Registration successful!");
         // Directly log in after registration
-        const res = await axios.post("http://localhost:5000/login", { email, password });
+        const res = await axios.post(`${config.API_BASE_URL}/login`, { email, password });
         localStorage.setItem("user", JSON.stringify(res.data.user));
         navigate("/dashboard");
       }

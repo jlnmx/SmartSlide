@@ -1,6 +1,8 @@
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
+import config from "../config";
+
 
 const GeneratedQuiz = () => {
   const location = useLocation();
@@ -10,7 +12,7 @@ const GeneratedQuiz = () => {
   // Export quiz as Word file
   const handleExportWord = async () => {
     try {
-      const response = await fetch("http://localhost:5000/export-quiz-word", {
+      const response = await fetch(`${config.API_BASE_URL}/export-quiz-word`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ quiz }),
@@ -41,7 +43,7 @@ const GeneratedQuiz = () => {
     let name = prompt("Enter a name for this quiz:", "My Quiz");
     if (!name) return;
     try {
-      await axios.post("http://localhost:5000/save-quiz", {
+      await axios.post(`${config.API_BASE_URL}/save-quiz`, {
         user_id: user.id,
         name,
         content: JSON.stringify(quiz),

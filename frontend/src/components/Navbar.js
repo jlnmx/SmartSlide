@@ -6,7 +6,6 @@ const Navbar = () => {
   return (
     <div className="navbar">
       <div className="navbar-logo">
-        {/* Make the logo clickable and navigate to the App.js page */}
         <Link to="/dashboard">
           <img src="/SS_Logo_7.png" alt="SmartSlide Logo" className="logo" />
         </Link>

@@ -6,8 +6,8 @@ import { saveAs } from "file-saver";
 import { FaBold, FaItalic, FaUnderline, FaAlignLeft, FaAlignCenter, FaAlignRight, FaAlignJustify, FaHighlighter } from "react-icons/fa";
 import { v4 as uuidv4 } from "uuid";
 import "../styles/SlideEditor.css";
+import config from "../config";
 
-// Template configurations using only static background images
 const templates = [
     {
         id: "tailwind-abstract-gradient",
@@ -854,10 +854,9 @@ const SlideEditor = () => {
     }
   };
 
-  // Export to PowerPoint (calls backend)
   const handleExportPowerPoint = async () => {
     try {
-      const response = await fetch("http://localhost:5000/generate-presentation", {
+      const response = await fetch("/generate-presentation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -946,17 +945,15 @@ const SlideEditor = () => {
       const result = await response.json();
       console.log("Presentation saved:", result);
       if (result.presentationId) {
-        setPresentationId(result.presentationId); // Update presentationId if it's new
+        setPresentationId(result.presentationId); 
       }
       alert("Presentation saved successfully!");
-      // Optionally navigate or give other feedback
     } catch (error) {
       console.error("Failed to save presentation to backend:", error);
       alert(`Failed to save presentation: ${error.message}`);
     }
   };
 
-  // Replace the image upload handler to support multiple images and fix drag/disappear bug
   const handleImageUpload = e => {
     const files = Array.from(e.target.files);
     Promise.all(files.map(file => {
@@ -984,7 +981,6 @@ const SlideEditor = () => {
       ));
     });
   };
-  // Remove image handler
   const handleRemoveImage = idx => {
     setSlides(prev => prev.map((s, i) =>
       i === currentIdx ? {
@@ -995,19 +991,16 @@ const SlideEditor = () => {
     setSelectedImage(null);
   };
   
-  // Remove legacy image and ensure consistency
   const handleRemoveLegacyImage = () => {
     setSlides(prev => prev.map((s, i) => 
       i === currentIdx ? { 
         ...s, 
         image: null,
-        // If this was the only image representation, also clear the images array
         images: (s.images && s.images.length > 0) ? s.images : []
       } : s
     ));
   };
   
-  // Remove all images from a slide
   const handleRemoveAllImages = () => {
     setSlides(prev => prev.map((s, i) => 
       i === currentIdx ? { 
@@ -1019,7 +1012,6 @@ const SlideEditor = () => {
     setSelectedImage(null);
   };
 
-  // Helper: get style for a textbox type from currentTemplate
   const getTextBoxStyle = (type) => {
     if (!currentTemplate || !currentTemplate.styles) return {};
     if (type === "title" && currentTemplate.styles.title) return currentTemplate.styles.title;
@@ -1027,32 +1019,25 @@ const SlideEditor = () => {
     return {};
   };
 
-  // Helper: get slide background style
   const getSlideBackground = () => {
     if (!currentTemplate || !currentTemplate.styles || !currentTemplate.styles.slide) return { fill: "#fff" };
-    // For abstract gradient, use a linear gradient background (CSS for preview, Konva for export)
     if (currentTemplate.id === "tailwind-abstract-gradient") {
       return {
         background: "linear-gradient(120deg, #d1fae5 0%, #bfdbfe 50%, #ddd6fe 100%)", // Approximation
-        // You can add more logic here for geometric shapes if you want to render them in the preview
       };
     }
-    // Fallback to solid color
     if (currentTemplate.styles.slide.backgroundColor && currentTemplate.styles.slide.backgroundColor.startsWith("#")) {
       return { background: currentTemplate.styles.slide.backgroundColor };
     }
-    // Tailwind class fallback (not used in inline style)
     return { background: "#fff" };
   };
 
-  // --- Template-specific background rendering ---
   function renderTemplateBackground() {
     if (!currentTemplate) return null;
     const templateId = currentTemplate.id;
     const isTitleSlide = currentIdx === 0;
 
     if (templateId === "abstract") {
-      // Use static image backgrounds for abstract
       return renderAbstractBackground({ isTitle: isTitleSlide });
     }
     if (templateId === "tailwind-abstract-gradient") {
@@ -1067,13 +1052,11 @@ const SlideEditor = () => {
     }
     return null;
   }
-  // --- Template-specific content box rendering ---
   function renderTemplateContentBox(children) {
     if (!currentTemplate) return children;
     const templateId = currentTemplate.id;
     const isTitleSlide = currentIdx === 0;
 
-    // No special split layout for title slides - let template background images show through
     if (templateId === 'tailwind-abstract-gradient') {
       return renderAbstractContentBox(children, { isTitleSlide: isTitleSlide });
     } else if (templateId === 'tailwind-creative') {
@@ -1085,13 +1068,10 @@ const SlideEditor = () => {
     }
     return children;
   }
-  // --- Main slide preview rendering ---
   return (
     <div className="slide-editor-root">
-      {/* Canva-style slide selector */}
       <div className="slide-selector-bar">
         {slides.map((s, idx) => {
-          // Find title/body textboxes for thumbnail
           const titleBox = s.textboxes?.find(tb => tb.type === "title");
           const bodyBox = s.textboxes?.find(tb => tb.type === "body");
           return (
@@ -1123,9 +1103,7 @@ const SlideEditor = () => {
         <button className="slide-thumb-add" onClick={handleAddSlide}>+</button>
       </div>
 
-      {/* Main editor area: sidebar | main (toolbar + slide) */}
       <div className="slide-editor-main">
-        {/* --- Sidebar: only slide actions --- */}
         <div className="slide-editor-sidebar">
           <button onClick={() => handleAddTextBox('title')}>Add Title</button>
           <button onClick={() => handleAddTextBox('body')}>Add Body</button>
@@ -1143,16 +1121,14 @@ const SlideEditor = () => {
           </div>
         </div>
 
-        {/* --- Main area: toolbar above slide --- */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-          {/* --- Formatting Toolbar (horizontal, above slide) --- */}
           <div className="slide-toolbar">
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <span style={{ marginRight: '8px', fontSize: '14px' }}>Font:</span>
               <select
                 value={selectedTextBox?.fontFamily || 'Arial'}
                 onChange={e => handleToolbarChange('fontFamily', e.target.value)}
-                disabled={!selectedTextBox} // Enable when a textbox is selected
+                disabled={!selectedTextBox} 
                 style={{ marginRight: '12px', padding: '4px', fontSize: '14px' }}
               >
                 {FONT_FAMILIES.map(f => <option key={f} value={f}>{f}</option>)}
@@ -1161,7 +1137,7 @@ const SlideEditor = () => {
               <select
                 value={selectedTextBox?.fontSize || 24}
                 onChange={e => handleToolbarChange('fontSize', Number(e.target.value))}
-                disabled={!selectedTextBox} // Enable when a textbox is selected
+                disabled={!selectedTextBox} 
                 style={{ marginRight: '12px', padding: '4px', fontSize: '14px' }}
               >
                 {FONT_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
@@ -1170,7 +1146,7 @@ const SlideEditor = () => {
             <button
               style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }}
               onClick={() => handleToolbarToggle('bold')}
-              disabled={!selectedTextBox} // Enable when a textbox is selected
+              disabled={!selectedTextBox} 
               className={selectedTextBox?.fontStyle?.bold ? 'active' : ''}
             >
               <FaBold />
@@ -1178,7 +1154,7 @@ const SlideEditor = () => {
             <button
               style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }}
               onClick={() => handleToolbarToggle('italic')}
-              disabled={!selectedTextBox} // Enable when a textbox is selected
+              disabled={!selectedTextBox} 
               className={selectedTextBox?.fontStyle?.italic ? 'active' : ''}
             >
               <FaItalic />
@@ -1186,7 +1162,7 @@ const SlideEditor = () => {
             <button
               style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }}
               onClick={() => handleToolbarToggle('underline')}
-              disabled={!selectedTextBox} // Enable when a textbox is selected
+              disabled={!selectedTextBox} 
               className={selectedTextBox?.fontStyle?.underline ? 'active' : ''}
             >
               <FaUnderline />
@@ -1194,7 +1170,7 @@ const SlideEditor = () => {
             <button
               style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }}
               onClick={() => handleToolbarChange('align', 'left')}
-              disabled={!selectedTextBox} // Enable when a textbox is selected
+              disabled={!selectedTextBox}
               className={selectedTextBox?.align === 'left' ? 'active' : ''}
             >
               <FaAlignLeft />
@@ -1202,7 +1178,7 @@ const SlideEditor = () => {
             <button
               style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }}
               onClick={() => handleToolbarChange('align', 'center')}
-              disabled={!selectedTextBox} // Enable when a textbox is selected
+              disabled={!selectedTextBox} 
               className={selectedTextBox?.align === 'center' ? 'active' : ''}
             >
               <FaAlignCenter />
@@ -1210,7 +1186,7 @@ const SlideEditor = () => {
             <button
               style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }}
               onClick={() => handleToolbarChange('align', 'right')}
-              disabled={!selectedTextBox} // Enable when a textbox is selected
+              disabled={!selectedTextBox} 
               className={selectedTextBox?.align === 'right' ? 'active' : ''}
             >
               <FaAlignRight />
@@ -1218,7 +1194,7 @@ const SlideEditor = () => {
             <button
               style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }}
               onClick={() => handleToolbarChange('align', 'justify')}
-              disabled={!selectedTextBox} // Enable when a textbox is selected
+              disabled={!selectedTextBox} 
               className={selectedTextBox?.align === 'justify' ? 'active' : ''}
             >
               <FaAlignJustify />
@@ -1226,7 +1202,7 @@ const SlideEditor = () => {
             <button
               style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }}
               onClick={() => selectedTextBox && handleBulletsToggle(selectedTextBox.id)}
-              disabled={!selectedTextBox} // Enable when a textbox is selected
+              disabled={!selectedTextBox} 
               className={selectedTextBox?.bullets ? 'active' : ''}
             >
               •
@@ -1271,7 +1247,6 @@ const SlideEditor = () => {
               border: "1px solid #ccc",
               boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
               overflow: "hidden",
-              // Remove background CSS when using template images to prevent override
               background: currentTemplate?.id ? undefined : "#fff",
             }}
             onDragOver={e => { 
@@ -1285,7 +1260,6 @@ const SlideEditor = () => {
               e.currentTarget.style.border = "1px solid #ccc";
             }}            onDrop={e => {
               e.preventDefault();
-              // Reset visual feedback
               e.currentTarget.style.backgroundColor = "";
               e.currentTarget.style.border = "1px solid #ccc";
               
@@ -1297,7 +1271,6 @@ const SlideEditor = () => {
                 let newX = e.clientX - slidePreviewRect.left - dragData.offsetX;
                 let newY = e.clientY - slidePreviewRect.top - dragData.offsetY;
                 
-                // Ensure textbox stays within slide bounds
                 newX = Math.max(0, Math.min(newX, SLIDE_WIDTH - 100)); // Leave some margin for textbox width
                 newY = Math.max(0, Math.min(newY, SLIDE_HEIGHT - 50)); // Leave some margin for textbox height
                 
@@ -1330,7 +1303,6 @@ const SlideEditor = () => {
                       outline: selectedTextBoxId === tb.id ? "2px solid #1976d2" : "none",
                       background: "transparent",
                       padding: "8px",
-                      // Add CSS custom properties for paragraph spacing
                       '--paragraph-spacing': `${tb.paragraphSpacing || 0}px`,
                       boxSizing: "border-box",
                       overflowWrap: "break-word",

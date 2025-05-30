@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import Navbar from "./Navbar";
 import "../styles/CreatePage.css";
 
+
 const CreatePage = () => {
   const navigate = useNavigate();
   const location = useLocation();

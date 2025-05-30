@@ -2,8 +2,9 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
 import "../styles/PasteAndCreate.css";
+import config from "../config";
 
-// Template configurations using only static background images
+
 const templates = [    {
         id: "tailwind-abstract-gradient",
         name: "Abstract Gradient",
@@ -38,7 +39,7 @@ const PasteAndCreate = () => {
     if (templates.length > 0) {
       setSelectedTemplate(templates[0]);
     }
-  }, []); // Only run once on mount
+  }, []); 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -55,7 +56,7 @@ const PasteAndCreate = () => {
     try {
       const user = JSON.parse(localStorage.getItem("user"));
       const user_id = user && user.id ? user.id : null;
-      const response = await fetch("http://localhost:5000/paste-and-create", {
+      const response = await fetch(`${config.API_URL}/paste-and-create`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -118,7 +119,6 @@ const PasteAndCreate = () => {
               {loading ? "Generating..." : "Generate Slides"}
             </button>
           </form>
-          {/* Template selection button and popup */}
           <div
             style={{
               margin: "1.5rem 0",
@@ -193,7 +193,6 @@ const PasteAndCreate = () => {
           )}
           {result && <div className="result">{result}</div>}
         </div>
-        {/* Help button with Message icon at bottom right */}
         <button
           className="need-help-btn"
           onClick={() => navigate("/help")}

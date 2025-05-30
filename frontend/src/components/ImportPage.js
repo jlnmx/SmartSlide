@@ -2,8 +2,9 @@ import React, { useState, useEffect } from "react";
 import Navbar from "./Navbar";
 import "../styles/ImportPage.css";
 import { useNavigate, useLocation } from "react-router-dom";
+import config from "../config";
 
-// Template configurations using only static background images
+
 const templates = [    {
         id: "tailwind-abstract-gradient",
         name: "Abstract Gradient",
@@ -60,7 +61,7 @@ export default function ImportPage() {
       }
       formData.append("file", file);
       formData.append("template", selectedTemplate.id);
-      const response = await fetch("http://localhost:5000/upload-file", {
+      const response = await fetch(`${config.API_BASE_URL}/upload-file`, {
         method: "POST",
         body: formData,
       });
@@ -79,7 +80,7 @@ export default function ImportPage() {
         const user = JSON.parse(localStorage.getItem("user"));
         const user_id = user && user.id ? user.id : null;
         if (user_id) {
-          await fetch("http://localhost:5000/save-presentation", {
+          await fetch(`${config.API_BASE_URL}/save-presentation`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

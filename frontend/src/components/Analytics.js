@@ -3,6 +3,8 @@ import Navbar from "./Navbar";
 import { Bar, Pie } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend } from "chart.js";
 import "../styles/Analytics.css";
+import config from "../config";
+
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
@@ -16,7 +18,7 @@ const Analytics = () => {
     const user = JSON.parse(localStorage.getItem("user"));
     if (!user || !user.id) return;
     setLoading(true);
-    fetch(`http://localhost:5000/analytics/${user.id}`)
+    fetch(`${config.API_BASE_URL}/analytics/${user.id}`)
       .then(res => res.json())
       .then(data => {
         const months = (data.monthly && Object.keys(data.monthly).sort()) || [];

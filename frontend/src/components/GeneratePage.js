@@ -2,9 +2,10 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Navbar from "./Navbar";
 import "../styles/GeneratePage.css";
-import "../styles/PasteAndCreate.css"; // For modal styles
+import "../styles/PasteAndCreate.css"; 
+import config from "../config";
 
-// Template configurations using only static background images
+
 const templates = [    {
         id: "tailwind-abstract-gradient",
         name: "Abstract Gradient",
@@ -57,7 +58,7 @@ const GeneratePage = () => {
         try {
             const user = JSON.parse(localStorage.getItem("user"));
             const user_id = user && user.id ? user.id : null;
-            const response = await fetch("http://localhost:5000/generate-slides", {
+            const response = await fetch(`${config.API_BASE_URL}/generate-slides`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

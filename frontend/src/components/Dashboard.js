@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import "../styles/Dashboard.css";
+import config from "../config";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ const Dashboard = () => {
       return;
     }
     axios
-      .get(`http://localhost:5000/presentations/${user.id}`)
+      .get(`${config.API_BASE_URL}/presentations/${user.id}`)
       .then((res) => {
         setPresentations(res.data.presentations || []);
       })
@@ -33,7 +34,7 @@ const Dashboard = () => {
   };
   const handlePresentationClick = async (presentation) => {
     try {
-      const res = await axios.get(`http://localhost:5000/presentation/${presentation.id}`);
+      const res = await axios.get(`${config.API_BASE_URL}/presentation/${presentation.id}`);
       const slides = res.data.slides || [{ title: presentation.title, content: ["No slide content stored."] }];
       navigate("/slides-generating", {
         state: {
@@ -58,7 +59,7 @@ const Dashboard = () => {
   const handleDeletePresentation = async (presentationId) => {
     if (!window.confirm("Are you sure you want to delete this presentation?")) return;
     try {
-      await axios.delete(`http://localhost:5000/presentation/${presentationId}`);
+      await axios.delete(`${config.API_BASE_URL}/presentation/${presentationId}`);
       setPresentations((prev) => prev.filter((p) => p.id !== presentationId));
     } catch (err) {
       alert("Failed to delete presentation.");

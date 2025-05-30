@@ -3,6 +3,8 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import '../styles/SavedQuizzesAndScripts.css';
 import Navbar from './Navbar';
+import config from "../config";
+
 
 const Modal = ({ open, onClose, title, children }) => {
     if (!open) return null;
@@ -38,7 +40,7 @@ const SavedQuizzesAndScripts = () => {
             setIsLoading(true);
             setError(null);
             try {
-                const response = await axios.get(`http://localhost:5000/saved-items/${user.id}`);
+                const response = await axios.get(`${config.API_BASE_URL}/saved-items/${user.id}`);
                 setSavedQuizzes(response.data.quizzes || []);
                 setSavedScripts(response.data.scripts || []);
             } catch (err) {
@@ -55,7 +57,9 @@ const SavedQuizzesAndScripts = () => {
     const handleDelete = async (type, id) => {
         if (!window.confirm(`Are you sure you want to delete this ${type}?`)) return;
 
-        const url = type === 'quiz' ? `http://localhost:5000/saved-quiz/${id}` : `http://localhost:5000/saved-script/${id}`;
+        const url = type === 'quiz' 
+            ? `${config.API_BASE_URL}/saved-quiz/${id}` 
+            : `${config.API_BASE_URL}/saved-script/${id}`;
         try {
             await axios.delete(url);
             if (type === 'quiz') {
@@ -71,7 +75,9 @@ const SavedQuizzesAndScripts = () => {
     };
 
     const handleExport = async (type, id, name) => {
-        const url = type === 'quiz' ? `http://localhost:5000/export-quiz/${id}/word` : `http://localhost:5000/export-script/${id}/word`;
+        const url = type === 'quiz' 
+            ? `${config.API_BASE_URL}/export-quiz/${id}/word`
+            : `${config.API_BASE_URL}/export-script/${id}/word`;
         try {
             const response = await axios.get(url, { responseType: 'blob' });
             const blob = new Blob([response.data], { type: response.headers['content-type'] });
@@ -100,7 +106,7 @@ const SavedQuizzesAndScripts = () => {
                 try {
                     quizData = JSON.parse(quizData);
                 } catch (e) {
-                    // keep as string if parsing fails
+
                 }
             }
 

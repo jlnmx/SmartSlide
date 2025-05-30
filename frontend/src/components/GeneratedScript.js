@@ -1,6 +1,8 @@
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
+import config from "../config";
+
 
 const GeneratedScript = () => {
   const location = useLocation();
@@ -9,7 +11,7 @@ const GeneratedScript = () => {
 
   const handleExportWord = async () => {
     try {
-      const response = await fetch("http://localhost:5000/export-script-word", {
+      const response = await fetch(`${config.API_BASE_URL}/export-script-word`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -42,7 +44,7 @@ const GeneratedScript = () => {
     let name = prompt("Enter a name for this script:", "My Script");
     if (!name) return;
     try {
-      await axios.post("http://localhost:5000/save-script", {
+      await axios.post(`${config.API_BASE_URL}/save-script`, {
         user_id: user.id,
         name,
         content: script,

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "../styles/SlidesGeneratingPage.css";
 import Navbar from "./Navbar";
+import config from "../config";
+
 
 
 const SlidesGeneratingPage = () => {
@@ -9,7 +11,6 @@ const SlidesGeneratingPage = () => {
   const navigate = useNavigate();
   let { slides: initialSlides, template, presentationType, fromEditor, presentationId, language: navLanguage } = location.state || {};
 
-  // Fallback: Load template and presentationType from localStorage if missing (for refresh/direct nav)
   if (!template) {
     try {
       template = JSON.parse(localStorage.getItem("selectedTemplate"));
@@ -95,7 +96,7 @@ const SlidesGeneratingPage = () => {
       return;
     }
     try {
-      const response = await fetch("http://localhost:5000/generate-presentation", {
+      const response = await fetch(`${config.backendUrl}/generate-presentation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -130,7 +131,7 @@ const SlidesGeneratingPage = () => {
   // --- UPDATED: Pass language and numQuestions to quiz/script generation ---
   const handleGenerateQuiz = async () => {
     try {
-      const response = await fetch("http://localhost:5000/generate-quiz", {
+      const response = await fetch(`${config.backendUrl}/generate-quiz`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slides: generatedSlides, language, numQuestions }),
@@ -148,7 +149,7 @@ const SlidesGeneratingPage = () => {
 
   const handleGenerateScript = async () => {
     try {
-      const response = await fetch("http://localhost:5000/generate-script", {
+      const response = await fetch(`${config.API_BASE_URL}/generate-script`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slides: generatedSlides, language }),
@@ -212,7 +213,6 @@ const SlidesGeneratingPage = () => {
           <button className="edit-google-slides-btn" onClick={handleEditSlides} style={{ fontSize: "1rem", padding: "0.4rem 1.1rem" }}>
             Edit Slides
           </button>
-          {/* --- UPDATED: Language display (read-only) --- */}
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
             <label htmlFor="quiz-language-display">Language:</label>
             <span
@@ -252,9 +252,7 @@ const SlidesGeneratingPage = () => {
             generatedSlides.map((slideData, index) => {
               let title, contentForRender, imageUrl;
 
-              // Check if the slide is in editor format or original format
               if (slideData.textboxes && Array.isArray(slideData.textboxes)) {
-                // Editor format
                 const titleBox = slideData.textboxes.find(tb => tb.type === 'title');
                 const bodyBox = slideData.textboxes.find(tb => tb.type === 'body');
                 
@@ -262,16 +260,15 @@ const SlidesGeneratingPage = () => {
                 
                 if (bodyBox) {
                   if (bodyBox.bullets) {
-                    contentForRender = bodyBox.text.split('\\n'); // Pass as array for bullet rendering
+                    contentForRender = bodyBox.text.split('\\n');   
                   } else {
-                    contentForRender = bodyBox.text; // Pass as string
+                    contentForRender = bodyBox.text; 
                   }
                 } else {
                   contentForRender = '';
                 }
                 imageUrl = slideData.image ? slideData.image.src : null;
               } else {
-                // Original format
                 title = slideData.title;
                 contentForRender = slideData.content;
                 imageUrl = slideData.image_url;
@@ -284,7 +281,7 @@ const SlidesGeneratingPage = () => {
                     <div className="slide-split-content">
                       {renderSlideContent(contentForRender)}
                     </div>
-                    {slideData.author && ( // Assuming author might not be in editor format
+                    {slideData.author && ( 
                       <div className="slide-split-author">
                         <span className="slide-split-author-avatar"></span>
                         <span>

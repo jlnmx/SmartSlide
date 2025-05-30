@@ -6,7 +6,31 @@ import { saveAs } from "file-saver";
 import { FaBold, FaItalic, FaUnderline, FaAlignLeft, FaAlignCenter, FaAlignRight, FaAlignJustify, FaHighlighter } from "react-icons/fa";
 import { v4 as uuidv4 } from "uuid";
 import "../styles/SlideEditor.css";
-import { tailwindTemplates, getTailwindTemplateById } from "../templates/tailwind-templates";
+
+// Template configurations using only static background images
+const templates = [
+    {
+        id: "tailwind-abstract-gradient",
+        name: "Abstract Gradient"
+    },
+    {
+        id: "tailwind-business",
+        name: "Business"
+    },
+    {
+        id: "tailwind-creative",
+        name: "Creative"
+    },
+    {
+        id: "tailwind-education",
+        name: "Education"
+    }
+];
+
+// Returns the template object by id (for static image-based templates)
+const getTailwindTemplateById = (id) => {
+  return templates.find(t => t.id === id);
+};
 
 const SLIDE_WIDTH = 960;
 const SLIDE_HEIGHT = 540;
@@ -138,52 +162,25 @@ const defaultTextBox = (type = "body") => {
 // --- Template-specific background and layout helpers ---
 
 // --- BUSINESS TEMPLATE ---
-function renderBusinessBackground({ isTitle = false } = {}) { // Added isTitle parameter
-  const contentBoxX = SLIDE_WIDTH * 0.05;
-  const contentBoxY = SLIDE_HEIGHT * 0.1;
-  const contentBoxWidth = SLIDE_WIDTH * 0.9;
-  const contentBoxHeight = SLIDE_HEIGHT * 0.8;
-
+function renderBusinessBackground({ isTitle = false } = {}) {
+  const imgSrc = isTitle
+    ? "/static/template_backgrounds/tailwind-business_title.png"
+    : "/static/template_backgrounds/tailwind-business_content.png";
   return (
-    <g>
-      {/* Dark blue background */}
-      <rect x={0} y={0} width={SLIDE_WIDTH} height={SLIDE_HEIGHT} fill="#003366" />
-      {/* Light blue decorative wave/swoosh at the bottom */}
-      <path d={`M0,${SLIDE_HEIGHT * 0.75} Q${SLIDE_WIDTH * 0.25},${SLIDE_HEIGHT * 0.6} ${SLIDE_WIDTH * 0.5},${SLIDE_HEIGHT * 0.8} T${SLIDE_WIDTH},${SLIDE_HEIGHT * 0.7}`} fill="rgba(173, 216, 230, 0.3)" />
-      <path d={`M0,${SLIDE_HEIGHT * 0.8} Q${SLIDE_WIDTH * 0.3},${SLIDE_HEIGHT * 0.7} ${SLIDE_WIDTH * 0.6},${SLIDE_HEIGHT * 0.9} T${SLIDE_WIDTH},${SLIDE_HEIGHT * 0.85}`} fill="rgba(173, 216, 230, 0.2)" />
-
-      {/* Visuals from old renderBusinessContentBox */}
-      <defs>
-        <filter id="softShadow" x="-5%" y="-5%" width="110%" height="110%">
-          <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
-          <feOffset in="blur" dx="2" dy="2" result="offsetBlur" />
-          <feMerge>
-            <feMergeNode in="offsetBlur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>
-      <rect
-        x={contentBoxX}
-        y={contentBoxY}
-        width={contentBoxWidth}
-        height={contentBoxHeight}
-        fill="#FFFFFF"
-        rx={15}
-        ry={15}
-        filter="url(#softShadow)"
-      />
-      {isTitle && (
-        <line
-          x1={contentBoxX + 20}
-          y1={contentBoxY + 80} // Assuming title text starts around here
-          x2={contentBoxX + contentBoxWidth - 20}
-          y2={contentBoxY + 80}
-          stroke="#003366"
-          strokeWidth={2}
-        />
-      )}
-    </g>
+    <img
+      src={imgSrc}
+      alt="Business Template Background"
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: SLIDE_WIDTH,
+        height: SLIDE_HEIGHT,
+        zIndex: 0,
+        objectFit: "cover"
+      }}
+      draggable={false}
+    />
   );
 }
 
@@ -194,31 +191,25 @@ function renderBusinessContentBox(children, { isTitle = false } = {}) {
 }
 
 // --- CREATIVE TEMPLATE ---
-function renderCreativeBackground({ isTitle = false }) {
-  // Assuming Creative template's "content box" is implicitly defined by textbox placement
-  // over its artistic background. If a specific box visual is needed, add its SVG here.
+function renderCreativeBackground({ isTitle = false } = {}) {
+  const imgSrc = isTitle
+    ? "/static/template_backgrounds/tailwind-creative_title.png"
+    : "/static/template_backgrounds/tailwind-creative_content.png";
   return (
-    <g>
-      {/* Base light cream background */}
-      <rect x={0} y={0} width={SLIDE_WIDTH} height={SLIDE_HEIGHT} fill="#FFF8DC" /> {/* Cornsilk as a base */}
-
-      {/* Abstract shapes - inspired by the PDF's organic/colorful feel */}
-      {/* Large, soft, semi-transparent blobs */}
-      <ellipse cx={SLIDE_WIDTH * 0.2} cy={SLIDE_HEIGHT * 0.3} rx={SLIDE_WIDTH * 0.25} ry={SLIDE_HEIGHT * 0.2} fill="rgba(255, 192, 203, 0.4)" /> {/* Light Pink */}
-      <ellipse cx={SLIDE_WIDTH * 0.8} cy={SLIDE_HEIGHT * 0.7} rx={SLIDE_WIDTH * 0.3} ry={SLIDE_HEIGHT * 0.25} fill="rgba(173, 216, 230, 0.4)" /> {/* Light Blue */}
-      <ellipse cx={SLIDE_WIDTH * 0.5} cy={SLIDE_HEIGHT * 0.85} rx={SLIDE_WIDTH * 0.2} ry={SLIDE_HEIGHT * 0.15} fill="rgba(144, 238, 144, 0.3)" /> {/* Light Green */}
-
-      {/* Smaller, more defined accent shapes/lines */}
-      <path d={`M${SLIDE_WIDTH * 0.1},${SLIDE_HEIGHT * 0.1} Q${SLIDE_WIDTH * 0.3},${SLIDE_HEIGHT * 0.05} ${SLIDE_WIDTH * 0.4},${SLIDE_HEIGHT * 0.2}`} stroke="#FFD700" strokeWidth={5} fill="none" strokeLinecap="round" />
-      <path d={`M${SLIDE_WIDTH * 0.9},${SLIDE_HEIGHT * 0.9} Q${SLIDE_WIDTH * 0.7},${SLIDE_HEIGHT * 0.95} ${SLIDE_WIDTH * 0.6},${SLIDE_HEIGHT * 0.8}`} stroke="#FF69B4" strokeWidth={5} fill="none" strokeLinecap="round" />
-
-      {isTitle && (
-        <>
-          <circle cx={SLIDE_WIDTH * 0.15} cy={SLIDE_HEIGHT * 0.8} r={30} fill="rgba(255, 165, 0, 0.5)" /> {/* Orange accent */}
-          <rect x={SLIDE_WIDTH * 0.7} y={SLIDE_HEIGHT * 0.1} width={50} height={50} fill="rgba(0, 128, 128, 0.4)" transform={`rotate(15 ${SLIDE_WIDTH * 0.7 + 25} ${SLIDE_HEIGHT * 0.1 + 25})`} /> {/* Teal accent */}
-        </>
-      )}
-    </g>
+    <img
+      src={imgSrc}
+      alt="Creative Template Background"
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: SLIDE_WIDTH,
+        height: SLIDE_HEIGHT,
+        zIndex: 0,
+        objectFit: "cover"
+      }}
+      draggable={false}
+    />
   );
 }
 
@@ -228,61 +219,62 @@ function renderCreativeContentBox(children, { isTitle = false } = {}) {
 }
 
 // --- EDUCATION TEMPLATE ---
-function renderEducationBackground({ isTitle = false } = {}) { // Added isTitle parameter
-  const boxX = SLIDE_WIDTH * 0.12;
-  const boxY = SLIDE_HEIGHT * 0.1;
-  const boxWidth = SLIDE_WIDTH * 0.83;
-  const boxHeight = SLIDE_HEIGHT * 0.8;
-
+function renderEducationBackground({ isTitle = false } = {}) {
+  const imgSrc = isTitle
+    ? "/static/template_backgrounds/tailwind-education_title.png"
+    : "/static/template_backgrounds/tailwind-education_content.png";
   return (
-    <g>
-      {/* Light, friendly background color */}
-      <rect x={0} y={0} width={SLIDE_WIDTH} height={SLIDE_HEIGHT} fill="#E0F7FA" /> {/* Light Cyan */}
-
-      {/* Decorative elements: simple geometric shapes, "notebook paper" lines, etc. */}
-      {/* Left sidebar accent (as in original) */}
-      <rect x={0} y={0} width={SLIDE_WIDTH * 0.08} height={SLIDE_HEIGHT} fill="#00ACC1" /> {/* Teal accent */}
-
-      {/* Subtle pattern - e.g., faint polka dots or lines */}
-      <defs>
-        <pattern id="eduPattern" patternUnits="userSpaceOnUse" width="20" height="20">
-          <circle cx="10" cy="10" r="1" fill="rgba(0, 172, 193, 0.2)" />
-        </pattern>
-      </defs>
-      <rect x={SLIDE_WIDTH * 0.08} y={0} width={SLIDE_WIDTH * 0.92} height={SLIDE_HEIGHT} fill="url(#eduPattern)" />
-
-      {/* Corner "bookmark" or "tab" element */}
-      <path d={`M${SLIDE_WIDTH - 80},0 L${SLIDE_WIDTH},0 L${SLIDE_WIDTH},80 Z`} fill="#FFB74D" /> {/* Orange accent */}
-      <text x={SLIDE_WIDTH - 40} y={45} fill="#fff" textAnchor="middle" fontSize="16" fontWeight="bold">EDU</text>
-
-      {/* Visuals for the content box area */}
-      <rect
-        x={boxX}
-        y={boxY}
-        width={boxWidth}
-        height={boxHeight}
-        fill="#FFFFFF"
-        rx={10}
-        ry={10}
-        stroke="#B0BEC5" // Light grey border
-        strokeWidth={1}
-      />
-      {isTitle && (
-        <line
-          x1={boxX + 20}
-          y1={boxY + 70} // Assuming title text starts around here
-          x2={boxX + boxWidth - 20}
-          y2={boxY + 70}
-          stroke="#00ACC1"
-          strokeWidth={1.5}
-        />
-      )}
-    </g>
+    <img
+      src={imgSrc}
+      alt="Education Template Background"
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: SLIDE_WIDTH,
+        height: SLIDE_HEIGHT,
+        zIndex: 0,
+        objectFit: "cover"
+      }}
+      draggable={false}
+    />
   );
 }
 
 function renderEducationContentBox(children, { isTitle = false } = {}) {
   // Passes through children. Visuals are part of renderEducationBackground.
+  return <>{children}</>;
+}
+
+// --- ABSTRACT TEMPLATE ---
+function renderAbstractBackground({ isTitle = false } = {}) {
+  const imgSrc = isTitle
+    ? "/static/template_backgrounds/tailwind-abstract-gradient_title.png"
+    : "/static/template_backgrounds/tailwind-abstract-gradient_content.png";
+  return (
+    <img
+      src={imgSrc}
+      alt="Abstract Template Background"
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: SLIDE_WIDTH,
+        height: SLIDE_HEIGHT,
+        zIndex: 0,
+        objectFit: "cover"
+      }}
+      draggable={false}
+      onError={e => {
+        console.error("Failed to load abstract background image:", imgSrc);
+        e.target.style.display = 'none';
+      }}
+    />
+  );
+}
+
+function renderAbstractContentBox(children, { isTitleSlide = false }) {
+  // No extra visuals, just return children
   return <>{children}</>;
 }
 
@@ -1053,163 +1045,35 @@ const SlideEditor = () => {
     return { background: "#fff" };
   };
 
-  // Helper: Render Abstract Gradient background and shapes for Abstract template
-  const renderAbstractBackground = ({ isTitle = false }) => {
-    const gradient = "linear-gradient(120deg, #d1fae5 0%, #bfdbfe 50%, #a5b4fc 100%)";
-    const squares = (
-      <svg width={SLIDE_WIDTH} height={SLIDE_HEIGHT} style={{ position: 'absolute', top: 0, left: 0, zIndex: 1, pointerEvents: 'none' }}>
-        <rect x="-40" y="-40" width="220" height="220" fill="#fff" opacity="0.13" transform="rotate(35 70 70)" />
-        <rect x="120" y="-20" width="160" height="160" fill="#fff" opacity="0.13" transform="rotate(35 200 60)" />
-      </svg>
-    );
-
-    const baseBackground = (
-      <div style={{ position: 'absolute', left: 0, top: 0, width: SLIDE_WIDTH, height: SLIDE_HEIGHT, background: gradient, zIndex: 0 }} />
-    );
-
-    if (isTitle) { // Title slide: half-half layout
-      const rightPanel = (
-        <div style={{
-          position: 'absolute',
-          right: 0,
-          top: 0,
-          width: SLIDE_WIDTH * 0.42,
-          height: SLIDE_HEIGHT,
-          background: '#f3f7fb', // Light grey/white panel
-          zIndex: 2,
-        }}>
-          <svg width="100%" height="100%" style={{ position: 'absolute', right: 0, bottom: 0, zIndex: 3, pointerEvents: 'none' }}>
-            <circle cx="70%" cy="85%" r="32%" fill="none" stroke="#bbf7d0" strokeWidth="7" opacity="0.6" />
-            <circle cx="110%" cy="70%" r="22%" fill="none" stroke="#bae6fd" strokeWidth="6" opacity="0.5" />
-          </svg>
-        </div>
-      );
-      return <>{baseBackground}{squares}{rightPanel}</>;
-    } else { // Content slide: full gradient background + squares
-      return <>{baseBackground}{squares}</>;
-    }
-  };
-
-  // Helper: Render Abstract content box
-  const renderAbstractContentBox = (children, { isTitleSlide = false }) => {
-    if (isTitleSlide) { // Title Slide (currentIdx === 0)
-      // Textboxes (children) are absolutely positioned by the main render loop.
-      // This function only adds the image placeholder on the right.
-      const imagePlaceholder = (
-        <div style={{
-          position: 'absolute',
-          right: SLIDE_WIDTH * 0.04, // Adjusted to be within the typical white panel area
-          top: SLIDE_HEIGHT * 0.15,
-          width: SLIDE_WIDTH * 0.34, // Adjusted size
-          height: SLIDE_HEIGHT * 0.7,
-          borderRadius: 24, // Slightly smaller radius
-          border: '2px solid #4A5568', // Darker border
-          background: 'rgba(226, 232, 240, 0.4)', // Slightly different placeholder bg
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: SLIDE_WIDTH / 38, // Adjusted font size
-          fontWeight: '600',
-          color: '#2D3748', // Darker text
-          letterSpacing: 0.5,
-          textAlign: 'center',
-          zIndex: 15, // Ensure it's above the rightPanel background
-        }}>
-          INSERT IMAGE
-        </div>
-      );
-      return <>{children}{imagePlaceholder}</>;
-    } else { // Content Slides (currentIdx > 0)
-      // This div is the rounded gradient box that contains the textboxes.
-      return (
-        <div style={{
-          position: 'absolute',
-          left: SLIDE_WIDTH * 0.05, // e.g., 48px
-          top: SLIDE_HEIGHT * 0.06,  // e.g., 32.4px
-          width: SLIDE_WIDTH * 0.9,  // e.g., 864px
-          height: SLIDE_HEIGHT * 0.88, // e.g., 475.2px
-          borderRadius: 22, // Rounded corners as per image.png
-          background: 'linear-gradient(120deg, #d1fae5 0%, #bfdbfe 50%, #a5b4fc 100%)', // Gradient from image.png
-          boxShadow: '0 4px 15px rgba(0,0,0,0.08)', // Subtle shadow
-          padding: '30px', // Padding for the text content
-          boxSizing: 'border-box',
-          zIndex: 10, // Above the full gradient background
-          display: 'flex',
-          flexDirection: 'column',
-          // justifyContent: 'center', // If text needs to be centered vertically
-        }}>
-          {children} {/* Textboxes will be rendered here by the modified main loop */}
-        </div>
-      );
-    }
-  };
-
   // --- Template-specific background rendering ---
   function renderTemplateBackground() {
     if (!currentTemplate) return null;
     const templateId = currentTemplate.id;
     const isTitleSlide = currentIdx === 0;
 
-    if (templateId === "tailwind-abstract-gradient") {
-      // renderAbstractBackground now handles logic for title vs content slide
+    if (templateId === "abstract") {
+      // Use static image backgrounds for abstract
       return renderAbstractBackground({ isTitle: isTitleSlide });
     }
-
-    // For other templates that return SVG fragments (<g>...</g>)
-    let svgContent = null;
-    if (templateId === "tailwind-creative") {
-      svgContent = renderCreativeBackground({ isTitle: isTitleSlide });
-    } else if (templateId === "tailwind-business") {
-      svgContent = renderBusinessBackground({ isTitle: isTitleSlide });
-    } else if (templateId === "tailwind-education") {
-      svgContent = renderEducationBackground({ isTitle: isTitleSlide });
+    if (templateId === "tailwind-abstract-gradient") {
+      return renderAbstractBackground({ isTitle: isTitleSlide });
     }
-
-    if (svgContent) {
-      return (
-        <svg
-          width={SLIDE_WIDTH}
-          height={SLIDE_HEIGHT}
-          viewBox={`0 0 ${SLIDE_WIDTH} ${SLIDE_HEIGHT}`}
-          style={{ position: 'absolute', top: 0, left: 0, zIndex: 1 }}
-        >
-          {svgContent}
-        </svg>
-      );
+    if (templateId === "tailwind-creative") {
+      return renderCreativeBackground({ isTitle: isTitleSlide });
+    } else if (templateId === "tailwind-business") {
+      return renderBusinessBackground({ isTitle: isTitleSlide });
+    } else if (templateId === "tailwind-education") {
+      return renderEducationBackground({ isTitle: isTitleSlide });
     }
     return null;
   }
-
   // --- Template-specific content box rendering ---
   function renderTemplateContentBox(children) {
     if (!currentTemplate) return children;
     const templateId = currentTemplate.id;
     const isTitleSlide = currentIdx === 0;
 
-    // Shared split layout for Slide 1 of all templates
-    if (isTitleSlide) {
-      if (templateId === 'tailwind-abstract-gradient') {
-        return renderSplitTitleSlide(children, {
-          gradient: 'linear-gradient(120deg, #d1fae5 0%, #bfdbfe 50%, #a5b4fc 100%)',
-          color: undefined,
-        });
-      } else if (templateId === 'tailwind-business') {
-        return renderSplitTitleSlide(children, {
-          color: '#003366',
-          gradient: undefined,
-        });
-      } else if (templateId === 'tailwind-creative') {
-        return renderSplitTitleSlide(children, {
-          color: '#FFF8DC',
-          gradient: undefined,
-        });
-      } else if (templateId === 'tailwind-education') {
-        return renderSplitTitleSlide(children, {
-          color: '#E0F7FA',
-          gradient: undefined,
-        });
-      }
-    }
+    // No special split layout for title slides - let template background images show through
     if (templateId === 'tailwind-abstract-gradient') {
       return renderAbstractContentBox(children, { isTitleSlide: isTitleSlide });
     } else if (templateId === 'tailwind-creative') {
@@ -1221,56 +1085,6 @@ const SlideEditor = () => {
     }
     return children;
   }
-
-  // --- Helper: Shared split layout for Slide 1 (Title slide) ---
-  function renderSplitTitleSlide(children, { color = '#fff', gradient = null }) {
-    // Left area: colored or gradient, right area: empty
-    return (
-      <div style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: SLIDE_WIDTH,
-        height: SLIDE_HEIGHT,
-        display: 'flex',
-        flexDirection: 'row',
-        zIndex: 10,
-      }}>
-        {/* Left colored/gradient area */}
-        <div style={{
-          width: `${Math.round(SLIDE_WIDTH * 0.58)}px`,
-          height: '100%',
-          background: gradient ? gradient : color,
-          borderTopLeftRadius: 32,
-          borderBottomLeftRadius: 32,
-          borderTopRightRadius: 0,
-          borderBottomRightRadius: 0,
-          boxShadow: '0 4px 15px rgba(0,0,0,0.08)',
-          position: 'relative',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'flex-start',
-          alignItems: 'flex-start',
-          padding: '48px 36px 36px 48px',
-          boxSizing: 'border-box',
-        }}>
-          {children}
-        </div>
-        {/* Right area: empty, but keeps the split layout */}
-        <div style={{
-          width: `${Math.round(SLIDE_WIDTH * 0.42)}px`,
-          height: '100%',
-          background: '#f3f7fb', // For Abstract, or use template color for others if needed
-          borderTopRightRadius: 32,
-          borderBottomRightRadius: 32,
-          borderTopLeftRadius: 0,
-          borderBottomLeftRadius: 0,
-        }} />
-      </div>
-    );
-  }
-
   // --- Main slide preview rendering ---
   return (
     <div className="slide-editor-root">
@@ -1446,8 +1260,7 @@ const SlideEditor = () => {
 
           {/* --- Slide Preview/Editor --- */}
           <div
-            className="slide-preview"
-            style={{
+            className="slide-preview"            style={{
               position: "relative",
               width: `${SLIDE_WIDTH}px`,
               height: `${SLIDE_HEIGHT}px`,
@@ -1458,11 +1271,24 @@ const SlideEditor = () => {
               border: "1px solid #ccc",
               boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
               overflow: "hidden",
-              background: currentTemplate?.id === "tailwind-abstract-gradient" ? undefined : getSlideBackground().background,
+              // Remove background CSS when using template images to prevent override
+              background: currentTemplate?.id ? undefined : "#fff",
             }}
-            onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
-            onDrop={e => {
+            onDragOver={e => { 
+              e.preventDefault(); 
+              e.dataTransfer.dropEffect = "move";
+              e.currentTarget.style.backgroundColor = "rgba(25, 118, 210, 0.05)";
+              e.currentTarget.style.border = "2px dashed #1976d2";
+            }}
+            onDragLeave={e => {
+              e.currentTarget.style.backgroundColor = "";
+              e.currentTarget.style.border = "1px solid #ccc";
+            }}            onDrop={e => {
               e.preventDefault();
+              // Reset visual feedback
+              e.currentTarget.style.backgroundColor = "";
+              e.currentTarget.style.border = "1px solid #ccc";
+              
               const dragDataString = e.dataTransfer.getData("text/plain");
               if (!dragDataString) return;
               try {
@@ -1470,56 +1296,53 @@ const SlideEditor = () => {
                 const slidePreviewRect = e.currentTarget.getBoundingClientRect();
                 let newX = e.clientX - slidePreviewRect.left - dragData.offsetX;
                 let newY = e.clientY - slidePreviewRect.top - dragData.offsetY;
-                newX = Math.max(0, newX);
-                newY = Math.max(0, newY);
-                handleTextSetPosition(dragData.id, newX, newY);
-              } catch (error) { console.error("Error processing drop data:", error); }
+                
+                // Ensure textbox stays within slide bounds
+                newX = Math.max(0, Math.min(newX, SLIDE_WIDTH - 100)); // Leave some margin for textbox width
+                newY = Math.max(0, Math.min(newY, SLIDE_HEIGHT - 50)); // Leave some margin for textbox height
+                
+                if (dragData.type === 'textbox') {
+                  handleTextSetPosition(dragData.id, newX, newY);
+                }
+              } catch (error) { 
+                console.error("Error processing drop data:", error); 
+              }
             }}
           >
             {/* Always render template-specific background for ALL templates */}
-            {renderTemplateBackground()}
-
-            {/* Always wrap textboxes/content in template-specific content box for ALL templates */}
+            {renderTemplateBackground()}            {/* Always wrap textboxes/content in template-specific content box for ALL templates */}
             {renderTemplateContentBox(
               <>
-                {/* For Slide 1 of all templates, render textboxes inside the left area only */}
-                {currentIdx === 0 ? (
-                  slide.textboxes.map((tb, i) => {
-                    // Only render title and body textboxes
-                    if (tb.type !== "title" && tb.type !== "body") return null;
-                    // Fit inside the left area (gradient/colored)
-                    const leftAreaWidth = Math.round(SLIDE_WIDTH * 0.58) - 96; // account for padding
-                    const currentTemplateId = currentTemplate?.id;
-                    const style = {
-                      position: "relative",
-                      width: leftAreaWidth,
-                      minHeight: tb.type === 'title' ? 56 : 80,
-                      fontSize: tb.fontSize || (tb.type === "title" ? 48 : 28),
-                      fontFamily: tb.fontFamily || 'Arial',
-                      color: (() => {
-                        if (currentTemplateId === 'tailwind-business') return '#fff';
-                        return '#111';
-                      })(),
-                      fontWeight: tb.fontStyle?.bold ? "bold" : (tb.type === "title" ? "bold" : "normal"),
+                {/* Render textboxes using standard positioning for all slides */}
+                {slide.textboxes.map((tb, i) => {                    const style = {
+                      position: "absolute",
+                      left: `${tb.x}px`,
+                      top: `${tb.y}px`,
+                      width: `${tb.width}px`,
+                      height: `${tb.height}px`,
+                      fontSize: `${tb.fontSize}px`,
+                      fontFamily: tb.fontFamily,
+                      color: tb.fill,
+                      fontWeight: tb.fontStyle?.bold ? "bold" : "normal",
                       fontStyle: tb.fontStyle?.italic ? "italic" : "normal",
-                      textDecoration: tb.fontStyle?.underline ? "underline" : "none",
-                      lineHeight: tb.lineHeight || 1.1,
-                      textAlign: tb.align || "left",
+                      textDecoration: tb.fontStyle?.underline ? "underline" : "none",                      lineHeight: tb.lineHeight || 1.2,
+                      textAlign: tb.align,
                       outline: selectedTextBoxId === tb.id ? "2px solid #1976d2" : "none",
-                      background: selectedTextBoxId === tb.id ? "#f5faff" : "transparent",
-                      padding: "4px 8px",
+                      background: "transparent",
+                      padding: "8px",
+                      // Add CSS custom properties for paragraph spacing
+                      '--paragraph-spacing': `${tb.paragraphSpacing || 0}px`,
                       boxSizing: "border-box",
                       overflowWrap: "break-word",
                       wordWrap: "break-word",
                       overflow: "auto",
-                      resize: "none",
-                      zIndex: 20,
-                      marginBottom: tb.type === 'title' ? 16 : 0,
-                      letterSpacing: tb.type === "title" ? 2 : 0,
-                      textShadow: tb.type === "title" && currentTemplateId === 'tailwind-business' ? "2px 2px 0 #003366" : undefined,
+                      resize: "both",
+                      cursor: "grab",
+                      zIndex: TEXT_Z_INDEX,
+                      userSelect: "text",
+                      transition: "all 0.2s ease"
                     };
-                    return (
-                      <div
+                    return (                      <div
                         key={`textbox-${currentIdx}-${tb.id}`}
                         ref={el => {
                           if (el) {
@@ -1536,6 +1359,30 @@ const SlideEditor = () => {
                         contentEditable
                         suppressContentEditableWarning
                         spellCheck={true}
+                        draggable={true}                        onDragStart={e => {
+                          e.stopPropagation();
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const offsetX = e.clientX - rect.left;
+                          const offsetY = e.clientY - rect.top;
+                          const dragData = {
+                            type: 'textbox',
+                            id: tb.id,
+                            offsetX,
+                            offsetY
+                          };
+                          e.dataTransfer.setData("text/plain", JSON.stringify(dragData));
+                          e.dataTransfer.effectAllowed = "move";
+                          setSelectedTextBoxId(tb.id);
+                          
+                          // Visual feedback during drag
+                          e.currentTarget.style.opacity = "0.7";
+                          e.currentTarget.style.transform = "rotate(2deg)";
+                        }}
+                        onDragEnd={e => {
+                          // Reset visual feedback
+                          e.currentTarget.style.opacity = "1";
+                          e.currentTarget.style.transform = "none";
+                        }}
                         onInput={e => { e.stopPropagation(); handleContentEdit(tb.id, e); }}
                         onFocus={e => { e.stopPropagation(); setSelectedTextBoxId(tb.id); setSelectedTextRange(null); }}
                         onKeyDown={e => {
@@ -1568,91 +1415,8 @@ const SlideEditor = () => {
                       >
                         {tb.text}
                       </div>
-                    );
-                  })
-                ) : (
-                  // All other slides: default textbox rendering
-                  slide.textboxes.map((tb, i) => {
-                    const style = {
-                      position: "absolute",
-                      left: `${tb.x}px`,
-                      top: `${tb.y}px`,
-                      width: `${tb.width}px`,
-                      height: `${tb.height}px`,
-                      fontSize: `${tb.fontSize}px`,
-                      fontFamily: tb.fontFamily,
-                      color: tb.fill,
-                      fontWeight: tb.fontStyle?.bold ? "bold" : "normal",
-                      fontStyle: tb.fontStyle?.italic ? "italic" : "normal",
-                      textDecoration: tb.fontStyle?.underline ? "underline" : "none",
-                      lineHeight: tb.lineHeight,
-                      textAlign: tb.align,
-                      outline: selectedTextBoxId === tb.id ? "2px solid #1976d2" : "none",
-                      background: selectedTextBoxId === tb.id ? "#f5faff" : "transparent",
-                      padding: "8px",
-                      boxSizing: "border-box",
-                      overflowWrap: "break-word",
-                      wordWrap: "break-word",
-                      overflow: "auto",
-                      resize: "both",
-                      cursor: "move",
-                      zIndex: TEXT_Z_INDEX
-                    };
-                    return (
-                      <div
-                        key={`textbox-${currentIdx}-${tb.id}`}
-                        ref={el => {
-                          if (el) {
-                            const existingRef = contentEditableRefs.current.get(tb.id);
-                            contentEditableRefs.current.set(tb.id, { element: el, timeout: existingRef?.timeout || null });
-                          } else {
-                            const existingRef = contentEditableRefs.current.get(tb.id);
-                            if (existingRef?.timeout) clearTimeout(existingRef.timeout);
-                            contentEditableRefs.current.delete(tb.id);
-                          }
-                        }}
-                        className={"slide-textbox" + (selectedTextBoxId === tb.id ? " selected" : "")}
-                        style={style}
-                        contentEditable
-                        suppressContentEditableWarning
-                        spellCheck={true}
-                        onInput={e => { e.stopPropagation(); handleContentEdit(tb.id, e); }}
-                        onFocus={e => { e.stopPropagation(); setSelectedTextBoxId(tb.id); setSelectedTextRange(null); }}
-                        onKeyDown={e => {
-                          e.stopPropagation();
-                          if (e.key === 'Delete' || e.key === 'Backspace') {
-                            const selection = window.getSelection();
-                            if (selection && selection.rangeCount > 0) {
-                              const range = selection.getRangeAt(0);
-                              if (range.toString().length > 0 || e.target.innerText.length > 0) return;
-                            }
-                            e.preventDefault();
-                          }
-                        }}
-                        onClick={e => { e.stopPropagation(); setSelectedTextBoxId(tb.id); setSelectedTextRange(null); }}
-                        onBlur={e => {
-                          const textboxDiv = e.currentTarget;
-                          const currentWidth = textboxDiv.offsetWidth;
-                          const currentHeight = textboxDiv.offsetHeight;
-                          handleTextResize(tb.id, currentWidth, currentHeight);
-                          const relatedTarget = e.relatedTarget;
-                          const slidePreviewDiv = textboxDiv.closest('.slide-preview');
-                          if (!slidePreviewDiv) { setSelectedTextBoxId(null); setSelectedTextRange(null); return; }
-                          const mainContentArea = slidePreviewDiv.parentElement;
-                          if (!mainContentArea) { setSelectedTextBoxId(null); setSelectedTextRange(null); return; }
-                          const toolbarDiv = mainContentArea.querySelector('.slide-toolbar');
-                          if (toolbarDiv && relatedTarget && toolbarDiv.contains(relatedTarget)) return;
-                          setSelectedTextBoxId(null); setSelectedTextRange(null);
-                        }}
-                        tabIndex={0}
-                      >
-                        {tb.bullets
-                          ? tb.text.split("\n").map((line, i) => <div key={i} style={{ marginBottom: tb.paragraphSpacing }}>{line ? <>&bull; {line}</> : <br />}</div>)
-                          : tb.text.split("\n").map((line, i) => <div key={i} style={{ marginBottom: tb.paragraphSpacing }}>{line || <br />}</div>)}
-                      </div>
-                    );
-                  })
-                )}
+                    );                  })
+                }
               </>
             )}
             {/* Konva image rendering (below text for drag/resize) */}

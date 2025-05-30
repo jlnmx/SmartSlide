@@ -3,7 +3,29 @@ import { useNavigate, useLocation } from "react-router-dom";
 import Navbar from "./Navbar";
 import "../styles/GeneratePage.css";
 import "../styles/PasteAndCreate.css"; // For modal styles
-import { tailwindTemplates } from "../templates/tailwind-templates";
+
+// Template configurations using only static background images
+const templates = [    {
+        id: "tailwind-abstract-gradient",
+        name: "Abstract Gradient",
+        preview: "/static/template_backgrounds/abstract_title.png"
+    },
+    {
+        id: "tailwind-business",
+        name: "Business",
+        preview: "/static/template_backgrounds/business_title.png"
+    },
+    {
+        id: "tailwind-creative",
+        name: "Creative",
+        preview: "/static/template_backgrounds/creative_title.png"
+    },
+    {
+        id: "tailwind-education",
+        name: "Education",
+        preview: "/static/template_backgrounds/education_title.png"
+    }
+];
 
 const GeneratePage = () => {
     const location = useLocation();
@@ -12,15 +34,13 @@ const GeneratePage = () => {
     const [language, setLanguage] = useState("English");
     const [numSlides, setNumSlides] = useState("5");
     const [loading, setLoading] = useState(false);
-    const [templates, setTemplates] = useState([]);
     const [selectedTemplate, setSelectedTemplate] = useState(passedTemplate || null);
     const [showTemplatePopup, setShowTemplatePopup] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
-        setTemplates(tailwindTemplates);
-        if (!selectedTemplate && tailwindTemplates.length > 0) {
-            setSelectedTemplate(tailwindTemplates[0]);
+        if (!selectedTemplate && templates.length > 0) {
+            setSelectedTemplate(templates[0]);
         }
     }, []);
 
@@ -160,10 +180,18 @@ const GeneratePage = () => {
         Choose Template
     </button>
     {selectedTemplate && (
-        <div style={{ textAlign: "left", lineHeight: 1.2 }}>
+        <div style={{ textAlign: "left", lineHeight: 1.2, display: "flex", alignItems: "center", gap: 12 }}>
             <span style={{ fontWeight: "bold", color: "#000" }}>Selected:</span>
             <div style={{ color: "#222" }}>
                 {selectedTemplate.title || selectedTemplate.name}
+                <div style={{ marginTop: 4 }}>
+                    <img
+                        src={`/static/template_backgrounds/${selectedTemplate.id}_title.png`}
+                        alt="Background preview"
+                        style={{ width: 120, height: 68, objectFit: "cover", borderRadius: 8, border: "1px solid #ccc" }}
+                        onError={e => { e.target.style.display = 'none'; }}
+                    />
+                </div>
             </div>
         </div>
     )}

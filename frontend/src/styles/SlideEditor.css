@@ -140,13 +140,38 @@
 /* --- Textbox Styling --- */
 .slide-textbox {
   border-radius: 8px;
-  box-shadow: 0 1px 4px #e0e0e0;
-  background: transparent;
-  transition: outline 0.15s, background 0.15s;
+  box-shadow: none;
+  background: transparent !important;
+  transition: outline 0.15s, transform 0.2s ease, opacity 0.2s ease;
 }
 .slide-textbox.selected {
   outline: 2px solid #1976d2;
-  background: #f5faff;
+  background: transparent !important;
+}
+.slide-textbox:hover {
+  box-shadow: none;
+  transform: translateY(-1px);
+}
+.slide-textbox:hover:not(.selected) {
+  outline: 1px solid rgba(25, 118, 210, 0.5);
+}
+.slide-textbox[draggable="true"] {
+  cursor: grab;
+}
+.slide-textbox[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+/* Paragraph spacing for textboxes */
+.slide-textbox p {
+  margin-bottom: calc(0.5em + var(--paragraph-spacing, 0px));
+  margin-top: 0;
+}
+.slide-textbox br + br {
+  line-height: calc(1em + var(--paragraph-spacing, 0px));
+}
+.slide-textbox div {
+  margin-bottom: calc(0.2em + var(--paragraph-spacing, 0px) * 0.5);
 }
 
 /* --- Slide Thumbnails --- */

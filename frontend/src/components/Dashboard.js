@@ -93,7 +93,15 @@ const Dashboard = () => {
           <h2>RECENT PRESENTATIONS</h2>
           <div className="presentation-list">
             {presentations.length === 0 ? (
-              <div className="presentation-card empty">No recent presentations found.</div>
+              <>
+                <div className="presentation-card empty">No recent presentations found.</div>
+                {/* Show backend error if present */}
+                {presentations.error && (
+                  <div className="presentation-card error" style={{color: 'red'}}>
+                    Backend error: {presentations.error}
+                  </div>
+                )}
+              </>
             ) : (
               presentations.map((p) => (
                 <div className="presentation-card" key={p.id} onClick={() => handlePresentationClick(p)} style={{ cursor: "pointer" }}>

@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import '../styles/SavedQuizzesAndScripts.css';
 import Navbar from './Navbar';
-import config from "../../config";
+import config from "../config";
 
 
 const Modal = ({ open, onClose, title, children }) => {

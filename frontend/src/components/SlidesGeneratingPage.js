@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "../styles/SlidesGeneratingPage.css";
 import Navbar from "./Navbar";
-import config from "../../config";
+import config from "../config";
 
 
 

@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import Navbar from "./Navbar";
 import "../styles/GeneratePage.css";
 import "../styles/PasteAndCreate.css"; 
-import config from "../../config";
+import config from "../config";
 
 
 const templates = [    {

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom"; // Import useNavigate
 import Navbar from "./Navbar"; // Import the Navbar component
 import "../styles/AccountProfile.css";
-import config from "../../config";
+import config from "../config";
 
 const AccountProfile = () => {
   const [email, setEmail] = useState("");

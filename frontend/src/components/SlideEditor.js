@@ -6,7 +6,7 @@ import { saveAs } from "file-saver";
 import { FaBold, FaItalic, FaUnderline, FaAlignLeft, FaAlignCenter, FaAlignRight, FaAlignJustify, FaHighlighter } from "react-icons/fa";
 import { v4 as uuidv4 } from "uuid";
 import "../styles/SlideEditor.css";
-import config from "../../config";
+import config from "../config";
 
 const templates = [
     {

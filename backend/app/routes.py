@@ -1716,26 +1716,47 @@ The first slide should be a title slide with the topic and a short description.
 def export_quiz_word():
     if request.method == 'OPTIONS':
         return jsonify({'status': 'ok'}), 200
-    data = request.get_json()
-    quiz = data.get('quiz')
-    if not quiz:
-        return jsonify({'error': 'No quiz data provided'}), 400
-    doc = Document()
-    doc.add_heading('Quiz', 0)
-    for idx, q in enumerate(quiz, 1):
-        question = q.get('question', '')
-        choices = q.get('choices', [])
-        answer = q.get('answer', '')
-        doc.add_paragraph(f"{idx}. {question}", style='List Number')
-        if choices:
-            for cidx, choice in enumerate(choices, 1):
-                doc.add_paragraph(f"    {chr(64+cidx)}. {choice}")
-        doc.add_paragraph(f"    Answer: {answer}")
-    f = BytesIO()
-    doc.save(f)
-    f.seek(0)
-    return send_file(f, as_attachment=True, download_name="quiz.docx", mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-
+    
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+            
+        quiz = data.get('quiz')
+        if not quiz:
+            return jsonify({'error': 'No quiz data provided'}), 400
+            
+        doc = Document()
+        doc.add_heading('Generated Quiz', 0)
+        
+        for idx, q in enumerate(quiz, 1):
+            question = q.get('question', '')
+            choices = q.get('choices', [])
+            answer = q.get('answer', '')
+            
+            doc.add_paragraph(f"{idx}. {question}", style='List Number')
+            
+            if choices:
+                for cidx, choice in enumerate(choices, 1):
+                    doc.add_paragraph(f"    {chr(64+cidx)}. {choice}")
+            
+            doc.add_paragraph(f"    Answer: {answer}")
+            doc.add_paragraph("")  # Add spacing
+        
+        f = BytesIO()
+        doc.save(f)
+        f.seek(0)
+        
+        return send_file(
+            f, 
+            as_attachment=True, 
+            download_name="generated_quiz.docx", 
+            mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+        
+    except Exception as e:
+        current_app.logger.error(f"Error in export-quiz-word: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to export quiz'}), 500
 @main.route('/export-script-word', methods=['POST', 'OPTIONS'])
 def export_script_word():
     if request.method == 'OPTIONS':

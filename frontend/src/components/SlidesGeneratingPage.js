@@ -96,7 +96,7 @@ const SlidesGeneratingPage = () => {
       return;
     }
     try {
-      const response = await fetch(`${config.backendUrl}/generate-presentation`, {
+      const response = await fetch(`${config.API_BASE_URL}/generate-presentation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -131,7 +131,7 @@ const SlidesGeneratingPage = () => {
   // --- UPDATED: Pass language and numQuestions to quiz/script generation ---
   const handleGenerateQuiz = async () => {
     try {
-      const response = await fetch(`${config.backendUrl}/generate-quiz`, {
+      const response = await fetch(`${config.API_BASE_URL}/generate-quiz`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slides: generatedSlides, language, numQuestions }),

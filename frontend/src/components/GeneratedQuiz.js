@@ -9,14 +9,26 @@ const GeneratedQuiz = () => {
   const navigate = useNavigate();
   const quiz = location.state?.quiz;
 
-  const handleExportWord = async () => {
-    try {
-      const response = await fetch(`${config.API_BASE_URL}/export-quiz-word`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quiz }),
-      });
-      if (!response.ok) throw new Error("Failed to export Word file");
+const handleExportWord = async () => {
+  try {
+    const response = await fetch(`${config.API_BASE_URL}/export-quiz-word`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ quiz }),
+    });
+    
+    if (!response.ok) {
+      let errorMessage = "Failed to export Word file";
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } catch {
+      }
+      throw new Error(errorMessage);
+    }
+    
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/vnd.openxmlformats')) {
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -26,10 +38,16 @@ const GeneratedQuiz = () => {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
-    } catch (err) {
-      alert("Failed to export Word file.");
+    } else {
+      // It's probably an error response
+      const text = await response.text();
+      throw new Error(`Unexpected response: ${text}`);
     }
-  };
+  } catch (err) {
+    console.error("Export error:", err);
+    alert(`Failed to export Word file: ${err.message}`);
+  }
+};
 
   // Save quiz to backend
   const handleSaveQuiz = async () => {

@@ -56,7 +56,7 @@ const PasteAndCreate = () => {
     try {
       const user = JSON.parse(localStorage.getItem("user"));
       const user_id = user && user.id ? user.id : null;
-      const response = await fetch(`${config.API_URL}/paste-and-create`, {
+      const response = await fetch(`${config.API_BASE_URL}/paste-and-create`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

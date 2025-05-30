@@ -787,6 +787,7 @@ def save_slides_state():
         return jsonify({"error": "An error occurred while saving the presentation."}), 500
 
 # --- FIREBASE GENERATE SLIDES ENDPOINT (REMOVE SQLAlchemy) ---
+# Update the generate-slides endpoint around line 627
 @main.route("/generate-slides", methods=["POST"])
 def generate_slides():
     data = request.json
@@ -799,8 +800,9 @@ def generate_slides():
     template = data.get("template")
     try:
         num_slides = int(data.get("numSlides", 5))
+        # Fix: Change validation to properly support up to 30 slides
         if num_slides <= 0 or num_slides > 30:
-            return jsonify({"error": "Invalid Number Of Slides."}), 400
+            return jsonify({"error": "Number of slides must be between 1 and 30."}), 400
     except (ValueError, TypeError):
         return jsonify({"error": "Invalid number of slides."}), 400
     if not prompt_topic:
@@ -901,13 +903,21 @@ def generate_slides():
             "Authorization": f"Bearer {GROQ_API_KEY}",
             "Content-Type": "application/json"
         }
+        
+        # Increase token limit for larger presentations
+        max_tokens = 4096
+        if num_slides > 15:
+            max_tokens = 6144  # Increase token limit for larger presentations
+        elif num_slides > 25:
+            max_tokens = 8192  # Even more tokens for very large presentations
+            
         payload = {
             "model": "llama3-8b-8192",  
             "messages": [
                 {"role": "system", "content": "You are a helpful assistant that generates slide content in JSON format."},
                 {"role": "user", "content": generation_prompt}
             ],
-            "max_tokens": 4096,
+            "max_tokens": max_tokens,
             "temperature": 0.3
         }
         response = requests.post(GROQ_API_URL, headers=headers, json=payload)
@@ -922,6 +932,18 @@ def generate_slides():
         if not match:
             return jsonify({"error": "Failed to parse slides output."}), 500
         slides_data = json.loads(match.group(0))
+
+        # Validate that we got the requested number of slides
+        if len(slides_data) != num_slides:
+            current_app.logger.warning(f"Generated {len(slides_data)} slides instead of requested {num_slides}")
+            # If we got fewer slides than requested, pad with additional slides
+            while len(slides_data) < num_slides:
+                slides_data.append({
+                    "title": f"Additional Content {len(slides_data) + 1}",
+                    "content": ["Additional content for this topic will be added here."]
+                })
+            # If we got more slides than requested, trim to the requested number
+            slides_data = slides_data[:num_slides]
 
         # After successful slide generation, store presentation metadata and slides in Firestore
         if user_id:
@@ -1519,21 +1541,26 @@ def paste_and_create():
     data = request.get_json()
     pasted_text = data.get('text', '').strip()
     language = data.get('language', 'English')
-    num_slides = int(data.get('numSlides', 6))
+    
+    # Fix: Support up to 30 slides and validate properly
+    try:
+        num_slides = int(data.get('numSlides', 6))
+        if num_slides <= 0 or num_slides > 30:
+            return jsonify({'error': 'Number of slides must be between 1 and 30'}), 400
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid number of slides'}), 400
 
     if not pasted_text:
         return jsonify({'error': 'No text provided'}), 400
 
-    # --- 1. Extract topic/title ---
-    # Simple heuristic: use the first non-empty line as the topic/title
+    # Extract topic/title
     lines = [line.strip() for line in pasted_text.split('\n') if line.strip()]
     topic = lines[0] if lines else "Untitled Topic"
 
-    # --- 2. Structure the text for slides ---
-    # Prompt the LLM to structure the pasted text into slides
+    # Structure the text for slides
     prompt = f"""
 You are an assistant that structures pasted text into a professional presentation outline.
-Given the following text, extract the main topic as the title, and organize the content into {num_slides} slides.
+Given the following text, extract the main topic as the title, and organize the content into exactly {num_slides} slides.
 Each slide should have a concise and clear title and content.
 Format the content as bullet points or short paragraphs.
 Use Markdown for formatting: **bold** for emphasis, *italic* for highlights, and __underline__ for key terms.
@@ -1549,6 +1576,7 @@ Output a JSON array where each object has:
 - 'content': array of strings (slide content, Markdown allowed)
 - 'image_prompt': string (optional, for relevant image description)
 The first slide should be a title slide with the topic and a short description.
+Make sure to generate exactly {num_slides} slides.
 """
 
     try:
@@ -1556,13 +1584,21 @@ The first slide should be a title slide with the topic and a short description.
             "Authorization": f"Bearer {GROQ_API_KEY}",
             "Content-Type": "application/json"
         }
+        
+        # Increase token limit for larger presentations
+        max_tokens = 4096
+        if num_slides > 15:
+            max_tokens = 6144
+        elif num_slides > 25:
+            max_tokens = 8192
+            
         payload = {
             "model": "llama3-8b-8192",
             "messages": [
                 {"role": "system", "content": "You are a helpful assistant that generates slide content in JSON format."},
                 {"role": "user", "content": prompt}
             ],
-            "max_tokens": 4096,
+            "max_tokens": max_tokens,
             "temperature": 0.4
         }
         response = requests.post(GROQ_API_URL, headers=headers, json=payload)
@@ -1576,6 +1612,15 @@ The first slide should be a title slide with the topic and a short description.
         if not match:
             return jsonify({"error": "Failed to parse slides output."}), 500
         slides_data = json.loads(match.group(0))
+
+        # Validate and adjust slide count
+        if len(slides_data) != num_slides:
+            while len(slides_data) < num_slides:
+                slides_data.append({
+                    "title": f"Additional Content {len(slides_data) + 1}",
+                    "content": ["Additional content will be added here."]
+                })
+            slides_data = slides_data[:num_slides]
 
         # Use the first slide's title as the topic if possible
         detected_topic = slides_data[0]["title"] if slides_data and "title" in slides_data[0] else topic
@@ -1603,14 +1648,20 @@ def upload_file_and_generate_slides():
 
     # Optional: language and numSlides from form data
     language = request.form.get('language', 'English')
-    num_slides = int(request.form.get('numSlides', 6))
+    
+    # Fix: Support up to 30 slides and validate properly
+    try:
+        num_slides = int(request.form.get('numSlides', 6))
+        if num_slides <= 0 or num_slides > 30:
+            return jsonify({'error': 'Number of slides must be between 1 and 30'}), 400
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid number of slides'}), 400
 
-    # --- 1. Extract text from file ---
+    # Extract text from file
     filename = file.filename.lower()
     text = ""
     try:
         if filename.endswith('.pdf'):
-            # Use pdf2image and pytesseract for OCR if needed, or PyPDF2 for text
             from PyPDF2 import PdfReader
             reader = PdfReader(file)
             for page in reader.pages:
@@ -1637,14 +1688,14 @@ def upload_file_and_generate_slides():
     if not text.strip():
         return jsonify({'error': 'No text extracted from file'}), 400
 
-    # --- 2. Extract topic/title ---
+    # Extract topic/title
     lines = [line.strip() for line in text.split('\n') if line.strip()]
     topic = lines[0] if lines else "Untitled Topic"
 
-    # --- 3. Structure the text for slides using LLM ---
+    # Structure the text for slides using LLM
     prompt = f"""
 You are an assistant that structures uploaded file content into a professional presentation outline.
-Given the following text, extract the main topic as the title, and organize the content into {num_slides} slides.
+Given the following text, extract the main topic as the title, and organize the content into exactly {num_slides} slides.
 Each slide should have a concise and clear title and content.
 Format the content as bullet points or short paragraphs.
 Use Markdown for formatting: **bold** for emphasis, *italic* for highlights, and __underline__ for key terms.
@@ -1660,6 +1711,7 @@ Output a JSON array where each object has:
 - 'content': array of strings (slide content, Markdown allowed)
 - 'image_prompt': string (optional, for relevant image description)
 The first slide should be a title slide with the topic and a short description.
+Make sure to generate exactly {num_slides} slides.
 """
 
     try:
@@ -1667,13 +1719,20 @@ The first slide should be a title slide with the topic and a short description.
             "Authorization": f"Bearer {GROQ_API_KEY}",
             "Content-Type": "application/json"
         }
+        
+        max_tokens = 4096
+        if num_slides > 15:
+            max_tokens = 6144
+        elif num_slides > 25:
+            max_tokens = 8192
+            
         payload = {
             "model": "llama3-8b-8192",
             "messages": [
                 {"role": "system", "content": "You are a helpful assistant that generates slide content in JSON format."},
                 {"role": "user", "content": prompt}
             ],
-            "max_tokens": 4096,
+            "max_tokens": max_tokens,
             "temperature": 0.4
         }
         response = requests.post(GROQ_API_URL, headers=headers, json=payload)
@@ -1681,13 +1740,19 @@ The first slide should be a title slide with the topic and a short description.
         result = response.json()
         model_output = result["choices"][0]["message"]["content"]
 
-        # Extract JSON array from the response
         match = re.search(r'\[\s*{.*}\s*\]', model_output, re.DOTALL)
         if not match:
             return jsonify({"error": "Failed to parse slides output."}), 500
         slides_data = json.loads(match.group(0))
 
-        # Use the first slide's title as the topic if possible
+        if len(slides_data) != num_slides:
+            while len(slides_data) < num_slides:
+                slides_data.append({
+                    "title": f"Additional Content {len(slides_data) + 1}",
+                    "content": ["Additional content will be added here."]
+                })
+            slides_data = slides_data[:num_slides]
+
         detected_topic = slides_data[0]["title"] if slides_data and "title" in slides_data[0] else topic
 
         return jsonify({
@@ -1698,7 +1763,7 @@ The first slide should be a title slide with the topic and a short description.
     except Exception as e:
         current_app.logger.error(f"Error in /upload-file: {e}", exc_info=True)
         return jsonify({"error": "Failed to generate slides from file."}), 500
-
+    
 # --- EXPORT QUIZ AND SCRIPT TO WORD (STUBS) ---
 @main.route('/export-quiz-word', methods=['POST', 'OPTIONS'])
 def export_quiz_word():

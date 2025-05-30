@@ -162,17 +162,58 @@
   cursor: grabbing;
 }
 
-/* Paragraph spacing for textboxes */
+/* Paragraph spacing for textboxes - Updated for better control */
 .slide-textbox p {
-  margin-bottom: calc(0.5em + var(--paragraph-spacing, 0px));
   margin-top: 0;
+  margin-bottom: 0.5em;
 }
-.slide-textbox br + br {
-  line-height: calc(1em + var(--paragraph-spacing, 0px));
-}
+
 .slide-textbox div {
-  margin-bottom: calc(0.2em + var(--paragraph-spacing, 0px) * 0.5);
+  margin-bottom: 0.2em;
 }
+
+/* Specific paragraph spacing classes */
+.paragraph-spacing-0 p, .paragraph-spacing-0 div { 
+  margin-bottom: 0px !important; 
+}
+.paragraph-spacing-4 p, .paragraph-spacing-4 div { 
+  margin-bottom: 4px !important; 
+}
+.paragraph-spacing-8 p, .paragraph-spacing-8 div { 
+  margin-bottom: 8px !important; 
+}
+.paragraph-spacing-12 p, .paragraph-spacing-12 div { 
+  margin-bottom: 12px !important; 
+}
+.paragraph-spacing-16 p, .paragraph-spacing-16 div { 
+  margin-bottom: 16px !important; 
+}
+.paragraph-spacing-20 p, .paragraph-spacing-20 div { 
+  margin-bottom: 20px !important; 
+}
+.paragraph-spacing-24 p, .paragraph-spacing-24 div { 
+  margin-bottom: 24px !important; 
+}
+.paragraph-spacing-28 p, .paragraph-spacing-28 div { 
+  margin-bottom: 28px !important; 
+}
+.paragraph-spacing-32 p, .paragraph-spacing-32 div { 
+  margin-bottom: 32px !important; 
+}
+
+/* Handle line breaks for better paragraph spacing */
+.slide-textbox br {
+  margin-bottom: 0;
+}
+
+.paragraph-spacing-4 br { line-height: 1.4; }
+.paragraph-spacing-8 br { line-height: 1.6; }
+.paragraph-spacing-12 br { line-height: 1.8; }
+.paragraph-spacing-16 br { line-height: 2.0; }
+.paragraph-spacing-20 br { line-height: 2.2; }
+.paragraph-spacing-24 br { line-height: 2.4; }
+.paragraph-spacing-28 br { line-height: 2.6; }
+.paragraph-spacing-32 br { line-height: 2.8; }
 
 /* --- Slide Thumbnails --- */
 .slide-thumb {

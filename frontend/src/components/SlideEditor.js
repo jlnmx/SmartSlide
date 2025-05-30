@@ -1259,7 +1259,8 @@ const SlideEditor = () => {
             {renderTemplateContentBox(
               <>
                 {/* Render textboxes using standard positioning for all slides */}
-                {slide.textboxes.map((tb, i) => {                    const style = {
+                {slide.textboxes.map((tb, i) => {
+                  const style = {
                       position: "absolute",
                       left: `${tb.x}px`,
                       top: `${tb.y}px`,
@@ -1284,9 +1285,20 @@ const SlideEditor = () => {
                       cursor: "grab",
                       zIndex: TEXT_Z_INDEX,
                       userSelect: "text",
-                      transition: "all 0.2s ease"
+                      transition: "all 0.2s ease",
+                      '& p': {
+                        marginBottom: `${tb.paragraphSpacing || 0}px`,
+                        marginTop: 0
+                      },
+                      '& div': {
+                        marginBottom: `${tb.paragraphSpacing || 0}px`
+                      }
                     };
-                    return (                      <div
+                    if (tb.bullets) {
+                      // Add bullet styles
+                    }
+                    return (
+                      <div
                         key={`textbox-${currentIdx}-${tb.id}`}
                         ref={el => {
                           if (el) {

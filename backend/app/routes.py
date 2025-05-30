@@ -787,7 +787,6 @@ def save_slides_state():
         return jsonify({"error": "An error occurred while saving the presentation."}), 500
 
 # --- FIREBASE GENERATE SLIDES ENDPOINT (REMOVE SQLAlchemy) ---
-# Update the generate-slides endpoint around line 627
 @main.route("/generate-slides", methods=["POST"])
 def generate_slides():
     data = request.json
@@ -809,94 +808,148 @@ def generate_slides():
         return jsonify({"error": "Prompt topic is required."}), 400
     try:
         import requests, json, re, traceback
+        
+        # Calculate content slides (excluding title, conclusion, and references)
+        content_slides = max(1, num_slides - 3)  # At least 1 content slide
+        
         generation_prompt = f"""
         Generate a professional, well-structured presentation about \"{prompt_topic}\".
         Requirements:
         - The presentation must have exactly {num_slides} slides.
         - Use {language} as the language.
         - Each slide should have:
-        - A concise and engaging title.
-        - Remove the unnecessary characters from the texts like the ** or __. 
-        - Make the structure of the sentences or paragraph clean
-        - Generate the best answers possible for the given topic and do not be frugal with the content.
-        - Clear and concise content, formatted as bullet points or short paragraphs.
-        - Use Markdown for formatting: **bold** for emphasis, *italic* for highlights, and __underline__ for key terms.
-        - If applicable, include a relevant image description for each slide (e.g., "A diagram of the water cycle").
+          - A concise and engaging title.
+          - Remove the unnecessary characters from the texts like the ** or __. 
+          - Make the structure of the sentences or paragraph clean
+          - Generate the best answers possible for the given topic and do not be frugal with the content.
+          - Clear and concise content, formatted as bullet points or short paragraphs.
+          - Use Markdown for formatting: **bold** for emphasis, *italic* for highlights, and __underline__ for key terms.
+          - If applicable, include a relevant image description for each slide (e.g., "A diagram of the water cycle").
+        
         - Organize the content logically:
-        - Slide 1: Title slide with the topic and description.
-        - Slide 2: Introduction (overview of the topic).
-        - Slide 3: Key definitions or background information.
-        - Slide 4-{num_slides-1}: Main points, examples, or case studies.
-        - Slide {num_slides}: Conclusion or references.
+          - Slide 1: Title slide with the topic and description.
+          - Slide 2: Introduction (overview of the topic).
+          - Slides 3-{num_slides-2}: Main content slides with detailed information, examples, case studies, analysis, etc.
+          - Slide {num_slides-1}: Conclusion and Next Steps
+          - Slide {num_slides}: References and Sources
+        
+        - For presentations with many slides ({num_slides} slides), ensure each content slide covers a specific aspect:
+          - Background/History
+          - Key Concepts/Definitions
+          - Current State/Market Analysis
+          - Trends and Developments
+          - Challenges and Opportunities
+          - Case Studies/Examples
+          - Best Practices
+          - Implementation Strategies
+          - Risk Assessment
+          - Future Outlook
+          - Recommendations
+          - Action Items
+        
         - Ensure the content is professional, insightful, and suitable for a business or academic audience.
+        - Each slide must have substantial content - no empty or placeholder slides.
         - Provide a JSON array where each object has:
-        - 'title': string,
-        - 'content': array of strings (use Markdown for formatting),
-        - 'image_prompt': string (optional, for generating relevant images).
+          - 'title': string,
+          - 'content': array of strings (use Markdown for formatting),
+          - 'image_prompt': string (optional, for generating relevant images).
 
-        Example:
+        Example structure for a {num_slides}-slide presentation:
         [
           {{
-            "title": "Renewable Energy",
-            "content": "An overview of renewable energy sources and their benefits.",
-          }}  
-          {{
-            "title": "Market Analysis: Renewable Energy Sector",
+            "title": "{prompt_topic}",
             "content": [
-              "Overview: The renewable energy sector has experienced significant growth over the past decade, driven by technological advancements and policy support.",
-              "Global investment in renewables reached $500 billion in 2023.",
-              "- Major segments: Solar, Wind, and Hydropower.",
-              "- Key drivers: Climate change initiatives, government incentives, and declining technology costs."
+              "A comprehensive overview of {prompt_topic}",
+              "Understanding the key aspects and implications",
+              "Strategic insights and analysis"
             ]
           }},
           {{
-            "title": "Key Trends and Opportunities",
+            "title": "Introduction and Overview",
             "content": [
-              "Decentralization: Growth of distributed energy resources and microgrids.",
-              "Corporate Adoption: Increasing number of Fortune 500 companies committing to 100% renewable energy.",
-              "Emerging Markets: Rapid expansion in Asia-Pacific and Latin America.",
-              "Opportunity: Investment in battery storage and grid modernization."
+              "Definition and scope of {prompt_topic}",
+              "Why this topic is important in today's context",
+              "Key questions we will address",
+              "Expected outcomes from this presentation"
+            ]
+          }},
+          {{
+            "title": "Historical Background and Context",
+            "content": [
+              "Origins and evolution of {prompt_topic}",
+              "Key milestones and developments",
+              "Historical significance and impact",
+              "Lessons learned from the past"
+            ]
+          }},
+          {{
+            "title": "Current Market Analysis",
+            "content": [
+              "Present state of {prompt_topic}",
+              "Market size and growth trends",
+              "Key players and stakeholders",
+              "Current challenges and opportunities"
+            ]
+          }},
+          {{
+            "title": "Key Trends and Developments",
+            "content": [
+              "Emerging trends in {prompt_topic}",
+              "Technological advancements",
+              "Industry innovations",
+              "Future growth projections"
             ]
           }},
           {{
             "title": "Challenges and Risk Factors",
             "content": [
-              "Regulatory Uncertainty: Changes in government policy can impact project viability.",
-              "Supply Chain Constraints: Shortages of critical materials such as lithium and rare earth elements.",
-              "Market Volatility: Fluctuations in energy prices and demand.",
-              "Mitigation: Diversification of supply sources and long-term contracts."
+              "Major obstacles and barriers",
+              "Risk assessment and mitigation",
+              "Common pitfalls to avoid",
+              "Strategic considerations"
             ]
           }},
           {{
-            "title": "Strategic Recommendations",
+            "title": "Case Studies and Examples",
             "content": [
-              "Invest in Innovation: Focus on R&D for next-generation solar and wind technologies.",
-              "Partnerships: Collaborate with local governments and technology providers.",
-              "Sustainability Reporting: Enhance transparency to attract ESG-focused investors.",
-              "Action Item: Develop a roadmap for entering emerging markets."
+              "Real-world applications of {prompt_topic}",
+              "Success stories and best practices",
+              "Lessons from failures",
+              "Industry benchmarks"
+            ]
+          }},
+          {{
+            "title": "Implementation Strategies",
+            "content": [
+              "Step-by-step approach to {prompt_topic}",
+              "Resource requirements and planning",
+              "Timeline and milestones",
+              "Success metrics and KPIs"
             ]
           }},
           {{
             "title": "Conclusion and Next Steps",
             "content": [
-              "Summary: The renewable energy sector presents robust growth opportunities, but requires careful navigation of risks.",
-              "Continue monitoring policy developments.",
-              "Prioritize investments in high-growth regions.",
-              "Schedule follow-up meeting to review implementation plan."
+              "Summary of key findings and insights",
+              "Strategic recommendations",
+              "Immediate action items",
+              "Long-term considerations",
+              "Follow-up activities and monitoring"
             ]
           }},
           {{
-            "title": "References",
+            "title": "References and Sources",
             "content": [
-              "1. International Energy Agency. (2023). World Energy Outlook.",
-              "2. https://www.iea.org/reports/world-energy-outlook-2023",
-              "3. BloombergNEF. (2023). Renewable Energy Investment Trends."
+              "1. Academic journals and research papers",
+              "2. Industry reports and white papers",
+              "3. Expert interviews and surveys",
+              "4. Government and regulatory publications",
+              "5. Professional associations and standards"
             ]
           }}
         ]
 
-
-        Generate the slides now:
+        Generate exactly {num_slides} slides now with substantial content for each slide:
         """
 
         headers = {
@@ -914,7 +967,7 @@ def generate_slides():
         payload = {
             "model": "llama3-8b-8192",  
             "messages": [
-                {"role": "system", "content": "You are a helpful assistant that generates slide content in JSON format."},
+                {"role": "system", "content": "You are a helpful assistant that generates comprehensive slide content in JSON format. Always ensure the last two slides are Conclusion and References respectively."},
                 {"role": "user", "content": generation_prompt}
             ],
             "max_tokens": max_tokens,
@@ -933,17 +986,118 @@ def generate_slides():
             return jsonify({"error": "Failed to parse slides output."}), 500
         slides_data = json.loads(match.group(0))
 
-        # Validate that we got the requested number of slides
+        # Validate and ensure we have the right number of slides with proper structure
         if len(slides_data) != num_slides:
             current_app.logger.warning(f"Generated {len(slides_data)} slides instead of requested {num_slides}")
-            # If we got fewer slides than requested, pad with additional slides
+            
+            # If we got fewer slides than requested, add content slides before conclusion
             while len(slides_data) < num_slides:
-                slides_data.append({
-                    "title": f"Additional Content {len(slides_data) + 1}",
-                    "content": ["Additional content for this topic will be added here."]
-                })
-            # If we got more slides than requested, trim to the requested number
-            slides_data = slides_data[:num_slides]
+                insert_position = max(2, len(slides_data) - 2)  # Insert before conclusion
+                
+                # Generate additional content based on slide position
+                additional_topics = [
+                    "Detailed Analysis and Insights",
+                    "Technical Specifications and Requirements",
+                    "Cost-Benefit Analysis",
+                    "Stakeholder Impact Assessment",
+                    "Regulatory and Compliance Considerations",
+                    "Technology Integration and Innovation",
+                    "Performance Metrics and Evaluation",
+                    "Sustainability and Environmental Impact",
+                    "Global Perspectives and Comparisons",
+                    "Future Research and Development",
+                    "Partnership and Collaboration Opportunities",
+                    "Training and Development Needs"
+                ]
+                
+                topic_index = (len(slides_data) - 3) % len(additional_topics)
+                topic_title = additional_topics[topic_index]
+                
+                new_slide = {
+                    "title": f"{topic_title}",
+                    "content": [
+                        f"Comprehensive analysis of {topic_title.lower()} in relation to {prompt_topic}",
+                        f"Key factors and considerations for {topic_title.lower()}",
+                        f"Strategic implications and recommendations",
+                        f"Best practices and implementation guidelines"
+                    ]
+                }
+                
+                slides_data.insert(insert_position, new_slide)
+            
+            # If we got more slides than requested, trim excess content slides
+            if len(slides_data) > num_slides:
+                # Keep title, conclusion, and references, trim middle content
+                title_slide = slides_data[0]
+                content_slides = slides_data[1:-2][:num_slides-3]
+                conclusion_slide = slides_data[-2] if len(slides_data) >= 2 else {
+                    "title": "Conclusion and Next Steps",
+                    "content": [
+                        f"Summary of key findings about {prompt_topic}",
+                        "Strategic recommendations",
+                        "Next steps and action items"
+                    ]
+                }
+                references_slide = slides_data[-1] if len(slides_data) >= 1 else {
+                    "title": "References and Sources",
+                    "content": [
+                        "1. Industry reports and publications",
+                        "2. Academic research and studies",
+                        "3. Expert analysis and insights"
+                    ]
+                }
+                
+                slides_data = [title_slide] + content_slides + [conclusion_slide, references_slide]
+
+        # Ensure the last two slides are always Conclusion and References
+        if num_slides >= 2:
+            # Update second-to-last slide to be conclusion
+            if len(slides_data) >= 2:
+                conclusion_keywords = ["conclusion", "summary", "next steps", "wrap up", "final"]
+                if not any(keyword in slides_data[-2]["title"].lower() for keyword in conclusion_keywords):
+                    slides_data[-2] = {
+                        "title": "Conclusion and Next Steps",
+                        "content": [
+                            f"Summary: {prompt_topic} presents significant opportunities and considerations",
+                            "Key takeaways from our comprehensive analysis",
+                            "Strategic recommendations for implementation",
+                            "Immediate action items and priorities",
+                            "Long-term vision and goals",
+                            "Success metrics and monitoring approach"
+                        ]
+                    }
+            
+            # Update last slide to be references
+            if len(slides_data) >= 1:
+                reference_keywords = ["reference", "source", "bibliography", "citation"]
+                if not any(keyword in slides_data[-1]["title"].lower() for keyword in reference_keywords):
+                    slides_data[-1] = {
+                        "title": "References and Sources",
+                        "content": [
+                            "1. Industry Research Reports and Market Analysis",
+                            "2. Academic Journals and Peer-Reviewed Studies",
+                            "3. Government Publications and Regulatory Documents",
+                            "4. Professional Association Guidelines and Standards",
+                            "5. Expert Interviews and Industry Surveys",
+                            "6. Company Reports and Case Study Documentation"
+                        ]
+                    }
+
+        # Final validation - ensure all slides have substantial content
+        for i, slide in enumerate(slides_data):
+            if not slide.get("content") or len(slide["content"]) == 0:
+                slide["content"] = [
+                    f"Detailed information about {slide.get('title', 'this topic')}",
+                    "Key insights and analysis",
+                    "Important considerations and implications",
+                    "Strategic recommendations"
+                ]
+            elif len(slide["content"]) < 2:
+                # Ensure each slide has at least 2-3 content points
+                slide["content"].extend([
+                    "Additional insights and analysis",
+                    "Strategic implications and recommendations"
+                ])
 
         # After successful slide generation, store presentation metadata and slides in Firestore
         if user_id:
@@ -1533,6 +1687,7 @@ def get_user_analytics(user_id):
 
 
 
+# Update the paste-and-create endpoint around line 1522
 @main.route('/paste-and-create', methods=['POST', 'OPTIONS'])
 def paste_and_create():
     if request.method == 'OPTIONS':
@@ -1561,10 +1716,22 @@ def paste_and_create():
     prompt = f"""
 You are an assistant that structures pasted text into a professional presentation outline.
 Given the following text, extract the main topic as the title, and organize the content into exactly {num_slides} slides.
-Each slide should have a concise and clear title and content.
-Format the content as bullet points or short paragraphs.
-Use Markdown for formatting: **bold** for emphasis, *italic* for highlights, and __underline__ for key terms.
-If the text is long, summarize and split it logically across slides.
+
+Requirements:
+- Each slide should have a concise and clear title and substantial content.
+- Format the content as bullet points or short paragraphs.
+- Use Markdown for formatting: **bold** for emphasis, *italic* for highlights, and __underline__ for key terms.
+- If the text is long, summarize and split it logically across slides.
+- Ensure ALL {num_slides} slides have meaningful content.
+- The last two slides must be:
+  - Slide {num_slides-1}: Conclusion and Next Steps
+  - Slide {num_slides}: References and Sources
+
+Structure:
+- Slide 1: Title slide with the topic and description
+- Slides 2-{num_slides-2}: Main content slides covering different aspects
+- Slide {num_slides-1}: Conclusion and Next Steps
+- Slide {num_slides}: References and Sources
 
 Text:
 ---
@@ -1575,8 +1742,8 @@ Output a JSON array where each object has:
 - 'title': string (slide title)
 - 'content': array of strings (slide content, Markdown allowed)
 - 'image_prompt': string (optional, for relevant image description)
-The first slide should be a title slide with the topic and a short description.
-Make sure to generate exactly {num_slides} slides.
+
+Make sure to generate exactly {num_slides} slides with substantial content for each.
 """
 
     try:
@@ -1595,7 +1762,7 @@ Make sure to generate exactly {num_slides} slides.
         payload = {
             "model": "llama3-8b-8192",
             "messages": [
-                {"role": "system", "content": "You are a helpful assistant that generates slide content in JSON format."},
+                {"role": "system", "content": "You are a helpful assistant that generates slide content in JSON format. Always ensure comprehensive content and that the last two slides are Conclusion and References."},
                 {"role": "user", "content": prompt}
             ],
             "max_tokens": max_tokens,
@@ -1613,14 +1780,49 @@ Make sure to generate exactly {num_slides} slides.
             return jsonify({"error": "Failed to parse slides output."}), 500
         slides_data = json.loads(match.group(0))
 
-        # Validate and adjust slide count
+        # Validate and adjust slide count with proper conclusion and references
         if len(slides_data) != num_slides:
             while len(slides_data) < num_slides:
-                slides_data.append({
-                    "title": f"Additional Content {len(slides_data) + 1}",
-                    "content": ["Additional content will be added here."]
+                insert_pos = max(1, len(slides_data) - 2)
+                slides_data.insert(insert_pos, {
+                    "title": f"Additional Analysis {len(slides_data)}",
+                    "content": [
+                        "Further analysis of the key points",
+                        "Additional insights and considerations",
+                        "Supporting evidence and examples"
+                    ]
                 })
             slides_data = slides_data[:num_slides]
+
+        # Ensure last two slides are conclusion and references
+        if num_slides >= 2:
+            slides_data[-2] = {
+                "title": "Conclusion and Next Steps",
+                "content": [
+                    "Summary of key findings and insights",
+                    "Main takeaways from the analysis",
+                    "Recommended next steps and actions",
+                    "Future considerations and planning"
+                ]
+            }
+            slides_data[-1] = {
+                "title": "References and Sources",
+                "content": [
+                    "1. Original document analysis",
+                    "2. Supporting research and data",
+                    "3. Industry best practices",
+                    "4. Expert recommendations"
+                ]
+            }
+
+        # Ensure all slides have substantial content
+        for slide in slides_data:
+            if not slide.get("content") or len(slide["content"]) < 2:
+                slide["content"] = [
+                    f"Key information about {slide.get('title', 'this topic')}",
+                    "Important insights and analysis",
+                    "Strategic considerations and recommendations"
+                ]
 
         # Use the first slide's title as the topic if possible
         detected_topic = slides_data[0]["title"] if slides_data and "title" in slides_data[0] else topic

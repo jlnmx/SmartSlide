@@ -235,7 +235,10 @@ if not GROQ_API_KEY:
 main = Blueprint("main", __name__)
 # CORS(main, resources={r"/*": {"origins": "http://localhost:3000"}}) # Commented out old line
 CORS(main, 
-    resources={r"/*": {"origins": "http://localhost:3000"}},
+    resources={r"/*": {"origins": [
+        "http://localhost:3000",
+        "https://smartslide.vercel.app"
+    ]}},
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
     supports_credentials=True

@@ -275,7 +275,7 @@ def register():
 @main.route('/login', methods=['POST', 'OPTIONS'])
 def login():
     if request.method == 'OPTIONS':
-        return jsonify({'status': 'ok'}), 200  # Handle preflight
+        return jsonify({'status': 'ok'}), 200
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
@@ -292,8 +292,7 @@ def login():
 @main.route('/user/<user_id>', methods=['GET', 'PUT', 'OPTIONS'])
 def manage_user_profile(user_id):
     if request.method == 'OPTIONS':
-        return jsonify({'status': 'ok'}), 200  # Handle CORS preflight
-
+        return jsonify({'status': 'ok'}), 200
     users_ref = firestore_db.collection('users')
     user_doc = users_ref.document(user_id).get()
     if not user_doc.exists:
@@ -313,26 +312,23 @@ def manage_user_profile(user_id):
         user_doc = users_ref.document(user_id).get()
         user = user_doc.to_dict()
         return jsonify({'message': 'User profile updated successfully', 'user': {'id': user_id, 'email': user.get('email')}}), 200
+    return jsonify({'error': 'Invalid request method'}), 405
 
 # --- FIREBASE SAVE PRESENTATION ---
 @main.route('/save-presentation', methods=['POST', 'OPTIONS'])
 def save_presentation():
     if request.method == 'OPTIONS':
-        return jsonify({'status': 'ok'}), 200  # CORS preflight
-
+        return jsonify({'status': 'ok'}), 200
     data = request.get_json()
     if not data:
         return jsonify({'error': 'No data provided'}), 400
-
     user_id = data.get('user_id')
     title = data.get('title', 'Untitled Presentation')
     slides = data.get('slides')
     template = data.get('template', 'default')
     presentation_type = data.get('presentation_type', 'Default')
-
     if not user_id or not slides:
         return jsonify({'error': 'Missing required fields (user_id, slides)'}), 400
-
     try:
         now = datetime.utcnow()
         doc = firestore_db.collection('presentations').document()
@@ -357,14 +353,12 @@ def get_presentations(user_id):
     try:
         current_app.logger.info(f"Fetching presentations for user_id: {user_id}")
         presentations_ref = firestore_db.collection('presentations')
-        # Temporary fix: fetch all user presentations and sort in Python (until Firestore index is created)
         query = presentations_ref.where('user_id', '==', user_id)
         docs = query.stream()
         presentations = []
         for doc in docs:
             data = doc.to_dict()
             data['id'] = doc.id
-            # Serialize timestamps to ISO format if present
             for ts_field in ['created_at', 'updated_at']:
                 if ts_field in data and data[ts_field] is not None:
                     try:
@@ -372,11 +366,8 @@ def get_presentations(user_id):
                     except Exception:
                         data[ts_field] = str(data[ts_field])
             presentations.append(data)
-        
-        # Sort by created_at in descending order and limit to 10
         presentations.sort(key=lambda x: x.get('created_at', ''), reverse=True)
         presentations = presentations[:10]
-        
         current_app.logger.info(f"Returning {len(presentations)} presentations for user_id: {user_id}")
         return jsonify({'presentations': presentations}), 200
     except Exception as e:
@@ -429,13 +420,12 @@ def save_script():
 @main.route('/saved-items/<user_id>', methods=['GET', 'OPTIONS'])
 def get_saved_items(user_id):
     if request.method == 'OPTIONS':
-        return jsonify({'status': 'ok'}), 200  # CORS preflight
+        return jsonify({'status': 'ok'}), 200
     try:
         quizzes_ref = firestore_db.collection('saved_quizzes').where('user_id', '==', user_id)
         scripts_ref = firestore_db.collection('saved_scripts').where('user_id', '==', user_id)
         quizzes = [dict(q.to_dict(), id=q.id) for q in quizzes_ref.stream()]
         scripts = [dict(s.to_dict(), id=s.id) for s in scripts_ref.stream()]
-        # Sort by created_at descending (as string, for compatibility)
         quizzes.sort(key=lambda x: x.get('created_at', ''), reverse=True)
         scripts.sort(key=lambda x: x.get('created_at', ''), reverse=True)
         return jsonify({'quizzes': quizzes, 'scripts': scripts}), 200

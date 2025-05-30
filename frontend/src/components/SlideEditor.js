@@ -1310,8 +1310,8 @@ const handleParagraphSpacing = value => {
                             if (existingRef?.timeout) clearTimeout(existingRef.timeout);
                             contentEditableRefs.current.delete(tb.id);
                           }
-                        }}
-                        className={"slide-textbox" + (selectedTextBoxId === tb.id ? " selected" : "")}
+                        }}                        
+                        className={"slide-textbox" + (selectedTextBoxId === tb.id ? " selected" : "") + (tb.paragraphSpacing ? ` paragraph-spacing-${tb.paragraphSpacing}` : "")}
                         style={style}
                         contentEditable
                         suppressContentEditableWarning

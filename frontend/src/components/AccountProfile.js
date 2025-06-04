@@ -118,10 +118,6 @@ const AccountProfile = () => {
     };
   }, [theme]);
 
-  const handleShowStatistics = () => {
-    navigate("/analytics"); 
-  };
-
   return (
     <div>
       {/* Add the Navbar at the top */}
@@ -213,14 +209,6 @@ const AccountProfile = () => {
                 Save Changes
               </button>
               {message && <div className="save-message">{message}</div>}
-            </div>
-
-            {/* Analytics Section */}
-            <div className="account-section">
-              <h2 className="section-title">Analytics</h2>
-              <button className="show-statistics-btn" onClick={handleShowStatistics}>
-                Show Statistics
-              </button>
             </div>
           </>
         )}

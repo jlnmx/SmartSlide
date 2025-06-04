@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import App from "./App";
 import AuthPage from "./Auth";
+import UserTypeSelection from "./UserTypeSelection";
 import Dashboard from "./Dashboard";
 import CreatePage from "./CreatePage";
 import GeneratePage from "./GeneratePage";
@@ -15,6 +16,7 @@ import GeneratedQuiz from "./GeneratedQuiz";
 import GeneratedScript from "./GeneratedScript";
 import SlideEditor from "./SlideEditor";
 import SavedQuizzesAndScripts from "./SavedQuizzesAndScripts";
+import UploadTemplates from "./UploadTemplates";
 
 
 
@@ -23,11 +25,12 @@ const MainRouter = () => {
     <Router>
       <Routes>
         {/* Welcome Page */}
-        <Route path="/" element={<App />} exact />
-
-        {/* Authentication Page */}
+        <Route path="/" element={<App />} exact />{/* Authentication Page */}
         <Route path="/auth" element={<AuthPage isLogin={true} />} />
         <Route path="/register" element={<AuthPage isLogin={false} />} />
+
+        {/* User Type Selection Page */}
+        <Route path="/select-user-type" element={<UserTypeSelection />} />
 
         {/* Dashboard */}
         <Route path="/dashboard" element={<Dashboard />} />
@@ -59,10 +62,11 @@ const MainRouter = () => {
         <Route path="/generated-script" element={<GeneratedScript />} />
 
         {/* Slide Editor Page */}
-        <Route path="/slide-editor" element={<SlideEditor />} />
-
-        {/* Saved Quizzes and Scripts Page */}
+        <Route path="/slide-editor" element={<SlideEditor />} />        {/* Saved Quizzes and Scripts Page */}
         <Route path="/saved-quizzes-and-scripts" element={<SavedQuizzesAndScripts />} />
+
+        {/* Upload Templates Page */}
+        <Route path="/upload-templates" element={<UploadTemplates />} />
 
         {/* Help Page */}
         <Route path="/help" element={<Help />} />

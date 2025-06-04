@@ -1,63 +1,100 @@
 import firebase_admin
 from firebase_admin import credentials, firestore
-from app.models import db, User, Analytics, Presentation, SavedQuiz, SavedScript
-from app import create_app
+from datetime import datetime
 
+# Initialize Firebase
 cred = credentials.Certificate("firebase_key.json")
-firebase_admin.initialize_app(cred)
+if not firebase_admin._apps:
+    firebase_admin.initialize_app(cred)
 firestore_db = firestore.client()
 
-app = create_app()
-with app.app_context():
-    # --- USERS ---
-    for user in User.query.all():
-        firestore_db.collection('users').document(str(user.id)).set({
-            'email': user.email,
-            'password_hash': user.password_hash,
-            'created_at': user.created_at
-        })
+def migrate_user_fields():
+    """Migrate existing users to include new fields"""
+    print("Starting user migration...")
+    
+    # Get all existing users
+    users_ref = firestore_db.collection('users')
+    users = users_ref.stream()
+    
+    updated_count = 0
+    for user_doc in users:
+        user_data = user_doc.to_dict()
+        user_id = user_doc.id
+        
+        # Check if user already has the new fields, if not add them with default values
+        updates = {}
+        
+        if 'full_name' not in user_data:
+            updates['full_name'] = ''
+        
+        if 'birthday' not in user_data:
+            updates['birthday'] = ''
+        
+        if 'contact_number' not in user_data:
+            updates['contact_number'] = ''
+        
+        if 'user_type' not in user_data:
+            updates['user_type'] = ''
+        
+        if 'registration_completed' not in user_data:
+            updates['registration_completed'] = False
+        
+        # Only update if there are new fields to add
+        if updates:
+            users_ref.document(user_id).update(updates)
+            updated_count += 1
+            print(f"Updated user {user_id} with new fields: {list(updates.keys())}")
+    
+    print(f"Migration completed! Updated {updated_count} users with new fields.")
 
-    # --- ANALYTICS ---
-    for analytics in Analytics.query.all():
-        firestore_db.collection('analytics').document(str(analytics.user_id)).set({
-            'user_id': analytics.user_id,
-            'month': analytics.month,
-            'slides_created': analytics.slides_created,
-            'topic': analytics.topic,
-            'topic_count': analytics.topic_count,
-            'quizzes_generated': analytics.quizzes_generated,
-            'scripts_generated': analytics.scripts_generated,
-            'last_active': analytics.last_active
-        })
+def migrate_analytics_fields():
+    """Migrate existing analytics to ensure all required fields exist"""
+    print("Starting analytics migration...")
+    
+    # Get all existing analytics
+    analytics_ref = firestore_db.collection('analytics')
+    analytics = analytics_ref.stream()
+    
+    updated_count = 0
+    for analytics_doc in analytics:
+        analytics_data = analytics_doc.to_dict()
+        analytics_id = analytics_doc.id
+        
+        # Check if analytics already has all required fields
+        updates = {}
+        
+        if 'slides_created' not in analytics_data:
+            updates['slides_created'] = 0
+        
+        if 'quizzes_generated' not in analytics_data:
+            updates['quizzes_generated'] = 0
+        
+        if 'scripts_generated' not in analytics_data:
+            updates['scripts_generated'] = 0
+        
+        if 'last_active' not in analytics_data:
+            updates['last_active'] = datetime.utcnow()
+        
+        if 'last_generated_at' not in analytics_data:
+            updates['last_generated_at'] = None
+        
+        if 'last_topic' not in analytics_data:
+            updates['last_topic'] = None
+        
+        # Only update if there are new fields to add
+        if updates:
+            analytics_ref.document(analytics_id).update(updates)
+            updated_count += 1
+            print(f"Updated analytics {analytics_id} with new fields: {list(updates.keys())}")
+    
+    print(f"Analytics migration completed! Updated {updated_count} analytics records.")
 
-    # --- PRESENTATIONS ---
-    for pres in Presentation.query.all():
-        firestore_db.collection('presentations').document(str(pres.id)).set({
-            'user_id': pres.user_id,
-            'title': pres.title,
-            'created_at': pres.created_at,
-            'updated_at': pres.updated_at,
-            'template': pres.template,
-            'presentation_type': pres.presentation_type,
-            'slides': pres.slides_json  # If you want to keep as JSON string, or use json.loads(pres.slides_json)
-        })
-
-    # --- SAVED QUIZZES ---
-    for quiz in SavedQuiz.query.all():
-        firestore_db.collection('saved_quizzes').document(str(quiz.id)).set({
-            'user_id': quiz.user_id,
-            'name': quiz.name,
-            'content': quiz.content,
-            'created_at': quiz.created_at
-        })
-
-    # --- SAVED SCRIPTS ---
-    for script in SavedScript.query.all():
-        firestore_db.collection('saved_scripts').document(str(script.id)).set({
-            'user_id': script.user_id,
-            'name': script.name,
-            'content': script.content,
-            'created_at': script.created_at
-        })
-
-print("Migration complete!")
+if __name__ == "__main__":
+    try:
+        migrate_user_fields()
+        migrate_analytics_fields()
+        print("\n✅ All migrations completed successfully!")
+    except Exception as e:
+        print(f"❌ Error during migration: {str(e)}")
+        import traceback
+        traceback.print_exc()

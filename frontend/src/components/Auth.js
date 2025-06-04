@@ -5,6 +5,7 @@ import "react-slideshow-image/dist/styles.css"; // Import default styles
 import axios from "axios";
 import "../styles/Auth.css";
 import config from "../config";
+import ForgotPassword from "./ForgotPassword";
 
 
 const slideImages = [
@@ -27,31 +28,76 @@ const AuthPage = ({ isLogin }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [birthday, setBirthday] = useState("");
+  const [contactNumber, setContactNumber] = useState("");
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email || !password || (!isLogin && password !== confirmPassword)) {
-      alert("Please fill all fields correctly.");
-      return;
+    
+    if (isLogin) {
+      // Login validation
+      if (!email || !password) {
+        alert("Please fill all fields correctly.");
+        return;
+      }
+    } else {
+      // Registration validation
+      if (!email || !password || !fullName || !birthday || !contactNumber || password !== confirmPassword) {
+        alert("Please fill all fields correctly and ensure passwords match.");
+        return;
+      }
     }
+    
     try {
       if (isLogin) {
         const res = await axios.post(`${config.API_BASE_URL}/login`, { email, password });
-        localStorage.setItem("user", JSON.stringify(res.data.user));
-        navigate("/dashboard");
+        const user = res.data.user;
+        localStorage.setItem("user", JSON.stringify(user));
+        
+        // Check if user has completed registration (selected user type)
+        if (user.registration_completed) {
+          navigate("/dashboard");
+        } else {
+          navigate("/select-user-type", { state: { userId: user.id } });
+        }
       } else {
-        await axios.post(`${config.API_BASE_URL}/register`, { email, password });
-        alert("Registration successful!");
-        // Directly log in after registration
-        const res = await axios.post(`${config.API_BASE_URL}/login`, { email, password });
-        localStorage.setItem("user", JSON.stringify(res.data.user));
-        navigate("/dashboard");
-      }
-    } catch (err) {
+        // Register user with additional information
+        const registerRes = await axios.post(`${config.API_BASE_URL}/register`, { 
+          email, 
+          password, 
+          fullName, 
+          birthday, 
+          contactNumber 
+        });
+        
+        alert("Registration successful! Please select your user type.");
+        
+        // Navigate to user type selection page
+        navigate("/select-user-type", { state: { userId: registerRes.data.user_id } });
+      }    } catch (err) {
       alert(err.response?.data?.error || "Authentication failed.");
     }
   };
+
+  const handleBackToLogin = () => {
+    setShowForgotPassword(false);
+    setEmail("");
+    setPassword("");
+  };
+
+  const handleForgotPasswordClick = () => {
+    setShowForgotPassword(true);
+  };
+
+  // If showing forgot password, render the ForgotPassword component
+  if (showForgotPassword) {
+    return <ForgotPassword onBackToLogin={handleBackToLogin} />;
+  }
 
   return (
     <div className="auth-container">
@@ -92,8 +138,37 @@ const AuthPage = ({ isLogin }) => {
             {isLogin
               ? "Get started on creating presentations."
               : "Join SmartSlide and start creating."}
-          </p>
-          <form className="auth-form" onSubmit={handleSubmit}>
+          </p>          <form className="auth-form" onSubmit={handleSubmit}>
+            {!isLogin && (
+              <input
+                type="text"
+                placeholder="Full Name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+                aria-label="Full Name"
+              />
+            )}
+            {!isLogin && (
+              <input
+                type="date"
+                placeholder="Birthday"
+                value={birthday}
+                onChange={(e) => setBirthday(e.target.value)}
+                required
+                aria-label="Birthday"
+              />
+            )}
+            {!isLogin && (
+              <input
+                type="tel"
+                placeholder="Contact Number"
+                value={contactNumber}
+                onChange={(e) => setContactNumber(e.target.value)}
+                required
+                aria-label="Contact Number"
+              />
+            )}
             <input
               type="email"
               placeholder="Enter email"
@@ -101,8 +176,7 @@ const AuthPage = ({ isLogin }) => {
               onChange={(e) => setEmail(e.target.value)}
               required
               aria-label="Email Address"
-            />
-            <input
+            />            <input
               type="password"
               placeholder="Enter password"
               value={password}
@@ -110,6 +184,17 @@ const AuthPage = ({ isLogin }) => {
               required
               aria-label="Password"
             />
+            {isLogin && (
+              <div className="forgot-password-link">
+                <button 
+                  type="button" 
+                  className="forgot-password-btn"
+                  onClick={handleForgotPasswordClick}
+                >
+                  Forgot Password?
+                </button>
+              </div>
+            )}
             {!isLogin && (
               <input
                 type="password"

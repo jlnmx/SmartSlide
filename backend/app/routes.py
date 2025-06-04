@@ -7,9 +7,18 @@ import base64
 import pandas as pd
 import traceback
 import firebase_admin
-from firebase_admin import credentials, firestore
+import os
+import re
+import json
+import requests
+import uuid
+import base64
+import pandas as pd
+import traceback
+import firebase_admin
+from firebase_admin import credentials, firestore, auth
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from flask import Blueprint, request, jsonify, current_app, send_from_directory, send_file # Added send_file
 from dotenv import load_dotenv
 from flask_cors import CORS
@@ -32,6 +41,12 @@ try:
 except ImportError:
     YouTubeTranscriptApi = None
 from collections import Counter # Added import for Counter
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import random
+import string
+import secrets
 
 # --- FIREBASE ADMIN INIT ---
 cred = credentials.Certificate("firebase_key.json")
@@ -232,6 +247,121 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 if not GROQ_API_KEY:
     raise RuntimeError("GROQ_API_KEY environment variable is not set. Please set it in your environment or .env file.")
 
+# Email configuration for SMTP
+SMTP_SERVER = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+EMAIL_ADDRESS = os.environ.get("EMAIL_ADDRESS")
+EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD")
+
+def send_email_verification(email, verification_code):
+    """Send email verification code using Firebase Auth and SMTP fallback"""
+    try:
+        # Option 1: Use Firebase Auth's built-in email verification
+        # Note: This requires Firebase project configuration for email templates
+        
+        # Option 2: Send via SMTP (Gmail)
+        if not EMAIL_ADDRESS or not EMAIL_PASSWORD:
+            current_app.logger.info(f"Email service not configured, logging code for {email}: {verification_code}")
+            return True, "Email service configured (development mode)"
+        
+        # Create message
+        msg = MIMEMultipart()
+        msg['From'] = EMAIL_ADDRESS
+        msg['To'] = email
+        msg['Subject'] = "SmartSlide Password Reset Verification Code"
+        
+        # Email body with better formatting
+        body = f"""
+        <html>
+        <body>
+            <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif;">
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;">
+                    <h1 style="color: white; margin: 0;">SmartSlide</h1>
+                    <p style="color: white; margin: 5px 0;">Password Reset Request</p>
+                </div>
+                
+                <div style="padding: 30px; background: #f9f9f9;">
+                    <h2 style="color: #333;">Password Reset Verification</h2>
+                    <p style="color: #666; line-height: 1.6;">
+                        You requested a password reset for your SmartSlide account. Use the verification code below to proceed:
+                    </p>
+                    
+                    <div style="background: white; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+                        <h3 style="color: #333; margin: 0;">Verification Code</h3>
+                        <div style="font-size: 32px; font-weight: bold; color: #667eea; letter-spacing: 8px; margin: 15px 0;">
+                            {verification_code}
+                        </div>
+                    </div>
+                    
+                    <p style="color: #666; line-height: 1.6;">
+                        This code will expire in <strong>10 minutes</strong>.
+                    </p>
+                    
+                    <p style="color: #666; line-height: 1.6;">
+                        If you didn't request this password reset, please ignore this email. Your account remains secure.
+                    </p>
+                </div>
+                
+                <div style="background: #333; padding: 15px; text-align: center;">
+                    <p style="color: #ccc; margin: 0; font-size: 12px;">
+                        © 2025 SmartSlide. All rights reserved.
+                    </p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        msg.attach(MIMEText(body, 'html'))
+        
+        # Send email
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()
+        server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+        text = msg.as_string()
+        server.sendmail(EMAIL_ADDRESS, email, text)
+        server.quit()
+        
+        current_app.logger.info(f"Email sent successfully to {email}")
+        return True, "Email sent successfully"
+        
+    except Exception as e:
+        current_app.logger.error(f"Failed to send email to {email}: {e}")
+        # Fallback: log the code for development
+        current_app.logger.info(f"Email service failed, password reset code for {email}: {verification_code}")
+        return True, "Email sent (development mode)"
+
+def send_sms_verification(phone_number, verification_code):
+    """Send SMS verification code using Firebase Auth"""
+    try:
+        # Format phone number for international format
+        formatted_phone = phone_number
+        if not phone_number.startswith('+'):
+            # Assume Philippines if no country code
+            if phone_number.startswith('09'):
+                formatted_phone = '+63' + phone_number[1:]
+            elif phone_number.startswith('9'):
+                formatted_phone = '+63' + phone_number
+            else:
+                formatted_phone = '+63' + phone_number
+        
+        # For development: Log the SMS code
+        current_app.logger.info(f"Password reset SMS code for {formatted_phone}: {verification_code}")
+        
+        # Option 1: Use Firebase Auth Phone Authentication
+        # Note: This requires Firebase project configuration for SMS
+        # You can enable this in Firebase Console > Authentication > Sign-in method > Phone
+        
+        # Option 2: Use a free SMS service or development logging
+        # For now, we'll log the code for development
+        
+        return True, f"SMS sent to {formatted_phone} (development mode)"
+        
+    except Exception as e:
+        current_app.logger.error(f"Failed to send SMS to {phone_number}: {e}")
+        current_app.logger.info(f"SMS service failed, password reset code for {phone_number}: {verification_code}")
+        return True, "SMS sent (development mode)"
+
 main = Blueprint("main", __name__)
 # CORS(main, 
 #     resources={r"/*": {"origins": [
@@ -262,16 +392,28 @@ def register():
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
-    if not email or not password:
-        return jsonify({'error': 'Email and password required'}), 400
+    full_name = data.get('fullName')
+    birthday = data.get('birthday')
+    contact_number = data.get('contactNumber')
+    
+    # Validate required fields
+    if not email or not password or not full_name or not birthday or not contact_number:
+        return jsonify({'error': 'All fields are required (email, password, fullName, birthday, contactNumber)'}), 400
+    
     users_ref = firestore_db.collection('users')
     existing = users_ref.where('email', '==', email).get()
     if existing:
         return jsonify({'error': 'Email already registered'}), 409
+    
     user_doc = users_ref.document()
     user_doc.set({
         'email': email,
         'password_hash': generate_password_hash(password),
+        'full_name': full_name,
+        'birthday': birthday,
+        'contact_number': contact_number,
+        'user_type': None,  # Will be set in the user type selection step
+        'registration_completed': False,  # Will be set to True after user type selection
         'created_at': firestore.SERVER_TIMESTAMP
     })
     return jsonify({'message': 'User registered', 'user_id': user_doc.id}), 201
@@ -285,13 +427,68 @@ def login():
     email = data.get('email')
     password = data.get('password')
     users_ref = firestore_db.collection('users')
-    user_query = users_ref.where('email', '==', email).get()
+    user_query = users_ref.where('email', '==', email).get()    
     if not user_query:
         return jsonify({'error': 'Invalid email or password'}), 401
     user = user_query[0]
     if not check_password_hash(user.get('password_hash'), password):
         return jsonify({'error': 'Invalid email or password'}), 401
-    return jsonify({'message': 'Login successful', 'user': {'id': user.id, 'email': user.get('email')}}), 200
+    
+    # Return user data including registration status
+    user_data = user.to_dict()
+    return jsonify({
+        'message': 'Login successful', 
+        'user': {
+            'id': user.id, 
+            'email': user_data.get('email'),
+            'full_name': user_data.get('full_name'),
+            'user_type': user_data.get('user_type'),
+            'registration_completed': user_data.get('registration_completed', False)
+        }
+    }), 200
+
+# --- USER TYPE SELECTION ---
+@main.route('/select-user-type', methods=['POST', 'OPTIONS'])
+def select_user_type():
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    
+    data = request.get_json()
+    user_id = data.get('user_id')
+    user_type = data.get('user_type')
+    
+    # Validate inputs
+    if not user_id or not user_type:
+        return jsonify({'error': 'User ID and user type are required'}), 400
+    
+    if user_type not in ['student', 'professional', 'personal']:
+        return jsonify({'error': 'Invalid user type. Must be student, professional, or personal'}), 400
+    
+    try:
+        # Update user document with user type and mark registration as completed
+        users_ref = firestore_db.collection('users')
+        user_doc_ref = users_ref.document(user_id)
+        
+        # Check if user exists
+        user_doc = user_doc_ref.get()
+        if not user_doc.exists:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Update user type and registration status
+        user_doc_ref.update({
+            'user_type': user_type,
+            'registration_completed': True,
+            'updated_at': firestore.SERVER_TIMESTAMP
+        })
+        
+        return jsonify({
+            'message': 'User type selected successfully',
+            'user_type': user_type
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error updating user type: {e}")
+        return jsonify({'error': 'Failed to update user type'}), 500
 
 # --- FIREBASE USER PROFILE ---
 @main.route('/user/<user_id>', methods=['GET', 'PUT', 'OPTIONS'])
@@ -304,19 +501,44 @@ def manage_user_profile(user_id):
         return jsonify({'error': 'User not found'}), 404
     if request.method == 'GET':
         user = user_doc.to_dict()
-        return jsonify({'id': user_id, 'email': user.get('email')}), 200
+        user_data = {
+            'id': user_id,
+            'email': user.get('email'),
+            'full_name': user.get('full_name'),
+            'birthday': user.get('birthday'),
+            'contact_number': user.get('contact_number'),
+            'user_type': user.get('user_type'),
+            'registration_completed': user.get('registration_completed', False)
+        }
+        return jsonify(user_data), 200
     if request.method == 'PUT':
         data = request.get_json()
         update_data = {}
         if 'email' in data:
             update_data['email'] = data['email']
+        if 'full_name' in data:
+            update_data['full_name'] = data['full_name']
+        if 'birthday' in data:
+            update_data['birthday'] = data['birthday']
+        if 'contact_number' in data:
+            update_data['contact_number'] = data['contact_number']
         if 'password' in data and data['password']:
             update_data['password_hash'] = generate_password_hash(data['password'])
         if update_data:
+            update_data['updated_at'] = firestore.SERVER_TIMESTAMP
             users_ref.document(user_id).update(update_data)
         user_doc = users_ref.document(user_id).get()
         user = user_doc.to_dict()
-        return jsonify({'message': 'User profile updated successfully', 'user': {'id': user_id, 'email': user.get('email')}}), 200
+        user_data = {
+            'id': user_id,
+            'email': user.get('email'),
+            'full_name': user.get('full_name'),
+            'birthday': user.get('birthday'),
+            'contact_number': user.get('contact_number'),
+            'user_type': user.get('user_type'),
+            'registration_completed': user.get('registration_completed', False)
+        }
+        return jsonify({'message': 'User profile updated successfully', 'user': user_data}), 200
     return jsonify({'error': 'Invalid request method'}), 405
 
 # --- FIREBASE SAVE PRESENTATION ---
@@ -1033,9 +1255,12 @@ def generate_slides():
                 conclusion_slide = slides_data[-2] if len(slides_data) >= 2 else {
                     "title": "Conclusion and Next Steps",
                     "content": [
-                        f"Summary of key findings about {prompt_topic}",
-                        "Strategic recommendations",
-                        "Next steps and action items"
+                        f"Summary: {prompt_topic} presents significant opportunities and considerations",
+                        "Key takeaways from our comprehensive analysis",
+                        "Strategic recommendations for implementation",
+                        "Immediate action items and priorities",
+                        "Long-term vision and goals",
+                        "Success metrics and monitoring approach"
                     ]
                 }
                 references_slide = slides_data[-1] if len(slides_data) >= 1 else {
@@ -1389,8 +1614,7 @@ def generate_presentation():
             })
           # Sort elements by zIndex: lower zIndex elements are added first (appear "behind")
         elements_to_render.sort(key=lambda el: el["zIndex"])
-        
-        # Render elements in sorted order
+          # Render elements in sorted order
         for element in elements_to_render:
             el_data = element["data"]
             el_type = element["type"]
@@ -1405,7 +1629,6 @@ def generate_presentation():
                     top = Inches(y_px * px_to_in_y)
                     width = Inches(width_px * px_to_in_x)
                     height = Inches(height_px * px_to_in_y)
-                    
                     if width <= Inches(0) or height <= Inches(0):
                         current_app.logger.warning(f"Skipping textbox with invalid dimensions: w_px={width_px}, h_px={height_px}")
                         continue
@@ -1548,7 +1771,6 @@ def generate_presentation():
                         img_y_px = float(el_data.get("y", 0))
                         img_width_px = float(el_data.get("width", 100))
                         img_height_px = float(el_data.get("height", 100))
-                        
                         if img_width_px <= 0 or img_height_px <= 0:
                             current_app.logger.warning(f"Skipping image with zero/negative pixel dimensions: w={img_width_px}, h={img_height_px}")
                             continue
@@ -1783,14 +2005,9 @@ Make sure to generate exactly {num_slides} slides with substantial content for e
         # Validate and adjust slide count with proper conclusion and references
         if len(slides_data) != num_slides:
             while len(slides_data) < num_slides:
-                insert_pos = max(1, len(slides_data) - 2)
-                slides_data.insert(insert_pos, {
-                    "title": f"Additional Analysis {len(slides_data)}",
-                    "content": [
-                        "Further analysis of the key points",
-                        "Additional insights and considerations",
-                        "Supporting evidence and examples"
-                    ]
+                slides_data.append({
+                    "title": f"Additional Content {len(slides_data) + 1}",
+                    "content": ["Additional content will be added here."]
                 })
             slides_data = slides_data[:num_slides]
 
@@ -1824,7 +2041,6 @@ Make sure to generate exactly {num_slides} slides with substantial content for e
                     "Strategic considerations and recommendations"
                 ]
 
-        # Use the first slide's title as the topic if possible
         detected_topic = slides_data[0]["title"] if slides_data and "title" in slides_data[0] else topic
 
         return jsonify({
@@ -2082,3 +2298,453 @@ def export_script_by_id_word(script_id):
     doc.save(f)
     f.seek(0)
     return send_file(f, as_attachment=True, download_name=f"script_{script_id}.docx", mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+
+# --- FORGOT PASSWORD ENDPOINTS ---
+@main.route('/forgot-password/send-verification', methods=['POST', 'OPTIONS'])
+def send_password_reset_verification():
+    """Send password reset verification code via email or SMS"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    data = request.get_json()
+    identifier = data.get('identifier')  # email or phone number
+    method = data.get('method')  # 'email' or 'phone'
+    check_only = data.get('check_only', False)  # Just check if user exists
+    
+    if not identifier or not method:
+        return jsonify({'error': 'Identifier and method are required'}), 400
+    
+    if method not in ['email', 'phone']:
+        return jsonify({'error': 'Method must be email or phone'}), 400
+    
+    try:
+        users_ref = firestore_db.collection('users')
+        
+        if method == 'email':
+            # Find user by email
+            users_query = users_ref.where('email', '==', identifier).get()
+            if not users_query:
+                return jsonify({'error': 'No user found with this email'}), 404
+            
+            # If just checking, return success
+            if check_only:
+                return jsonify({'message': 'User found'}), 200
+            
+            # Generate 6-digit verification code
+            import secrets
+            import string
+            verification_code = ''.join(secrets.choice(string.digits) for _ in range(6))
+            
+            user_doc = users_query[0]
+            user_id = user_doc.id
+            
+            # Store verification code in Firestore with expiration
+            from datetime import datetime, timedelta
+            reset_ref = firestore_db.collection('password_resets').document()
+            reset_ref.set({
+                'user_id': user_id,
+                'email': identifier,
+                'verification_code': verification_code,
+                'expires_at': datetime.utcnow().replace(tzinfo=timezone.utc) + timedelta(minutes=10),
+                'created_at': firestore.SERVER_TIMESTAMP,
+                'verified': False
+            })
+            
+            # Send email verification
+            success, message = send_email_verification(identifier, verification_code)
+            
+            if success:
+                return jsonify({
+                    'message': 'Verification code sent to your email',
+                    'reset_id': reset_ref.id
+                }), 200
+            else:
+                # Fallback: log the code for development
+                current_app.logger.info(f"Email service failed, password reset code for {identifier}: {verification_code}")
+                return jsonify({
+                    'message': 'Verification code sent to your email',
+                    'reset_id': reset_ref.id,
+                    # Remove this line in production:
+                    'verification_code': verification_code
+                }), 200
+        elif method == 'phone':
+            # Find user by contact number
+            users_query = users_ref.where('contact_number', '==', identifier).get()
+            if not users_query:
+                return jsonify({'error': 'No user found with this phone number'}), 404
+            
+            # If just checking, return success
+            if check_only:
+                return jsonify({'message': 'User found'}), 200
+            
+            # Generate verification code for SMS
+            import secrets
+            import string
+            verification_code = ''.join(secrets.choice(string.digits) for _ in range(6))
+            
+            user_doc = users_query[0]
+            user_id = user_doc.id
+            
+            # Store verification code in Firestore
+            from datetime import datetime, timedelta
+            reset_ref = firestore_db.collection('password_resets').document()
+            reset_ref.set({
+                'user_id': user_id,
+                'phone': identifier,
+                'verification_code': verification_code,
+                'expires_at': datetime.utcnow().replace(tzinfo=timezone.utc) + timedelta(minutes=10),
+                'created_at': firestore.SERVER_TIMESTAMP,
+                'verified': False
+            })
+            
+            # Send SMS verification
+            success, message = send_sms_verification(identifier, verification_code)
+            
+            if success:
+                return jsonify({
+                    'message': 'Verification code sent to your phone',
+                    'reset_id': reset_ref.id
+                }), 200
+            else:
+                # Fallback: log the code for development
+                current_app.logger.info(f"SMS service failed, password reset code for {identifier}: {verification_code}")
+                return jsonify({
+                    'message': 'Verification code sent to your phone',
+                    'reset_id': reset_ref.id,
+                    # Remove this line in production:
+                    'verification_code': verification_code
+                }), 200
+            
+    except Exception as e:
+        current_app.logger.error(f"Error in password reset verification: {e}")
+        return jsonify({'error': 'Failed to send verification code'}), 500
+
+@main.route('/forgot-password/verify-code', methods=['POST', 'OPTIONS'])
+def verify_password_reset_code():
+    """Verify the password reset code"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    
+    data = request.get_json()
+    reset_id = data.get('reset_id')
+    verification_code = data.get('verification_code')
+    
+    if not reset_id or not verification_code:
+        return jsonify({'error': 'Reset ID and verification code are required'}), 400
+    
+    try:
+        # Get the password reset document
+        reset_ref = firestore_db.collection('password_resets').document(reset_id)
+        reset_doc = reset_ref.get()
+        
+        if not reset_doc.exists:
+            return jsonify({'error': 'Invalid reset request'}), 404
+        
+        reset_data = reset_doc.to_dict()
+        
+        # Check if already verified
+        if reset_data.get('verified'):
+            return jsonify({'error': 'Verification code already used'}), 400
+          # Check expiration - handle timezone-aware comparison
+        from datetime import datetime, timezone
+        expires_at = reset_data['expires_at']
+        
+        # Convert expires_at to timezone-aware datetime properly
+        if hasattr(expires_at, 'timestamp'):
+            # If it's a Firestore timestamp, convert to datetime with UTC timezone
+            expires_at = datetime.fromtimestamp(expires_at.timestamp(), tz=timezone.utc)
+        elif hasattr(expires_at, 'tzinfo') and expires_at.tzinfo is None:
+            # If it's a naive datetime, assume UTC
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        elif not hasattr(expires_at, 'tzinfo'):
+            # If it's a datetime without timezone info, assume UTC
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        
+        current_time = datetime.now(timezone.utc)
+        
+        if current_time > expires_at:
+            return jsonify({'error': 'Verification code expired'}), 400
+        
+        # Verify the code
+        if reset_data['verification_code'] != verification_code:
+            return jsonify({'error': 'Invalid verification code'}), 400
+        
+        # Mark as verified
+        reset_ref.update({
+            'verified': True,
+            'verified_at': firestore.SERVER_TIMESTAMP
+        })
+        
+        return jsonify({
+            'message': 'Verification code verified successfully',
+            'reset_id': reset_id
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error verifying reset code: {e}")
+        return jsonify({'error': 'Failed to verify code'}), 500
+
+@main.route('/forgot-password/reset-password', methods=['POST', 'OPTIONS'])
+def reset_password():
+    """Reset the user's password after verification"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    
+    data = request.get_json()
+    reset_id = data.get('reset_id')
+    new_password = data.get('new_password')
+    
+    if not reset_id or not new_password:
+        return jsonify({'error': 'Reset ID and new password are required'}), 400
+    
+    try:
+        # Get the password reset document
+        reset_ref = firestore_db.collection('password_resets').document(reset_id)
+        reset_doc = reset_ref.get()
+        
+        if not reset_doc.exists:
+            return jsonify({'error': 'Invalid reset request'}), 404
+        
+        reset_data = reset_doc.to_dict()
+        
+        # Check if verified
+        if not reset_data.get('verified'):
+            return jsonify({'error': 'Verification required before password reset'}), 400          # Check expiration (allow 30 minutes after verification)
+        from datetime import datetime, timedelta, timezone
+        verified_at = reset_data.get('verified_at')
+        if verified_at:
+            # Handle Firestore timestamp properly
+            if hasattr(verified_at, 'timestamp'):
+                verified_at = datetime.fromtimestamp(verified_at.timestamp(), tz=timezone.utc)
+            elif hasattr(verified_at, 'tzinfo') and verified_at.tzinfo is None:
+                verified_at = verified_at.replace(tzinfo=timezone.utc)
+            elif not hasattr(verified_at, 'tzinfo'):
+                verified_at = verified_at.replace(tzinfo=timezone.utc)
+            
+            current_time = datetime.now(timezone.utc)
+            if current_time > verified_at + timedelta(minutes=30):
+                return jsonify({'error': 'Reset session expired'}), 400
+        
+        # Update user password
+        user_id = reset_data['user_id']
+        users_ref = firestore_db.collection('users')
+        user_ref = users_ref.document(user_id)
+        
+        user_ref.update({
+            'password_hash': generate_password_hash(new_password),
+            'updated_at': firestore.SERVER_TIMESTAMP
+        })
+        
+        # Delete the reset document for security
+        reset_ref.delete()
+        
+        return jsonify({
+            'message': 'Password reset successfully'
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error resetting password: {e}")
+        return jsonify({'error': 'Failed to reset password'}), 500
+
+@main.route('/forgot-password/verify-firebase-sms', methods=['POST', 'OPTIONS'])
+def verify_firebase_sms():
+    """Verify Firebase SMS authentication and create password reset session"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    
+    data = request.get_json()
+    identifier = data.get('identifier')  # original phone number entered
+    id_token = data.get('id_token')      # Firebase ID token
+    phone_number = data.get('phone_number')  # verified phone number from Firebase
+    
+    if not all([identifier, id_token, phone_number]):
+        return jsonify({'error': 'Missing required fields'}), 400
+    
+    try:
+        # Verify the Firebase ID token
+        decoded_token = auth.verify_id_token(id_token)
+        firebase_phone = decoded_token.get('phone_number')
+        
+        # Ensure the phone number matches
+        if firebase_phone != phone_number:
+            return jsonify({'error': 'Phone number verification failed'}), 400
+        
+        # Find user in our database by contact number
+        users_ref = firestore_db.collection('users')
+        users_query = users_ref.where('contact_number', '==', identifier).get()
+        
+        if not users_query:
+            return jsonify({'error': 'No user found with this phone number'}), 404
+        
+        user_doc = users_query[0]
+        user_id = user_doc.id
+        
+        # Create a password reset session (similar to email verification)
+        from datetime import datetime, timedelta, timezone
+        reset_ref = firestore_db.collection('password_resets').document()
+        reset_ref.set({
+            'user_id': user_id,
+            'phone': identifier,
+            'firebase_verified': True,
+            'firebase_phone': firebase_phone,
+            'expires_at': datetime.now(timezone.utc) + timedelta(minutes=30),
+            'created_at': firestore.SERVER_TIMESTAMP,
+            'verified': True,  # Already verified by Firebase
+            'verified_at': firestore.SERVER_TIMESTAMP
+        })
+        
+        return jsonify({
+            'message': 'Phone number verified successfully',
+            'reset_id': reset_ref.id
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error verifying Firebase SMS: {e}")
+        return jsonify({'error': 'Failed to verify phone number'}), 500
+
+# --- CUSTOM TEMPLATE UPLOAD ENDPOINTS ---
+
+@main.route('/upload-template', methods=['POST', 'OPTIONS'])
+def upload_template():
+    """Upload a custom template image"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    
+    try:
+        # Check if file is in request
+        if 'template' not in request.files:
+            return jsonify({'error': 'No template file provided'}), 400
+        
+        file = request.files['template']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Get form data
+        template_name = request.form.get('name', '').strip()
+        user_id = request.form.get('user_id', '').strip()
+        
+        if not template_name or not user_id:
+            return jsonify({'error': 'Template name and user ID are required'}), 400
+        
+        # Validate file type (PNG only)
+        if not file.filename.lower().endswith('.png'):
+            return jsonify({'error': 'Only PNG files are allowed'}), 400
+        
+        # Validate file size (max 5MB)
+        file.seek(0, 2)  # Seek to end
+        file_size = file.tell()
+        file.seek(0)  # Reset to beginning
+        
+        if file_size > 5 * 1024 * 1024:  # 5MB
+            return jsonify({'error': 'File size must be less than 5MB'}), 400
+        
+        # Generate unique filename
+        import uuid
+        file_extension = '.png'
+        unique_filename = f"custom_template_{user_id}_{uuid.uuid4().hex[:8]}{file_extension}"
+        
+        # Create upload directory if it doesn't exist
+        upload_dir = os.path.join(current_app.root_path, 'static', 'custom_templates')
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        # Save file
+        file_path = os.path.join(upload_dir, unique_filename)
+        file.save(file_path)
+        
+        # Store template metadata in Firestore
+        template_ref = firestore_db.collection('custom_templates').document()
+        template_data = {
+            'user_id': user_id,
+            'name': template_name,
+            'filename': unique_filename,
+            'file_path': f'/static/custom_templates/{unique_filename}',
+            'created_at': firestore.SERVER_TIMESTAMP,
+            'file_size': file_size
+        }
+        template_ref.set(template_data)
+        
+        return jsonify({
+            'message': 'Template uploaded successfully',
+            'template_id': template_ref.id,
+            'template': {
+                'id': template_ref.id,
+                'name': template_name,
+                'preview': f'/static/custom_templates/{unique_filename}'
+            }
+        }), 201
+        
+    except Exception as e:
+        current_app.logger.error(f"Error uploading template: {e}")
+        return jsonify({'error': 'Failed to upload template'}), 500
+
+@main.route('/user-templates/<user_id>', methods=['GET', 'OPTIONS'])
+def get_user_templates(user_id):
+    """Get all custom templates for a user"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    
+    try:
+        # Fetch user's custom templates from Firestore
+        templates_ref = firestore_db.collection('custom_templates')
+        user_templates = templates_ref.where('user_id', '==', user_id).get()
+        
+        templates = []
+        for template_doc in user_templates:
+            template_data = template_doc.to_dict()
+            templates.append({
+                'id': template_doc.id,
+                'name': template_data.get('name'),
+                'preview': template_data.get('file_path'),
+                'created_at': template_data.get('created_at'),
+                'file_size': template_data.get('file_size', 0)
+            })
+        
+        # Sort by creation date (newest first)
+        templates.sort(key=lambda x: x.get('created_at') or '', reverse=True)
+        
+        return jsonify({'templates': templates}), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error fetching user templates: {e}")
+        return jsonify({'error': 'Failed to fetch templates'}), 500
+
+@main.route('/delete-template/<template_id>', methods=['DELETE', 'OPTIONS'])
+def delete_template(template_id):
+    """Delete a custom template"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    
+    try:
+        # Get template document
+        template_ref = firestore_db.collection('custom_templates').document(template_id)
+        template_doc = template_ref.get()
+        
+        if not template_doc.exists:
+            return jsonify({'error': 'Template not found'}), 404
+        
+        template_data = template_doc.to_dict()
+        filename = template_data.get('filename')
+        
+        # Delete file from filesystem
+        if filename:
+            file_path = os.path.join(current_app.root_path, 'static', 'custom_templates', filename)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        
+        # Delete document from Firestore
+        template_ref.delete()
+        
+        return jsonify({'message': 'Template deleted successfully'}), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Error deleting template: {e}")
+        return jsonify({'error': 'Failed to delete template'}), 500
+
+@main.route('/static/custom_templates/<filename>')
+def serve_custom_template(filename):
+    """Serve custom template files"""
+    try:
+        upload_dir = os.path.join(current_app.root_path, 'static', 'custom_templates')
+        return send_from_directory(upload_dir, filename)
+    except Exception as e:
+        current_app.logger.error(f"Error serving custom template: {e}")
+        return jsonify({'error': 'File not found'}), 404

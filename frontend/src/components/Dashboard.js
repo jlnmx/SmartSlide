@@ -86,6 +86,7 @@ const Dashboard = () => {
           <Link to="/create" className="menu-item">CREATE</Link>
           <Link to="/saved-quizzes-and-scripts" className="menu-item">QUIZZES & SCRIPTS</Link>
           <Link to="/analytics" className="menu-item">ANALYTICS</Link>
+          <Link to="/upload-templates" className="menu-item">UPLOAD TEMPLATES</Link>
         </nav>
         <button className="logout-btn" onClick={handleLogoutClick}>
           Logout

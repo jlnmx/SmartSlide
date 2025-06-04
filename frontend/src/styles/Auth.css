@@ -219,6 +219,35 @@
   opacity: 0.9; /* Slight fade on hover */
 }
 
+/* Forgot Password Link */
+.forgot-password-link {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+  margin-bottom: 10px;
+}
+
+.forgot-password-btn {
+  background: none;
+  border: none;
+  color: #7392B7;
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-decoration: none;
+  padding: 0;
+  transition: color 0.3s ease;
+}
+
+.forgot-password-btn:hover {
+  color: #759EB8;
+  text-decoration: underline;
+}
+
+.forgot-password-btn:focus {
+  outline: 2px solid #7392B7;
+  outline-offset: 2px;
+}
+
 .auth-footer {
   margin-top: 25px; /* Space above footer link */
   font-size: 0.9rem;
@@ -234,6 +263,40 @@
 
 .auth-footer a:hover {
   text-decoration: underline;
+}
+
+/* Password input container with eye icon */
+.password-input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-container input {
+  flex: 1;
+  padding-right: 40px; /* Make space for the eye icon */
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 5px;
+  z-index: 1;
+  color: #666;
+  transition: color 0.2s ease;
+}
+
+.password-toggle-btn:hover {
+  color: #333;
+}
+
+.password-toggle-btn:focus {
+  outline: none;
+  color: #007bff;
 }
 
 /* Responsive Adjustments */

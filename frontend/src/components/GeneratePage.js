@@ -4,29 +4,7 @@ import Navbar from "./Navbar";
 import "../styles/GeneratePage.css";
 import "../styles/PasteAndCreate.css"; 
 import config from "../config";
-
-
-const templates = [    {
-        id: "tailwind-abstract-gradient",
-        name: "Abstract Gradient",
-        preview: "/static/template_backgrounds/abstract_title.png"
-    },
-    {
-        id: "tailwind-business",
-        name: "Business",
-        preview: "/static/template_backgrounds/business_title.png"
-    },
-    {
-        id: "tailwind-creative",
-        name: "Creative",
-        preview: "/static/template_backgrounds/creative_title.png"
-    },
-    {
-        id: "tailwind-education",
-        name: "Education",
-        preview: "/static/template_backgrounds/education_title.png"
-    }
-];
+import { getAllTemplates, getCurrentUserId } from "../utils/templateUtils";
 
 const GeneratePage = () => {
     const location = useLocation();
@@ -37,13 +15,31 @@ const GeneratePage = () => {
     const [loading, setLoading] = useState(false);
     const [selectedTemplate, setSelectedTemplate] = useState(passedTemplate || null);
     const [showTemplatePopup, setShowTemplatePopup] = useState(false);
+    const [templates, setTemplates] = useState([]);
+    const [templatesLoading, setTemplatesLoading] = useState(true);
     const navigate = useNavigate();
 
     useEffect(() => {
-        if (!selectedTemplate && templates.length > 0) {
-            setSelectedTemplate(templates[0]);
-        }
-    }, []);
+        const loadTemplates = async () => {
+            setTemplatesLoading(true);
+            try {
+                const userId = getCurrentUserId();
+                const allTemplates = await getAllTemplates(userId);
+                setTemplates(allTemplates);
+                
+                // Set default template if none selected
+                if (!selectedTemplate && allTemplates.length > 0) {
+                    setSelectedTemplate(allTemplates[0]);
+                }
+            } catch (error) {
+                console.error('Error loading templates:', error);
+            } finally {
+                setTemplatesLoading(false);
+            }
+        };
+
+        loadTemplates();
+    }, [selectedTemplate]);
 
     const handleGenerate = async () => {
         if (!prompt.trim()) {
@@ -182,12 +178,13 @@ const GeneratePage = () => {
     </button>
     {selectedTemplate && (
         <div style={{ textAlign: "left", lineHeight: 1.2, display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontWeight: "bold", color: "#000" }}>Selected:</span>
-            <div style={{ color: "#222" }}>
+            <span style={{ fontWeight: "bold", color: "#000" }}>Selected:</span>                <div style={{ color: "#222" }}>
                 {selectedTemplate.title || selectedTemplate.name}
                 <div style={{ marginTop: 4 }}>
                     <img
-                        src={`/static/template_backgrounds/${selectedTemplate.id}_title.png`}
+                        src={selectedTemplate.type === 'custom' 
+                            ? selectedTemplate.preview 
+                            : `/static/template_backgrounds/${selectedTemplate.id}_title.png`}
                         alt="Background preview"
                         style={{ width: 120, height: 68, objectFit: "cover", borderRadius: 8, border: "1px solid #ccc" }}
                         onError={e => { e.target.style.display = 'none'; }}
@@ -201,29 +198,49 @@ const GeneratePage = () => {
                     <div className="template-popup-overlay" onClick={() => setShowTemplatePopup(false)}>
                         <div
                             className="template-popup"
-                            onClick={e => e.stopPropagation()}
-                        >
+                            onClick={e => e.stopPropagation()}                        >
                             <h2 style={{ marginBottom: 16 }}>Select a Template</h2>
-                            <div className="template-list">
-                                {templates.map((template) => (
-                                    <div
-                                        key={template.id}
-                                        className={`template-box${selectedTemplate && selectedTemplate.id === template.id ? " selected" : ""}`}
-                                        onClick={() => {
-                                            setSelectedTemplate(template);
-                                            setShowTemplatePopup(false);
-                                        }}
-                                        style={{ cursor: "pointer" }}
-                                    >
-                                        <img
-                                            src={template.preview || "/images/default_preview.png"}
-                                            alt={template.title || template.name}
-                                            className="template-preview"
-                                        />
-                                        <p className="template-title">{template.title || template.name}</p>
-                                    </div>
-                                ))}
-                            </div>
+                            {templatesLoading ? (
+                                <div style={{ textAlign: 'center', padding: '20px' }}>
+                                    <div style={{ display: 'inline-block', width: '20px', height: '20px', border: '2px solid #f3f3f3', borderTop: '2px solid #3498db', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                                    <p style={{ marginTop: '10px' }}>Loading templates...</p>
+                                </div>
+                            ) : (
+                                <div className="template-list">
+                                    {templates.map((template) => (
+                                        <div
+                                            key={template.id}
+                                            className={`template-box${selectedTemplate && selectedTemplate.id === template.id ? " selected" : ""}`}
+                                            onClick={() => {
+                                                setSelectedTemplate(template);
+                                                setShowTemplatePopup(false);
+                                            }}
+                                            style={{ cursor: "pointer" }}
+                                        >
+                                            <img
+                                                src={template.type === 'custom' 
+                                                    ? template.preview 
+                                                    : (template.preview || "/images/default_preview.png")}
+                                                alt={template.title || template.name}
+                                                className="template-preview"
+                                            />
+                                            <p className="template-title">
+                                                {template.title || template.name}
+                                                {template.type === 'custom' && (
+                                                    <span style={{ 
+                                                        fontSize: '0.7em', 
+                                                        color: '#666', 
+                                                        display: 'block', 
+                                                        fontWeight: 'normal' 
+                                                    }}>
+                                                        Custom
+                                                    </span>
+                                                )}
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}

@@ -7,29 +7,11 @@ import { FaBold, FaItalic, FaUnderline, FaAlignLeft, FaAlignCenter, FaAlignRight
 import { v4 as uuidv4 } from "uuid";
 import "../styles/SlideEditor.css";
 import config from "../config";
-
-const templates = [
-    {
-        id: "tailwind-abstract-gradient",
-        name: "Abstract Gradient"
-    },
-    {
-        id: "tailwind-business",
-        name: "Business"
-    },
-    {
-        id: "tailwind-creative",
-        name: "Creative"
-    },
-    {
-        id: "tailwind-education",
-        name: "Education"
-    }
-];
+import { getAllTemplates, getCurrentUserId, BUILTIN_TEMPLATES } from "../utils/templateUtils";
 
 // Returns the template object by id (for static image-based templates)
-const getTailwindTemplateById = (id) => {
-  return templates.find(t => t.id === id);
+const getTailwindTemplateById = (id, templatesList = []) => {
+  return templatesList.find(t => t.id === id) || BUILTIN_TEMPLATES.find(t => t.id === id);
 };
 
 const SLIDE_WIDTH = 960;
@@ -272,6 +254,32 @@ function renderAbstractContentBox(children, { isTitleSlide = false }) {
   return <>{children}</>;
 }
 
+// --- CUSTOM TEMPLATE BACKGROUND ---
+function renderCustomBackground({ templateUrl, isTitle = false } = {}) {
+  if (!templateUrl) return null;
+  
+  return (
+    <img
+      src={templateUrl}
+      alt="Custom Template Background"
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: SLIDE_WIDTH,
+        height: SLIDE_HEIGHT,
+        zIndex: 0,
+        objectFit: "cover"
+      }}
+      draggable={false}
+      onError={e => {
+        console.error("Failed to load custom background image:", templateUrl);
+        e.target.style.display = 'none';
+      }}
+    />
+  );
+}
+
 const defaultSlide = (templateId) => {
   switch (templateId) {
     case "tailwind-business":
@@ -361,26 +369,69 @@ const SlideEditor = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { slides: slidesFromNav, template, presentationType, presentationId: presentationIdFromNav } = location.state || {};
-
   const [currentTemplate, setCurrentTemplate] = useState(null);
+  const [templates, setTemplates] = useState([]);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
+
+  // Load templates on component mount
+  useEffect(() => {
+    const loadTemplates = async () => {
+      setTemplatesLoading(true);
+      try {
+        const userId = getCurrentUserId();
+        const allTemplates = await getAllTemplates(userId);
+        setTemplates(allTemplates);
+      } catch (error) {
+        console.error('Error loading templates:', error);
+        // Fallback to built-in templates only
+        setTemplates(BUILTIN_TEMPLATES);
+      } finally {
+        setTemplatesLoading(false);
+      }
+    };
+
+    loadTemplates();
+  }, []);
+
   useEffect(() => {
     let templateObj = null;
     if (template && typeof template === "object" && template.id) {
-      templateObj = getTailwindTemplateById(template.id) || template;
+      templateObj = getTailwindTemplateById(template.id, templates) || template;
     } else if (typeof template === "string") {
-      templateObj = getTailwindTemplateById(template) || null;
+      templateObj = getTailwindTemplateById(template, templates) || null;
     }
     setCurrentTemplate(templateObj);
-  }, [template]);
-
+  }, [template, templates]);
   const [slides, setSlides] = useState([]);  const [currentIdx, setCurrentIdx] = useState(0);
   const [selectedTextBoxId, setSelectedTextBoxId] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedTextRange, setSelectedTextRange] = useState(null);
   const [selectionRestore, setSelectionRestore] = useState(null); // For cursor position restoration
+    // Image dragging and resizing states
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
+  const [isResizingImage, setIsResizingImage] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  
+  // Slide thumbnail dragging state for reordering
+  const [draggedSlideIndex, setDraggedSlideIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
+    // Template popup state
+  const [showTemplatePopup, setShowTemplatePopup] = useState(false);
+  
+  // Text dragging states
+  const [isDraggingText, setIsDraggingText] = useState(false);
+  const [draggedTextId, setDraggedTextId] = useState(null);
+  const [textDragStart, setTextDragStart] = useState({ x: 0, y: 0 });
+  
+  // Undo/Redo History Management state
+  const [history, setHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [isUndoRedo, setIsUndoRedo] = useState(false);
+  
   const fileInputRef = useRef();
   const stageRef = useRef();
-  const contentEditableRefs = useRef(new Map()); // Track contentEditable DOM elements  
+  const contentEditableRefs = useRef(new Map()); // Track contentEditable DOM elements
   const [presentationId, setPresentationId] = useState(presentationIdFromNav || null); // Added to store presentation ID
 
   useEffect(() => {
@@ -471,12 +522,121 @@ const SlideEditor = () => {
       } else {
         setSelectionRestore(null);
       }
-    }
-  }, [slides, selectionRestore]);
+    }  }, [slides, selectionRestore]);
 
+  // Undo/Redo History Management
+  const saveToHistory = useCallback((newSlides, newCurrentIdx, description = '') => {
+    if (isUndoRedo) return; // Don't save during undo/redo operations
+    
+    const snapshot = {
+      slides: JSON.parse(JSON.stringify(newSlides)), // Deep clone
+      currentIdx: newCurrentIdx,
+      selectedTextBoxId: selectedTextBoxId,
+      selectedImage: selectedImage,
+      currentTemplate: currentTemplate ? { ...currentTemplate } : null,
+      timestamp: Date.now(),
+      description
+    };
+    
+    setHistory(prev => {
+      const newHistory = prev.slice(0, historyIndex + 1); // Remove any future history
+      newHistory.push(snapshot);
+      // Limit history to 50 entries to prevent memory issues
+      if (newHistory.length > 50) {
+        newHistory.shift();
+        setHistoryIndex(curr => curr); // Keep same relative position
+        return newHistory;
+      }
+      setHistoryIndex(newHistory.length - 1);
+      return newHistory;
+    });
+  }, [isUndoRedo, historyIndex, selectedTextBoxId, selectedImage, currentTemplate]);
+
+  // Initialize history with current state
+  useEffect(() => {
+    if (slides.length > 0 && history.length === 0) {
+      saveToHistory(slides, currentIdx, 'Initial state');
+    }
+  }, [slides, history.length, currentIdx, saveToHistory]);
+
+  // Undo function
+  const handleUndo = useCallback(() => {
+    if (historyIndex > 0) {
+      setIsUndoRedo(true);
+      const prevSnapshot = history[historyIndex - 1];
+      
+      setSlides(prevSnapshot.slides);
+      setCurrentIdx(prevSnapshot.currentIdx);
+      setSelectedTextBoxId(prevSnapshot.selectedTextBoxId);
+      setSelectedImage(prevSnapshot.selectedImage);
+      if (prevSnapshot.currentTemplate) {
+        setCurrentTemplate(prevSnapshot.currentTemplate);
+      }
+      setHistoryIndex(historyIndex - 1);
+      
+      // Reset the flag after a short delay
+      setTimeout(() => setIsUndoRedo(false), 10);
+    }
+  }, [history, historyIndex]);
+
+  // Redo function
+  const handleRedo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      setIsUndoRedo(true);
+      const nextSnapshot = history[historyIndex + 1];
+      
+      setSlides(nextSnapshot.slides);
+      setCurrentIdx(nextSnapshot.currentIdx);
+      setSelectedTextBoxId(nextSnapshot.selectedTextBoxId);
+      setSelectedImage(nextSnapshot.selectedImage);
+      if (nextSnapshot.currentTemplate) {
+        setCurrentTemplate(nextSnapshot.currentTemplate);
+      }
+      setHistoryIndex(historyIndex + 1);
+      
+      // Reset the flag after a short delay
+      setTimeout(() => setIsUndoRedo(false), 10);
+    }
+  }, [history, historyIndex]);
+
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Don't trigger if user is typing in a contentEditable element
+      if (e.target && e.target.contentEditable === 'true') {
+        return;
+      }
+      
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleUndo, handleRedo]);
+
+  // Helper function to update slides with history tracking
+  const updateSlidesWithHistory = useCallback((newSlides, description = '') => {
+    setSlides(newSlides);
+    saveToHistory(newSlides, currentIdx, description);
+  }, [currentIdx, saveToHistory]);
+
+  // Helper function to update slides and current index with history tracking
+  const updateSlidesAndIndexWithHistory = useCallback((newSlides, newIdx, description = '') => {
+    setSlides(newSlides);
+    setCurrentIdx(newIdx);
+    saveToHistory(newSlides, newIdx, description);
+  }, [saveToHistory]);
   const TEXT_Z_INDEX = 100;
   const MIN_IMAGE_Z_INDEX = 0;
-  const DEFAULT_IMAGE_Z_INDEX = 101; // Should match what handleImageUpload sets// 3. Handle contenteditable changes for any textbox
+  const DEFAULT_IMAGE_Z_INDEX = 101; // Should match what handleImageUpload sets
+
+  // 3. Handle contenteditable changes for any textbox  
   const handleContentEdit = useCallback((id, e) => {
     e.stopPropagation();
     const newText = e.target.innerText;
@@ -489,12 +649,13 @@ const SlideEditor = () => {
       }
     }
 
-    setSlides(prev => prev.map((s, i) =>
+    const newSlides = slides.map((s, i) =>
       i === currentIdx ? {
         ...s,
         textboxes: s.textboxes.map(tb => tb.id === id ? { ...tb, text: newText } : tb)
       } : s
-    ));
+    );
+    updateSlidesWithHistory(newSlides, 'Edit text content');
 
     // --- Cursor Fix: Restore selection after update ---
     setTimeout(() => {
@@ -512,73 +673,285 @@ const SlideEditor = () => {
         }
       }
     }, 0);
-  }, [currentIdx]);
-
+  }, [currentIdx, slides, updateSlidesWithHistory]);
   // 4. Handle drag for any textbox
   const handleTextDrag = (id, dx, dy) => {
-    setSlides(prev => prev.map((s, i) =>
+    const newSlides = slides.map((s, i) =>
       i === currentIdx ? {
         ...s,
         textboxes: s.textboxes.map(tb => tb.id === id ? { ...tb, x: tb.x + dx, y: tb.y + dy } : tb)
       } : s
-    ));
+    );
+    updateSlidesWithHistory(newSlides, 'Move textbox');
   };
-
   // 5. Handle resize for any textbox
   const handleTextResize = (id, newWidth, newHeight) => {
-    setSlides(prev => prev.map((s, i) =>
+    const newSlides = slides.map((s, i) =>
       i === currentIdx ? {
         ...s,
         textboxes: s.textboxes.map(tb => tb.id === id ? { ...tb, width: newWidth, height: newHeight } : tb)
       } : s
-    ));
+    );
+    updateSlidesWithHistory(newSlides, 'Resize textbox');
   };
-
   // NEW: Handle setting absolute position for a textbox
   const handleTextSetPosition = (id, newX, newY) => {
-    setSlides(prev => prev.map((s, i) =>
+    const newSlides = slides.map((s, i) =>
       i === currentIdx ? {
         ...s,
         textboxes: s.textboxes.map(tb => tb.id === id ? { ...tb, x: newX, y: newY } : tb)
       } : s
-    ));
+    );
+    updateSlidesWithHistory(newSlides, 'Set textbox position');
+  };
+  // Enhanced image drag handling with mouse events
+  const handleImageMouseDown = (e, idx) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedImage(idx);
+    setIsDraggingImage(true);
+    setDragStart({
+      x: e.clientX,
+      y: e.clientY
+    });
   };
 
+  const handleImageMouseMove = (e) => {
+    if (!isDraggingImage || selectedImage === null) return;
+    
+    e.preventDefault();
+    const deltaX = e.clientX - dragStart.x;
+    const deltaY = e.clientY - dragStart.y;
+    
+    const slide = slides[currentIdx];
+    if (slide && slide.images && slide.images[selectedImage]) {
+      const currentImage = slide.images[selectedImage];
+      const newX = Math.max(0, Math.min(800 - currentImage.width, currentImage.x + deltaX));
+      const newY = Math.max(0, Math.min(600 - currentImage.height, currentImage.y + deltaY));
+      
+      handleImageDrag(selectedImage, newX, newY);
+      setDragStart({ x: e.clientX, y: e.clientY });
+    }
+  };
+
+  const handleImageMouseUp = () => {
+    setIsDraggingImage(false);
+  };
+
+  // Image resize handling
+  const handleImageResizeMouseDown = (e, idx) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedImage(idx);
+    setIsResizingImage(true);
+    
+    const slide = slides[currentIdx];
+    if (slide && slide.images && slide.images[idx]) {
+      const image = slide.images[idx];
+      setResizeStart({
+        x: e.clientX,
+        y: e.clientY,
+        width: image.width,
+        height: image.height
+      });
+    }
+  };
+
+  const handleImageResizeMouseMove = (e) => {
+    if (!isResizingImage || selectedImage === null) return;
+    
+    e.preventDefault();
+    const deltaX = e.clientX - resizeStart.x;
+    const deltaY = e.clientY - resizeStart.y;
+    
+    const newWidth = Math.max(50, Math.min(400, resizeStart.width + deltaX));
+    const newHeight = Math.max(50, Math.min(400, resizeStart.height + deltaY));
+    
+    handleImageResize(selectedImage, newWidth, newHeight);
+  };  const handleImageResizeMouseUp = () => {
+    setIsResizingImage(false);
+  };
+  // Enhanced text drag handling with mouse events
+  const handleTextMouseDown = (e, textboxId) => {
+    // Only start dragging if not clicking on contentEditable content
+    if (e.target.contentEditable === 'true' || e.target.isContentEditable) {
+      return;
+    }
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setSelectedTextBoxId(textboxId);
+    setIsDraggingText(true);
+    setDraggedTextId(textboxId);
+    setTextDragStart({
+      x: e.clientX,
+      y: e.clientY
+    });
+    
+    // Add visual feedback
+    const textElement = document.querySelector(`[data-tbid="${textboxId}"]`);
+    if (textElement) {
+      textElement.classList.add('dragging');
+    }
+  };
+
+  const handleTextMouseMove = (e) => {
+    if (!isDraggingText || !draggedTextId) return;
+    
+    e.preventDefault();
+    const deltaX = e.clientX - textDragStart.x;
+    const deltaY = e.clientY - textDragStart.y;
+    
+    const slide = slides[currentIdx];
+    if (slide && slide.textboxes) {
+      const textbox = slide.textboxes.find(tb => tb.id === draggedTextId);
+      if (textbox) {
+        const newX = Math.max(0, Math.min(800 - textbox.width, textbox.x + deltaX));
+        const newY = Math.max(0, Math.min(600 - textbox.height, textbox.y + deltaY));
+        
+        handleTextSetPosition(draggedTextId, newX, newY);
+        setTextDragStart({ x: e.clientX, y: e.clientY });
+      }
+    }
+  };
+
+  const handleTextMouseUp = () => {
+    // Remove visual feedback
+    if (draggedTextId) {
+      const textElement = document.querySelector(`[data-tbid="${draggedTextId}"]`);
+      if (textElement) {
+        textElement.classList.remove('dragging');
+      }
+    }
+    
+    setIsDraggingText(false);
+    setDraggedTextId(null);
+  };
+
+  // Slide thumbnail drag handlers for reordering
+  const handleSlideThumbDragStart = (e, index) => {
+    setDraggedSlideIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', e.target.outerHTML);
+    e.dataTransfer.setDragImage(e.target, 60, 34); // Center the drag image
+  };
+
+  const handleSlideThumbDragOver = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex(index);
+  };
+
+  const handleSlideThumbDragLeave = (e) => {
+    // Only clear drag over if we're leaving the thumbnail area completely
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDragOverIndex(null);
+    }
+  };
+
+  const handleSlideThumbDrop = (e, dropIndex) => {
+    e.preventDefault();
+    setDragOverIndex(null);
+    
+    if (draggedSlideIndex === null || draggedSlideIndex === dropIndex) {
+      setDraggedSlideIndex(null);
+      return;
+    }    // Reorder slides array
+    const newSlides = (() => {
+      const newSlidesArray = [...slides];
+      const draggedSlide = newSlidesArray[draggedSlideIndex];
+      
+      // Remove dragged slide from its original position
+      newSlidesArray.splice(draggedSlideIndex, 1);
+      
+      // Insert at new position
+      const actualDropIndex = draggedSlideIndex < dropIndex ? dropIndex - 1 : dropIndex;
+      newSlidesArray.splice(actualDropIndex, 0, draggedSlide);
+      
+      return newSlidesArray;
+    })();
+
+    // Update current slide index if necessary
+    let newCurrentIdx = currentIdx;
+    if (currentIdx === draggedSlideIndex) {
+      // If current slide was moved, update currentIdx to follow it
+      newCurrentIdx = draggedSlideIndex < dropIndex ? dropIndex - 1 : dropIndex;
+    } else if (currentIdx > draggedSlideIndex && currentIdx <= dropIndex) {
+      // Current slide shifted left
+      newCurrentIdx = currentIdx - 1;
+    } else if (currentIdx >= dropIndex && currentIdx < draggedSlideIndex) {
+      // Current slide shifted right
+      newCurrentIdx = currentIdx + 1;
+    }
+
+    updateSlidesAndIndexWithHistory(newSlides, newCurrentIdx, 'Reorder slides');
+
+    setDraggedSlideIndex(null);
+  };
+
+  const handleSlideThumbDragEnd = () => {
+    setDraggedSlideIndex(null);
+    setDragOverIndex(null);
+  };  // Global mouse event listeners
+  useEffect(() => {
+    const handleGlobalMouseMove = (e) => {
+      handleImageMouseMove(e);
+      handleImageResizeMouseMove(e);
+      handleTextMouseMove(e);
+    };
+
+    const handleGlobalMouseUp = () => {
+      handleImageMouseUp();
+      handleImageResizeMouseUp();
+      handleTextMouseUp();
+    };
+
+    if (isDraggingImage || isResizingImage || isDraggingText) {
+      document.addEventListener('mousemove', handleGlobalMouseMove);
+      document.addEventListener('mouseup', handleGlobalMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleGlobalMouseMove);
+      document.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [isDraggingImage, isResizingImage, isDraggingText, dragStart, resizeStart, textDragStart, selectedImage, draggedTextId]);
   // Fix drag-and-drop functionality and add a side toolbar for image positioning
   const handleImageDrag = (idx, newX, newY) => {
-    setSlides(prev => prev.map((s, i) =>
+    const newSlides = slides.map((s, i) =>
       i === currentIdx ? {
         ...s,
         images: s.images.map((img, j) =>
           j === idx ? { ...img, x: newX, y: newY } : img
         )
       } : s
-    ));
+    );
+    updateSlidesWithHistory(newSlides, 'Move image');
   };
-
   const handleImageResize = (idx, newWidth, newHeight) => {
-    setSlides(prev => prev.map((s, i) =>
+    const newSlides = slides.map((s, i) =>
       i === currentIdx ? {
         ...s,
         images: s.images.map((img, j) =>
           j === idx ? { ...img, width: newWidth, height: newHeight } : img
         )
       } : s
-    ));
+    );
+    updateSlidesWithHistory(newSlides, 'Resize image');
   };
-
   const handleImagePositionChange = (command) => {
     if (selectedImage === null || typeof selectedImage !== 'number') {
       return;
     }
 
-    setSlides(prevSlides => {
-      const slidesCopy = [...prevSlides];
+    const newSlides = (() => {
+      const slidesCopy = [...slides];
       const slideToUpdate = { ...slidesCopy[currentIdx] };
 
       if (!slideToUpdate.images || selectedImage < 0 || selectedImage >= slideToUpdate.images.length) {
         console.warn("handleImagePositionChange: Invalid selectedImage index or images array missing.");
-        return prevSlides;
+        return slides;
       }
 
       const imageToUpdate = slideToUpdate.images[selectedImage];
@@ -621,7 +994,7 @@ const SlideEditor = () => {
           break;
         default:
           console.warn(`Unknown image position command: ${effectiveCommand}`);
-          return prevSlides; 
+          return slides; 
       }
 
       const updatedImage = { ...imageToUpdate, zIndex: newZ };
@@ -634,12 +1007,13 @@ const SlideEditor = () => {
       slidesCopy[currentIdx] = slideToUpdate;
 
       return slidesCopy;
-    });
+    })();
+    
+    updateSlidesWithHistory(newSlides, `Change image layer: ${command}`);
   };
-
   const handleToolbarChange = (prop, value) => {
     if (selectedTextBoxId) {
-      setSlides(prev => prev.map((s, i) => {
+      const newSlides = slides.map((s, i) => {
         if (i === currentIdx) {
           return {
             ...s,
@@ -661,12 +1035,12 @@ const SlideEditor = () => {
           };
         }
         return s;
-      }));
+      });
+      updateSlidesWithHistory(newSlides, `Change ${prop}`);
     }
-  };
-  const handleToolbarToggle = prop => {
+  };  const handleToolbarToggle = prop => {
     if (selectedTextBoxId) {
-      setSlides(prev => prev.map((s, i) => {
+      const newSlides = slides.map((s, i) => {
         if (i === currentIdx) {
           return {
             ...s,
@@ -691,24 +1065,24 @@ const SlideEditor = () => {
           };
         }
         return s;
-      }));
+      });
+      updateSlidesWithHistory(newSlides, `Toggle ${prop}`);
     }
-  };
-  // Bullets
+  };  // Bullets
   const handleBulletsToggle = id => {
-    setSlides(prev => prev.map((s, i) =>
+    const newSlides = slides.map((s, i) =>
       i === currentIdx ? {
         ...s,
         textboxes: s.textboxes.map(tb => tb.id === id ? { ...tb, bullets: !tb.bullets } : tb)
       } : s
-    ));
+    );
+    updateSlidesWithHistory(newSlides, 'Toggle bullets');
   };
   
 const handleParagraphSpacing = value => {
   if (!selectedTextBoxId) return;
   
-  setSlides(prev =>
-    prev.map((s, i) =>
+  const newSlides = slides.map((s, i) =>
       i === currentIdx
         ? {
             ...s,
@@ -717,15 +1091,10 @@ const handleParagraphSpacing = value => {
             ),
           }
         : s
-    )
-  );
-  
-  setTimeout(() => {
-    setSelectedTextBoxId(selectedTextBoxId);
-  }, 10);
-};
-  const handleAddTextBox = type => {
-    setSlides(prev => prev.map((s, i) =>
+    );
+  updateSlidesWithHistory(newSlides, 'Change paragraph spacing');
+};  const handleAddTextBox = type => {
+    const newSlides = slides.map((s, i) =>
       i === currentIdx ? {
         ...s,
         textboxes: [
@@ -733,18 +1102,19 @@ const handleParagraphSpacing = value => {
           { ...defaultTextBox(type), y: 200 + 40 * s.textboxes.length }
         ]
       } : s
-    ));
-  };
-  // 7. Delete textbox
+    );
+    updateSlidesWithHistory(newSlides, `Add ${type} textbox`);
+  };  // 7. Delete textbox
   const handleDeleteTextBox = id => {
-    setSlides(prev => prev.map((s, i) =>
+    const newSlides = slides.map((s, i) =>
       i === currentIdx ? {
         ...s,
         textboxes: s.textboxes.filter(tb => tb.id !== id)
       } : s
-    ));
+    );
+    updateSlidesWithHistory(newSlides, 'Delete textbox');
     setSelectedTextBoxId(null);
-  }; 
+  };
   useEffect(() => {
     const handleKeyDown = e => {
     
@@ -760,18 +1130,17 @@ const handleParagraphSpacing = value => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedTextBoxId]);
-
   const handleTextBoxFormat = (id, prop, value) => {
-    setSlides(prev => prev.map((s, i) =>
+    const newSlides = slides.map((s, i) =>
       i === currentIdx ? {
         ...s,
         textboxes: s.textboxes.map(tb => tb.id === id ? { ...tb, [prop]: value } : tb)
       } : s
-    ));
+    );
+    updateSlidesWithHistory(newSlides, `Change textbox ${prop}`);
   };
-
   const handleTextBoxStyleToggle = (id, styleProp) => {
-    setSlides(prev => prev.map((s, i) =>
+    const newSlides = slides.map((s, i) =>
       i === currentIdx ? {
         ...s,
         textboxes: s.textboxes.map(tb => tb.id === id ? {
@@ -779,63 +1148,98 @@ const handleParagraphSpacing = value => {
           fontStyle: { ...tb.fontStyle, [styleProp]: !tb.fontStyle?.[styleProp] }
         } : tb)
       } : s
-    ));
+    );
+    updateSlidesWithHistory(newSlides, `Toggle textbox ${styleProp}`);
   };
-
   const handleAddSlide = () => {
-    setSlides(prev => {
-      const updated = [...prev];
-      updated.splice(currentIdx + 1, 0, defaultSlide());
-      return updated;
-    });
-    setCurrentIdx(idx => idx + 1);
-  };
+    const newSlides = [...slides];
+    newSlides.splice(currentIdx + 1, 0, defaultSlide());
+    const newIdx = currentIdx + 1;
+    updateSlidesAndIndexWithHistory(newSlides, newIdx, 'Add slide');  };
   const handleDeleteSlide = () => {
     if (slides.length === 1) return;
-    setSlides(prev => {
-      const updated = [...prev];
-      updated.splice(currentIdx, 1);
-      return updated;
-    });
-    setCurrentIdx(idx => Math.max(0, idx - 1));
+    const newSlides = [...slides];
+    newSlides.splice(currentIdx, 1);
+    const newIdx = Math.max(0, currentIdx - 1);
+    updateSlidesAndIndexWithHistory(newSlides, newIdx, 'Delete slide');
+  };  const handleBackgroundColor = e => {
+    const newSlides = slides.map((s, i) =>
+      i === currentIdx ? { ...s, background: { ...s.background, fill: e.target.value } } : s
+    );
+    updateSlidesWithHistory(newSlides, 'Change slide background color');
   };
-  const handleBackgroundColor = e => {
-    setSlides(prev => {
-      const updated = prev.map((s, i) =>
-        i === currentIdx ? { ...s, background: { ...s.background, fill: e.target.value } } : s
-      );
-      return updated;
+  // Template change handler
+  const handleTemplateChange = (newTemplateId) => {
+    const newTemplate = getTailwindTemplateById(newTemplateId, templates);
+    if (!newTemplate) {
+      console.warn(`Template with id "${newTemplateId}" not found`);
+      return;
+    }
+
+    // Update the current template
+    setCurrentTemplate(newTemplate);// Apply template-specific slide structure to all slides
+    const newSlides = slides.map(slide => {
+      const templateSlide = defaultSlide(newTemplateId);
+      
+      // Preserve existing textbox content but apply template positioning
+      const updatedTextboxes = slide.textboxes.map(tb => {
+        // Find corresponding template textbox by type
+        const templateTextbox = templateSlide.textboxes.find(ttb => ttb.type === tb.type);
+        if (templateTextbox) {
+          // Keep content and styling but use template positioning
+          return {
+            ...tb,
+            x: templateTextbox.x,
+            y: templateTextbox.y,
+            width: templateTextbox.width,
+            height: templateTextbox.height
+          };
+        }
+        return tb;
+      });
+
+      // Add any missing template textboxes
+      const existingTypes = new Set(slide.textboxes.map(tb => tb.type));
+      const missingTextboxes = templateSlide.textboxes.filter(ttb => !existingTypes.has(ttb.type));
+
+      return {
+        ...slide,
+        textboxes: [...updatedTextboxes, ...missingTextboxes],
+        background: templateSlide.background || slide.background
+      };
     });
+    updateSlidesWithHistory(newSlides, 'Change template');
   };
   const handleFontChange = (key, prop, value) => {
-    setSlides(prev => {
-      const updated = prev.map((s, i) =>
-        i === currentIdx ? { ...s, [key]: { ...s[key], [prop]: value } } : s
-      );
-      return updated;
-    });
-  };
-  const handleToolbarToggleSection = (section, prop) => {
+    const newSlides = slides.map((s, i) =>
+      i === currentIdx ? { ...s, [key]: { ...s[key], [prop]: value } } : s
+    );
+    updateSlidesWithHistory(newSlides, `Change ${key} ${prop}`);
+  };  const handleToolbarToggleSection = (section, prop) => {
+    let newSlides;
     if (section === "title") {
-      setSlides(prev => prev.map((s, i) => i === currentIdx ? { ...s, title: { ...s.title, fontStyle: { ...s.title.fontStyle, [prop]: !s.title.fontStyle?.[prop] } } } : s));
+      newSlides = slides.map((s, i) => i === currentIdx ? { ...s, title: { ...s.title, fontStyle: { ...s.title.fontStyle, [prop]: !s.title.fontStyle?.[prop] } } } : s);
     } else {
-      setSlides(prev => prev.map((s, i) => i === currentIdx ? { ...s, body: { ...s.body, fontStyle: { ...s.body.fontStyle, [prop]: !s.body.fontStyle?.[prop] } } } : s));
+      newSlides = slides.map((s, i) => i === currentIdx ? { ...s, body: { ...s.body, fontStyle: { ...s.body.fontStyle, [prop]: !s.body.fontStyle?.[prop] } } } : s);
     }
-  };
-  const handleToolbarColor = (section, color) => {
+    updateSlidesWithHistory(newSlides, `Toggle ${section} ${prop}`);
+  };  const handleToolbarColor = (section, color) => {
+    let newSlides;
     if (section === "title") {
-      setSlides(prev => prev.map((s, i) => i === currentIdx ? { ...s, title: { ...s.title, fill: color } } : s));
+      newSlides = slides.map((s, i) => i === currentIdx ? { ...s, title: { ...s.title, fill: color } } : s);
     } else {
-      setSlides(prev => prev.map((s, i) => i === currentIdx ? { ...s, body: { ...s.body, fill: color } } : s));
+      newSlides = slides.map((s, i) => i === currentIdx ? { ...s, body: { ...s.body, fill: color } } : s);
     }
-  };
-  const handleToolbarHighlight = (section, color) => {
+    updateSlidesWithHistory(newSlides, `Change ${section} color`);
+  };  const handleToolbarHighlight = (section, color) => {
+    let newSlides;
     if (section === "title") {
-      setSlides(prev => prev.map((s, i) => i === currentIdx ? { ...s, title: { ...s.title, highlight: color } } : s));
+      newSlides = slides.map((s, i) => i === currentIdx ? { ...s, title: { ...s.title, highlight: color } } : s);
     } else {
-      setSlides(prev => prev.map((s, i) => i === currentIdx ? { ...s, body: { ...s.body, highlight: color } } : s));
+      newSlides = slides.map((s, i) => i === currentIdx ? { ...s, body: { ...s.body, highlight: color } } : s);
     }
-  };  const handleExportPowerPoint = async () => {
+    updateSlidesWithHistory(newSlides, `Change ${section} highlight`);
+  };const handleExportPowerPoint = async () => {
     try {
       const response = await fetch(`${config.API_BASE_URL}/generate-presentation`, {
         method: "POST",
@@ -950,9 +1354,18 @@ const handleParagraphSpacing = value => {
       alert(`Failed to save presentation: ${error.message}`);
     }
   };
-
   const handleImageUpload = e => {
     const files = Array.from(e.target.files);
+    
+    // Validate that all files are images
+    const validImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp', 'image/svg+xml'];
+    const invalidFiles = files.filter(file => !validImageTypes.includes(file.type));
+    
+    if (invalidFiles.length > 0) {
+      alert(`Invalid file types detected. Only image files are allowed. Invalid files: ${invalidFiles.map(f => f.name).join(', ')}`);
+      return;
+    }
+    
     Promise.all(files.map(file => {
       return new Promise(resolve => {
         const reader = new FileReader();
@@ -968,44 +1381,44 @@ const handleParagraphSpacing = value => {
           });
         };
         reader.readAsDataURL(file);
-      });
-    })).then(uploadedImages => {
-      setSlides(prev => prev.map((s, i) =>
+      });    })).then(uploadedImages => {
+      const newSlides = slides.map((s, i) =>
         i === currentIdx ? {
           ...s,
           images: [...(s.images || []), ...uploadedImages]
         } : s
-      ));
+      );
+      updateSlidesWithHistory(newSlides, 'Upload image(s)');
     });
-  };
-  const handleRemoveImage = idx => {
-    setSlides(prev => prev.map((s, i) =>
+  };  const handleRemoveImage = idx => {
+    const newSlides = slides.map((s, i) =>
       i === currentIdx ? {
         ...s,
         images: s.images.filter((_, j) => j !== idx)
       } : s
-    ));
+    );
+    updateSlidesWithHistory(newSlides, 'Remove image');
     setSelectedImage(null);
   };
-  
-  const handleRemoveLegacyImage = () => {
-    setSlides(prev => prev.map((s, i) => 
+    const handleRemoveLegacyImage = () => {
+    const newSlides = slides.map((s, i) => 
       i === currentIdx ? { 
         ...s, 
         image: null,
         images: (s.images && s.images.length > 0) ? s.images : []
       } : s
-    ));
+    );
+    updateSlidesWithHistory(newSlides, 'Remove legacy image');
   };
-  
-  const handleRemoveAllImages = () => {
-    setSlides(prev => prev.map((s, i) => 
+    const handleRemoveAllImages = () => {
+    const newSlides = slides.map((s, i) => 
       i === currentIdx ? { 
         ...s, 
         image: null,
         images: []
       } : s
-    ));
+    );
+    updateSlidesWithHistory(newSlides, 'Remove all images');
     setSelectedImage(null);
   };
 
@@ -1028,12 +1441,17 @@ const handleParagraphSpacing = value => {
     }
     return { background: "#fff" };
   };
-
   function renderTemplateBackground() {
     if (!currentTemplate) return null;
     const templateId = currentTemplate.id;
     const isTitleSlide = currentIdx === 0;
 
+    // Handle custom templates
+    if (currentTemplate.type === 'custom') {
+      return renderCustomBackground({ templateUrl: currentTemplate.preview, isTitle: isTitleSlide });
+    }
+
+    // Handle built-in templates
     if (templateId === "abstract") {
       return renderAbstractBackground({ isTitle: isTitleSlide });
     }
@@ -1048,8 +1466,7 @@ const handleParagraphSpacing = value => {
       return renderEducationBackground({ isTitle: isTitleSlide });
     }
     return null;
-  }
-  function renderTemplateContentBox(children) {
+  }function renderTemplateContentBox(children) {
     if (!currentTemplate) return children;
     const templateId = currentTemplate.id;
     const isTitleSlide = currentIdx === 0;
@@ -1065,30 +1482,103 @@ const handleParagraphSpacing = value => {
     }
     return children;
   }
+  // Helper function to get template background image for slide thumbnails
+  function getTemplateBackgroundImage(templateId, isTitle = false) {
+    if (!templateId) return null;
+    
+    // Find the template object to check if it's custom
+    const template = templates.find(t => t.id === templateId) || BUILTIN_TEMPLATES.find(t => t.id === templateId);
+    
+    if (template && template.type === 'custom') {
+      // For custom templates, use the preview image
+      return template.preview;
+    }
+    
+    // For built-in templates, use the standard path
+    const imagePath = isTitle 
+      ? `/static/template_backgrounds/${templateId}_title.png`
+      : `/static/template_backgrounds/${templateId}_content.png`;
+    
+    return imagePath;
+  }
+
+  // Render template-aware slide thumbnail
+  function renderSlideThumb(slide, idx, isTitle = false) {
+    const templateBgImage = currentTemplate ? getTemplateBackgroundImage(currentTemplate.id, isTitle) : null;
+    
+    return (
+      <div className="slide-thumb-content">
+        {/* Template background image */}
+        {templateBgImage && (
+          <img
+            src={templateBgImage}
+            alt="Template background"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              borderRadius: '4px',
+              zIndex: 0
+            }}
+            onError={(e) => {
+              // Fallback to solid color if image fails to load
+              e.target.style.display = 'none';
+              e.target.parentElement.style.background = slide.background?.fill || "#fff";
+            }}
+          />
+        )}
+        
+        {/* Content overlay */}
+        <div style={{
+          position: 'relative',
+          zIndex: 1,
+          padding: '2px 4px',
+          height: '100%',
+          background: templateBgImage ? 'rgba(255, 255, 255, 0.1)' : (slide.background?.fill || "#fff")
+        }}>
+          <div className="slide-thumb-title">{slide.textboxes?.find(tb => tb.type === "title")?.text || ""}</div>
+          <div className="slide-thumb-body">{slide.textboxes?.find(tb => tb.type === "body")?.text || ""}</div>
+        </div>
+      </div>
+    );  }
+
   return (
-    <div className="slide-editor-root">
-      <div className="slide-selector-bar">
+    <div className="slide-editor-root">      <div className="slide-selector-bar">
         {slides.map((s, idx) => {
           const titleBox = s.textboxes?.find(tb => tb.type === "title");
           const bodyBox = s.textboxes?.find(tb => tb.type === "body");
           return (
             <div
               key={idx}
-              className={"slide-thumb" + (idx === currentIdx ? " selected" : "")}
+              className={
+                "slide-thumb" + 
+                (idx === currentIdx ? " selected" : "") +
+                (draggedSlideIndex === idx ? " dragging" : "") +
+                (dragOverIndex === idx ? " drag-over" : "")
+              }
+              draggable
               onClick={() => setCurrentIdx(idx)}
-            >
+              onDragStart={(e) => handleSlideThumbDragStart(e, idx)}
+              onDragOver={(e) => handleSlideThumbDragOver(e, idx)}
+              onDragLeave={handleSlideThumbDragLeave}
+              onDrop={(e) => handleSlideThumbDrop(e, idx)}
+              onDragEnd={handleSlideThumbDragEnd}
+              style={{
+                opacity: draggedSlideIndex === idx ? 0.5 : 1,
+                cursor: 'move'
+              }}            >
               <div className="slide-thumb-label">Slide {idx + 1}</div>
-              <div className="slide-thumb-content" style={{ background: s.background?.fill || "#fff" }}>
-                <div className="slide-thumb-title">{titleBox ? titleBox.text : ""}</div>
-                <div className="slide-thumb-body">{bodyBox ? bodyBox.text : ""}</div>
-              </div>
-              {slides.length > 1 && (
+              {renderSlideThumb(s, idx, idx === 0)}              {slides.length > 1 && (
                 <button
                   className="slide-thumb-delete"
                   onClick={e => {
                     e.stopPropagation();
-                    setCurrentIdx(idx === 0 ? 0 : idx - 1);
-                    setSlides(prev => prev.filter((_, i) => i !== idx));
+                    const newSlides = slides.filter((_, i) => i !== idx);
+                    const newIdx = idx === 0 ? 0 : Math.max(0, currentIdx - (idx < currentIdx ? 1 : 0));
+                    updateSlidesAndIndexWithHistory(newSlides, newIdx, 'Delete slide');
                   }}
                 >
                   ×
@@ -1108,12 +1598,36 @@ const handleParagraphSpacing = value => {
             <label style={{ fontSize: 13, color: '#222', marginBottom: 4 }}>Background</label>
             <input type="color" className="background-color-picker" value={slide.background?.fill || '#fff'} onChange={handleBackgroundColor} style={{ width: 28, height: 28, marginLeft: 8 }} />
           </div>
+            {/* Template Selector */}
+          <div style={{ width: '100%', margin: '12px 0' }}>
+            <label style={{ fontSize: 13, color: '#222', marginBottom: 4, display: 'block' }}>Template</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ fontSize: '11px', color: '#555', padding: '4px 0' }}>
+                {currentTemplate ? currentTemplate.name : 'No template selected'}
+              </div>
+              <button
+                onClick={() => setShowTemplatePopup(true)}
+                style={{
+                  width: '100%',
+                  padding: '6px 8px',
+                  fontSize: '11px',
+                  backgroundColor: '#f0f4f8',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  color: '#333'
+                }}
+              >
+                Change Template
+              </button>
+            </div>
+          </div>
+          
           <div style={{ width: '100%' }}>
             <label style={{ fontSize: 13, color: '#222', marginBottom: 4 }}>Image</label>            <div className="image-upload-row">
               <button className="image-upload-btn" onClick={() => fileInputRef.current.click()}>Upload Image</button>
-              <input type="file" accept="image/*" multiple ref={fileInputRef} style={{ display: 'none' }} onChange={handleImageUpload} />
-              {slide.image && <button className="remove-image-btn" onClick={() => setSlides(prev => prev.map((s, i) => i === currentIdx ? { ...s, image: null } : s))}>Remove Legacy Image</button>}
-              {slide.images && slide.images.length > 0 && <button className="remove-image-btn" onClick={() => setSlides(prev => prev.map((s, i) => i === currentIdx ? { ...s, images: [] } : s))}>Remove All Images</button>}
+              <input type="file" accept="image/jpeg,image/jpg,image/png,image/gif,image/bmp,image/webp,image/svg+xml" multiple ref={fileInputRef} style={{ display: 'none' }} onChange={handleImageUpload} />              {slide.image && <button className="remove-image-btn" onClick={handleRemoveLegacyImage}>Remove Legacy Image</button>}
+              {slide.images && slide.images.length > 0 && <button className="remove-image-btn" onClick={handleRemoveAllImages}>Remove All Images</button>}
             </div>
           </div>
         </div>
@@ -1229,9 +1743,7 @@ const handleParagraphSpacing = value => {
               </select>
             </div>
             <button style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }} onClick={() => {}} disabled={!selectedTextBox}><FaHighlighter /></button>
-          </div>
-
-          {/* --- Slide Preview/Editor --- */}
+          </div>          {/* --- Slide Preview/Editor --- */}
           <div
             className="slide-preview"            style={{
               position: "relative",
@@ -1244,7 +1756,7 @@ const handleParagraphSpacing = value => {
               border: "1px solid #ccc",
               boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
               overflow: "hidden",
-              background: currentTemplate?.id ? undefined : "#fff",
+              background: currentTemplate?.id ? undefined : "#fff"
             }}
             onDragOver={e => { 
               e.preventDefault(); 
@@ -1317,8 +1829,7 @@ const handleParagraphSpacing = value => {
                     if (tb.bullets) {
                       // Add bullet styles
                     }
-                    return (
-                      <div
+                    return (                      <div
                         key={`textbox-${currentIdx}-${tb.id}`}
                         ref={el => {
                           if (el) {
@@ -1329,7 +1840,7 @@ const handleParagraphSpacing = value => {
                             if (existingRef?.timeout) clearTimeout(existingRef.timeout);
                             contentEditableRefs.current.delete(tb.id);
                           }
-                        }}                        
+                        }}
                         className={"slide-textbox" + (selectedTextBoxId === tb.id ? " selected" : "") + (tb.paragraphSpacing ? ` paragraph-spacing-${tb.paragraphSpacing}` : "")}
                         style={style}
                         contentEditable
@@ -1337,7 +1848,15 @@ const handleParagraphSpacing = value => {
                         spellCheck={true}
                         draggable={true} 
                         data-tbid={tb.id}
-                       onDragStart={e => {
+                        // Enhanced mouse-based dragging (primary method)
+                        onMouseDown={e => {
+                          // Check if clicking on the textbox border/background (not text content)
+                          if (e.target === e.currentTarget) {
+                            handleTextMouseDown(e, tb.id);
+                          }
+                        }}
+                        // HTML5 drag as fallback for better compatibility
+                        onDragStart={e => {
                           e.stopPropagation();
                           const rect = e.currentTarget.getBoundingClientRect();
                           const offsetX = e.clientX - rect.left;
@@ -1390,16 +1909,7 @@ const handleParagraphSpacing = value => {
                           setSelectedTextBoxId(null); setSelectedTextRange(null);
                         }}
                         tabIndex={0}                      >
-                        {tb.paragraphSpacing && tb.paragraphSpacing > 0 ? (
-                          <div 
-                            dangerouslySetInnerHTML={{ 
-                              __html: tb.text.split('\n').map(line => `<p>${line || '<br>'}</p>`).join('') 
-                            }} 
-                          />
-                        ) : (
-                          <div dangerouslySetInnerHTML={{ __html: tb.text }} />
-                        )}
-
+                        <div dangerouslySetInnerHTML={{ __html: tb.text }} />
                       </div>
                     );                  })
                 }
@@ -1425,39 +1935,158 @@ const handleParagraphSpacing = value => {
                   />
                 </Layer>
               </Stage>
-            )}
-            {slide.images && slide.images.map((image, idx) => (
+            )}            {slide.images && slide.images.map((image, idx) => (
               <div
                 key={image.id}
+                className="image-container"
                 style={{
                   position: 'absolute',
                   left: image.x,
                   top: image.y,
                   width: image.width,
                   height: image.height,
-                  cursor: selectedImage === idx ? 'move' : 'pointer',
-                  border: selectedImage === idx ? '2px solid #1976d2' : 'none',
+                  cursor: isDraggingImage && selectedImage === idx ? 'grabbing' : 'grab',
+                  border: selectedImage === idx ? '2px solid #1976d2' : '1px solid transparent',
                   boxSizing: 'border-box',
                   userSelect: 'none',
                   background: 'transparent',
                   zIndex: typeof image.zIndex === 'number' ? image.zIndex : DEFAULT_IMAGE_Z_INDEX
                 }}
-                onMouseDown={e => {
-                  setSelectedImage(idx);
+                onMouseDown={e => handleImageMouseDown(e, idx)}
+                onClick={e => {
                   e.stopPropagation();
-                }}
-                draggable
-                onDragStart={e => {
-                  e.dataTransfer.setData('image-idx', idx);
-                  e.dataTransfer.effectAllowed = 'move';
+                  setSelectedImage(idx);
                 }}
               >
                 <img
                   src={image.src}
                   alt="slide visual"
-                  style={{ width: '100%', height: '100%', pointerEvents: 'none', borderRadius: 8 }}
+                  style={{ 
+                    width: '100%', 
+                    height: '100%', 
+                    pointerEvents: 'none', 
+                    borderRadius: 8,
+                    display: 'block'
+                  }}
                   draggable={false}
                 />
+                
+                {/* Resize handles - only show when image is selected */}
+                {selectedImage === idx && (
+                  <>
+                    {/* Corner resize handles */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: -4,
+                        left: -4,
+                        width: 8,
+                        height: 8,
+                        backgroundColor: '#1976d2',
+                        cursor: 'nw-resize',
+                        borderRadius: '50%'
+                      }}
+                      onMouseDown={e => handleImageResizeMouseDown(e, idx)}
+                    />
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: -4,
+                        right: -4,
+                        width: 8,
+                        height: 8,
+                        backgroundColor: '#1976d2',
+                        cursor: 'ne-resize',
+                        borderRadius: '50%'
+                      }}
+                      onMouseDown={e => handleImageResizeMouseDown(e, idx)}
+                    />
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: -4,
+                        left: -4,
+                        width: 8,
+                        height: 8,
+                        backgroundColor: '#1976d2',
+                        cursor: 'sw-resize',
+                        borderRadius: '50%'
+                      }}
+                      onMouseDown={e => handleImageResizeMouseDown(e, idx)}
+                    />
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: -4,
+                        right: -4,
+                        width: 8,
+                        height: 8,
+                        backgroundColor: '#1976d2',
+                        cursor: 'se-resize',
+                        borderRadius: '50%'
+
+                      }}
+                      onMouseDown={e => handleImageResizeMouseDown(e, idx)}
+                    />
+                    
+                    {/* Edge resize handles */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: -4,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        width: 8,
+                        height: 8,
+                        backgroundColor: '#1976d2',
+                        cursor: 'n-resize',
+                        borderRadius: '50%'
+                      }}
+                      onMouseDown={e => handleImageResizeMouseDown(e, idx)}
+                    />
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: -4,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        width: 8,
+                        height: 8,
+                        backgroundColor: '#1976d2',
+                        cursor: 's-resize',
+                        borderRadius: '50%'
+                      }}
+                      onMouseDown={e => handleImageResizeMouseDown(e, idx)}
+                    />
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: -4,
+                        transform: 'translateY(-50%)',
+                        width: 8,
+                        height: 8,
+                        backgroundColor: '#1976d2',
+                        cursor: 'w-resize',
+                        borderRadius: '50%'
+                      }}
+                      onMouseDown={e => handleImageResizeMouseDown(e, idx)}
+                    />
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '50%',
+                        right: -4,
+                        transform: 'translateY(-50%)',
+                        width: 8,
+                        height: 8,
+                        backgroundColor: '#1976d2',
+                        cursor: 'e-resize',
+                        borderRadius: '50%'
+                      }}
+                      onMouseDown={e => handleImageResizeMouseDown(e, idx)}                    />
+                  </>
+                )}
               </div>
             ))}
           </div>
@@ -1472,16 +2101,88 @@ const handleParagraphSpacing = value => {
             </div>
           )}
         </div>
-      </div>
-      {/* --- Floating Action Bar (bottom) --- */}
-  <div className="slide-editor-actions">
-    {/* ...existing code ... */}
-    <button onClick={() => navigate("/slides-generating")}>Return to Slides</button>
-    <button onClick={handleAddSlide}>Add Slide</button>
-    <button onClick={handleDeleteSlide} disabled={slides.length === 1}>Delete Slide</button>
-    <button onClick={handleExportPowerPoint}>Export to PowerPoint</button>
-    <button onClick={handleSave}>Save</button>
+      </div>      {/* --- Floating Action Bar (bottom) --- */}  <div className="slide-editor-actions">
+    <button className="action-btn secondary" onClick={() => navigate("/slides-generating")}>
+      <span>← Return to Slides</span>
+    </button>
+    <button 
+      className="action-btn secondary" 
+      onClick={handleUndo}
+      disabled={historyIndex <= 0}
+      title={`Undo (Ctrl+Z)${historyIndex > 0 ? ': ' + history[historyIndex].description : ''}`}
+    >
+      <span>↶ Undo</span>
+    </button>
+    <button 
+      className="action-btn secondary" 
+      onClick={handleRedo}
+      disabled={historyIndex >= history.length - 1}
+      title={`Redo (Ctrl+Y)${historyIndex < history.length - 1 ? ': ' + history[historyIndex + 1].description : ''}`}
+    >
+      <span>↷ Redo</span>
+    </button>
+    <button className="action-btn primary" onClick={handleExportPowerPoint}>
+      <span>📄 Export to PowerPoint</span>
+    </button>
+    <button className="action-btn primary" onClick={handleSave}>
+      <span>💾 Save</span>
+    </button>
   </div>
+  
+  {/* Template Selection Popup */}  {showTemplatePopup && (
+    <div className="template-popup-overlay" onClick={() => setShowTemplatePopup(false)}>
+      <div
+        className="template-popup"
+        onClick={e => e.stopPropagation()}
+      >
+        <h2 style={{ marginBottom: 16, textAlign: 'center', color: '#333' }}>Select a Template</h2>
+        {templatesLoading ? (
+          <div style={{ textAlign: 'center', padding: '20px' }}>
+            <div className="spinner"></div>
+            <p style={{ marginTop: '10px', color: '#666' }}>Loading templates...</p>
+          </div>
+        ) : (
+          <div className="template-list">
+            {templates.map((template) => (
+              <div
+                key={template.id}
+                className={`template-box${currentTemplate && currentTemplate.id === template.id ? " selected" : ""}`}
+                onClick={() => {
+                  handleTemplateChange(template.id);
+                  setShowTemplatePopup(false);
+                }}
+                style={{ cursor: "pointer" }}
+              >
+                <img
+                  src={template.type === 'custom' 
+                    ? template.preview 
+                    : `/static/template_backgrounds/${template.id}_title.png`}
+                  alt={template.name}
+                  className="template-preview"
+                  onError={e => {
+                    e.target.src = "/images/default_preview.png";
+                  }}
+                />
+                <p className="template-title">
+                  {template.name}
+                  {template.type === 'custom' && (
+                    <span style={{ 
+                      display: 'block', 
+                      fontSize: '0.8em', 
+                      color: '#666', 
+                      fontWeight: 'normal' 
+                    }}>
+                      Custom
+                    </span>
+                  )}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )}
 </div>
   );
 };

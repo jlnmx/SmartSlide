@@ -1628,7 +1628,7 @@ def generate_presentation():
                     left = Inches(x_px * px_to_in_x)
                     top = Inches(y_px * px_to_in_y)
                     width = Inches(width_px * px_to_in_x)
-                    height = Inches(height_px * px_to_in_y)
+                    height = Inches(height_px * px_to_in_y)                  
                     if width <= Inches(0) or height <= Inches(0):
                         current_app.logger.warning(f"Skipping textbox with invalid dimensions: w_px={width_px}, h_px={height_px}")
                         continue
@@ -1773,8 +1773,7 @@ def generate_presentation():
                         img_height_px = float(el_data.get("height", 100))
                         if img_width_px <= 0 or img_height_px <= 0:
                             current_app.logger.warning(f"Skipping image with zero/negative pixel dimensions: w={img_width_px}, h={img_height_px}")
-                            continue
-
+                            continue                       
                         img_left = Inches(img_x_px * px_to_in_x)
                         img_top = Inches(img_y_px * px_to_in_y)
                         img_width = Inches(img_width_px * px_to_in_x)
@@ -2158,6 +2157,8 @@ Make sure to generate exactly {num_slides} slides.
         result = response.json()
         model_output = result["choices"][0]["message"]["content"]
 
+        # Extract JSON array from the response
+        import re, json
         match = re.search(r'\[\s*{.*}\s*\]', model_output, re.DOTALL)
         if not match:
             return jsonify({"error": "Failed to parse slides output."}), 500
@@ -2747,4 +2748,126 @@ def serve_custom_template(filename):
         return send_from_directory(upload_dir, filename)
     except Exception as e:
         current_app.logger.error(f"Error serving custom template: {e}")
-        return jsonify({'error': 'File not found'}), 404
+        return jsonify({'error': 'Failed to serve template file'}), 500
+
+# --- CHATBOT ENDPOINT ---
+@main.route('/chatbot', methods=['POST', 'OPTIONS'])
+def chatbot():
+    """Chatbot endpoint to answer questions about SmartSlide features"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    
+    data = request.get_json()
+    user_message = data.get('message', '').strip()
+    
+    if not user_message:
+        return jsonify({'error': 'Message is required'}), 400
+    
+    # SmartSlide knowledge base
+    smartslide_context = """
+    SmartSlide is a comprehensive presentation creation tool with the following features:
+
+    CORE FEATURES:
+    - AI-powered slide generation using advanced language models
+    - Multiple presentation templates and themes
+    - Slide editing with drag-and-drop functionality
+    - Text formatting (fonts, colors, alignment, bullets)
+    - Image integration and background customization
+    - PowerPoint export functionality
+    - Quiz generation from presentation content
+    - Speaker script generation
+    - Analytics and usage tracking
+
+    SLIDE CREATION:
+    - Generate slides from topics/prompts
+    - Import content from files (PDF, DOCX, TXT, CSV, Excel)
+    - Paste and create from existing text
+    - Support for multiple languages
+    - Customizable number of slides (1-30)
+    - Professional templates with various themes
+
+    EDITING CAPABILITIES:
+    - Rich text editor with formatting options
+    - Font selection from 42+ font families
+    - Color customization for text and backgrounds
+    - Image upload and positioning
+    - Template switching and customization
+    - Undo/redo functionality
+
+    EXPORT OPTIONS:
+    - Download as PowerPoint (.pptx)
+    - Export quizzes to Word documents
+    - Export scripts to Word documents
+    - Save presentations to cloud storage
+
+    USER FEATURES:
+    - User registration and authentication
+    - Dashboard with recent presentations
+    - Saved quizzes and scripts management
+    - User analytics and statistics
+    - Custom template uploads
+    - Account profile management
+
+    ADDITIONAL TOOLS:
+    - Quiz generator with multiple choice and identification questions
+    - Speaker script generator for presentations
+    - File upload support for various formats
+    - Real-time collaboration features
+    - Responsive design for mobile and desktop
+
+    TECHNICAL CAPABILITIES:
+    - Firebase integration for data storage
+    - AI-powered content generation
+    - Secure user authentication
+    - Cloud-based presentation storage
+    - Cross-platform compatibility
+    """
+    
+    try:
+        # Create a focused prompt for the chatbot
+        chatbot_prompt = f"""
+        You are SmartSlide Assistant, a helpful chatbot that answers questions about SmartSlide, an AI-powered presentation creation tool.
+
+        Context about SmartSlide:
+        {smartslide_context}
+
+        User Question: {user_message}
+
+        Please provide a helpful, accurate, and friendly response about SmartSlide's features, capabilities, or how to use the application. Keep your response concise but informative. If the question is not related to SmartSlide, politely redirect the conversation back to SmartSlide features.
+
+        Response:
+        """
+        
+        headers = {
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": "llama3-8b-8192",
+            "messages": [
+                {"role": "system", "content": "You are SmartSlide Assistant, a helpful chatbot for the SmartSlide presentation tool. Provide accurate, friendly, and concise responses about SmartSlide features and usage."},
+                {"role": "user", "content": chatbot_prompt}
+            ],
+            "max_tokens": 1000,
+            "temperature": 0.7
+        }
+        
+        response = requests.post(GROQ_API_URL, headers=headers, json=payload)
+        response.raise_for_status()
+        
+        result = response.json()
+        bot_response = result["choices"][0]["message"]["content"]
+        
+        return jsonify({
+            "response": bot_response,
+            "status": "success"
+        }), 200
+
+    except requests.exceptions.HTTPError as http_err:
+        current_app.logger.error(f"HTTP error during chatbot response: {http_err}")
+        return jsonify({"error": "Failed to get response from AI service"}), 500
+    except Exception as e:
+        current_app.logger.error(f"Error in chatbot endpoint: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+  

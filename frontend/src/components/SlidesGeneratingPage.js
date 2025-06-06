@@ -272,34 +272,37 @@ const SlidesGeneratingPage = () => {
                 title = slideData.title;
                 contentForRender = slideData.content;
                 imageUrl = slideData.image_url;
-              }
-
-              return (
-                <div key={index} className="slide-split-preview-card">
-                  <div className="slide-split-left">
-                    <div className="slide-split-title">{title}</div>
-                    <div className="slide-split-content">
-                      {renderSlideContent(contentForRender)}
-                    </div>
-                    {slideData.author && ( 
-                      <div className="slide-split-author">
-                        <span className="slide-split-author-avatar"></span>
+              }              return (
+                <div key={index} className="slide-full-preview-card">
+                  <div className="slide-preview-header">
+                    <h3 className="slide-number">Slide {index + 1}</h3>
+                    {slideData.author && (
+                      <div className="slide-author-info">
+                        <span className="slide-author-avatar"></span>
                         <span>
                           <b>{slideData.author}</b>
-                          <br />
-                          <span className="slide-split-author-edit">Last edited just now</span>
+                          <span className="slide-author-edit">Last edited just now</span>
                         </span>
                       </div>
                     )}
                   </div>
-                  <div className="slide-split-right">
-                    {imageUrl ? (
-                      <img
-                        src={imageUrl}
-                        alt="Slide visual"
-                        className="slide-split-image"
-                      />
-                    ) : null}
+                  <div className="slide-preview-container">
+                    <div 
+                      className="slide-preview-content"
+                      style={{
+                        backgroundImage: imageUrl ? `url(${imageUrl})` : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        backgroundRepeat: 'no-repeat'
+                      }}
+                    >
+                      <div className="slide-content-overlay">
+                        <div className="slide-title">{title}</div>
+                        <div className="slide-body">
+                          {renderSlideContent(contentForRender)}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               );

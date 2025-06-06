@@ -346,7 +346,54 @@ const mapIfNeeded = (slideArray) => {
 };
 
 const FONT_FAMILIES = [
-  "Arial", "Verdana", "Tahoma", "Times New Roman", "Georgia", "Courier New", "Comic Sans MS", "Impact"
+  // Sans-serif fonts
+  "Arial", 
+  "Helvetica", 
+  "Verdana", 
+  "Tahoma", 
+  "Trebuchet MS", 
+  "Geneva", 
+  "Arial Black",
+  "Impact",
+  "Lucida Sans Unicode",
+  "Franklin Gothic Medium",
+  
+  // Serif fonts
+  "Times New Roman", 
+  "Georgia", 
+  "Times", 
+  "Book Antiqua", 
+  "Palatino Linotype",
+  "Baskerville",
+  "Garamond",
+  "Cambria",
+  
+  // Monospace fonts
+  "Courier New", 
+  "Monaco", 
+  "Consolas", 
+  "Lucida Console",
+  "Menlo",
+  "Source Code Pro",
+  
+  // Display/Decorative fonts
+  "Comic Sans MS",
+  "Brush Script MT",
+  "Papyrus",
+  "Chalkduster",
+  "Marker Felt",
+  
+  // Modern/Clean fonts
+  "Calibri",
+  "Segoe UI",
+  "Roboto",
+  "Open Sans",
+  "Lato",
+  "Montserrat",
+  "Poppins",
+  "Inter",
+  "Source Sans Pro",
+  "Nunito"
 ];
 const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 64];
 const LINE_HEIGHTS = [1, 1.15, 1.5, 2];
@@ -1584,28 +1631,62 @@ const handleParagraphSpacing = value => {
                   ×
                 </button>
               )}
-            </div>
-          );
-        })}
-        <button className="slide-thumb-add" onClick={handleAddSlide}>+</button>
-      </div>
+            </div>            )})}
 
-      <div className="slide-editor-main">
-        <div className="slide-editor-sidebar">
-          <button onClick={() => handleAddTextBox('title')}>Add Title</button>
-          <button onClick={() => handleAddTextBox('body')}>Add Body</button>
-          <div style={{ width: '100%', margin: '12px 0' }}>
-            <label style={{ fontSize: 13, color: '#222', marginBottom: 4 }}>Background</label>
-            <input type="color" className="background-color-picker" value={slide.background?.fill || '#fff'} onChange={handleBackgroundColor} style={{ width: 28, height: 28, marginLeft: 8 }} />
-          </div>
-            {/* Template Selector */}
-          <div style={{ width: '100%', margin: '12px 0' }}>
-            <label style={{ fontSize: 13, color: '#222', marginBottom: 4, display: 'block' }}>Template</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ fontSize: '11px', color: '#555', padding: '4px 0' }}>
-                {currentTemplate ? currentTemplate.name : 'No template selected'}
+          <button className="slide-thumb-add" onClick={handleAddSlide}>+</button>
               </div>
-              <button
+
+              <div className="slide-editor-main">
+          <div className="slide-editor-sidebar">
+            <button onClick={() => handleAddTextBox('title')}>Add Title</button>
+            <button onClick={() => handleAddTextBox('body')}>Add Body</button>
+            <div style={{ width: '100%', margin: '12px 0' }}>
+              <label style={{ fontSize: 13, color: '#222', marginBottom: 4 }}>Background</label>
+              <input type="color" className="background-color-picker" value={slide.background?.fill || '#fff'} onChange={handleBackgroundColor} style={{ width: 28, height: 28, marginLeft: 8 }} />
+            </div>
+              {/* Template Selector */}
+              <div style={{ width: '100%', margin: '12px 0' }}>
+              <label style={{ fontSize: 13, color: '#222', marginBottom: 4, display: 'block' }}>Template</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ fontSize: '11px', color: '#555', padding: '4px 0' }}>
+                {currentTemplate ? currentTemplate.name : 'No template selected'}
+                </div>
+                {/* Show current template preview */}
+                {currentTemplate && (
+                  <div style={{
+                    textAlign: 'center',
+                    marginBottom: '8px'
+                  }}>
+                    <div style={{
+                      display: 'inline-block',
+                      border: '1px solid #ccc',
+                      borderRadius: 6,
+                      background: '#fafbfc',
+                      padding: 4,
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.06)'
+                    }}>
+                      <img
+                  src={
+                    currentTemplate.type === 'custom'
+                      ? currentTemplate.preview
+                      : `/static/template_backgrounds/${currentTemplate.id}_title.png`
+                  }
+                  alt={currentTemplate.name}
+                  style={{
+                    width: 120,
+                    height: 68,
+                    objectFit: 'cover',
+                    borderRadius: 4,
+                    background: '#fff'
+                  }}
+                  onError={e => {
+                    e.target.src = "/images/default_preview.png";
+                  }}
+                      />
+                    </div>
+                  </div>
+                )}
+                <button
                 onClick={() => setShowTemplatePopup(true)}
                 style={{
                   width: '100%',
@@ -1615,135 +1696,135 @@ const handleParagraphSpacing = value => {
                   border: '1px solid #ccc',
                   borderRadius: '4px',
                   cursor: 'pointer',
-                  color: '#333'
+                  color: '#fff' // changed to white
                 }}
-              >
+                >
                 Change Template
-              </button>
+                </button>
+              </div>
+              </div>
+              
+              <div style={{ width: '100%' }}>
+              <label style={{ fontSize: 13, color: '#222', marginBottom: 4 }}>Image</label>            <div className="image-upload-row">
+                <button className="image-upload-btn" onClick={() => fileInputRef.current.click()}>Upload Image</button>
+                <input type="file" accept="image/jpeg,image/jpg,image/png,image/gif,image/bmp,image/webp,image/svg+xml" multiple ref={fileInputRef} style={{ display: 'none' }} onChange={handleImageUpload} />              {slide.image && <button className="remove-image-btn" onClick={handleRemoveLegacyImage}>Remove Legacy Image</button>}
+                {slide.images && slide.images.length > 0 && <button className="remove-image-btn" onClick={handleRemoveAllImages}>Remove All Images</button>}
+              </div>
+              </div>
             </div>
-          </div>
-          
-          <div style={{ width: '100%' }}>
-            <label style={{ fontSize: 13, color: '#222', marginBottom: 4 }}>Image</label>            <div className="image-upload-row">
-              <button className="image-upload-btn" onClick={() => fileInputRef.current.click()}>Upload Image</button>
-              <input type="file" accept="image/jpeg,image/jpg,image/png,image/gif,image/bmp,image/webp,image/svg+xml" multiple ref={fileInputRef} style={{ display: 'none' }} onChange={handleImageUpload} />              {slide.image && <button className="remove-image-btn" onClick={handleRemoveLegacyImage}>Remove Legacy Image</button>}
-              {slide.images && slide.images.length > 0 && <button className="remove-image-btn" onClick={handleRemoveAllImages}>Remove All Images</button>}
-            </div>
-          </div>
-        </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-          <div className="slide-toolbar">
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <span style={{ marginRight: '8px', fontSize: '14px' }}>Font:</span>
-              <select
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+              <div className="slide-toolbar">
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <span style={{ marginRight: '8px', fontSize: '14px' }}>Font:</span>
+                <select
                 value={selectedTextBox?.fontFamily || 'Arial'}
                 onChange={e => handleToolbarChange('fontFamily', e.target.value)}
                 disabled={!selectedTextBox} 
                 style={{ marginRight: '12px', padding: '4px', fontSize: '14px' }}
-              >
+                >
                 {FONT_FAMILIES.map(f => <option key={f} value={f}>{f}</option>)}
-              </select>
-              <span style={{ marginRight: '8px', fontSize: '14px' }}>Size:</span>
-              <select
+                </select>
+                <span style={{ marginRight: '8px', fontSize: '14px' }}>Size:</span>
+                <select
                 value={selectedTextBox?.fontSize || 24}
                 onChange={e => handleToolbarChange('fontSize', Number(e.target.value))}
                 disabled={!selectedTextBox} 
                 style={{ marginRight: '12px', padding: '4px', fontSize: '14px' }}
-              >
+                >
                 {FONT_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-            <button
-              style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }}
-              onClick={() => handleToolbarToggle('bold')}
-              disabled={!selectedTextBox} 
-              className={selectedTextBox?.fontStyle?.bold ? 'active' : ''}
-            >
-              <FaBold />
-            </button>
-            <button
-              style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }}
-              onClick={() => handleToolbarToggle('italic')}
-              disabled={!selectedTextBox} 
-              className={selectedTextBox?.fontStyle?.italic ? 'active' : ''}
-            >
-              <FaItalic />
-            </button>
-            <button
-              style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }}
-              onClick={() => handleToolbarToggle('underline')}
-              disabled={!selectedTextBox} 
-              className={selectedTextBox?.fontStyle?.underline ? 'active' : ''}
-            >
-              <FaUnderline />
-            </button>
-            <button
-              style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }}
-              onClick={() => handleToolbarChange('align', 'left')}
-              disabled={!selectedTextBox}
-              className={selectedTextBox?.align === 'left' ? 'active' : ''}
-            >
-              <FaAlignLeft />
-            </button>
-            <button
-              style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }}
-              onClick={() => handleToolbarChange('align', 'center')}
-              disabled={!selectedTextBox} 
-              className={selectedTextBox?.align === 'center' ? 'active' : ''}
-            >
-              <FaAlignCenter />
-            </button>
-            <button
-              style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }}
-              onClick={() => handleToolbarChange('align', 'right')}
-              disabled={!selectedTextBox} 
-              className={selectedTextBox?.align === 'right' ? 'active' : ''}
-            >
-              <FaAlignRight />
-            </button>
-            <button
-              style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }}
-              onClick={() => handleToolbarChange('align', 'justify')}
-              disabled={!selectedTextBox} 
-              className={selectedTextBox?.align === 'justify' ? 'active' : ''}
-            >
-              <FaAlignJustify />
-            </button>
-            <button
-              style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }}
-              onClick={() => selectedTextBox && handleBulletsToggle(selectedTextBox.id)}
-              disabled={!selectedTextBox} 
-              className={selectedTextBox?.bullets ? 'active' : ''}
-            >
-              •
-            </button>            <input
-              type="color"
-              value={selectedTextBox?.fill || '#222'}
-              onChange={e => handleToolbarChange('fill', e.target.value)}
-              disabled={!selectedTextBox}
-            />
-            <div style={{ display: 'flex', alignItems: 'center', marginLeft: '12px' }}>
-              <span style={{ marginRight: '8px', fontSize: '14px' }}>Spacing:</span>
-              <select
+                </select>
+              </div>
+              <button
+                style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }}
+                onClick={() => handleToolbarToggle('bold')}
+                disabled={!selectedTextBox} 
+                className={selectedTextBox?.fontStyle?.bold ? 'active' : ''}
+              >
+                <FaBold />
+              </button>
+              <button
+                style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }}
+                onClick={() => handleToolbarToggle('italic')}
+                disabled={!selectedTextBox} 
+                className={selectedTextBox?.fontStyle?.italic ? 'active' : ''}
+              >
+                <FaItalic />
+              </button>
+              <button
+                style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }}
+                onClick={() => handleToolbarToggle('underline')}
+                disabled={!selectedTextBox} 
+                className={selectedTextBox?.fontStyle?.underline ? 'active' : ''}
+              >
+                <FaUnderline />
+              </button>
+              <button
+                style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }}
+                onClick={() => handleToolbarChange('align', 'left')}
+                disabled={!selectedTextBox}
+                className={selectedTextBox?.align === 'left' ? 'active' : ''}
+              >
+                <FaAlignLeft />
+              </button>
+              <button
+                style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }}
+                onClick={() => handleToolbarChange('align', 'center')}
+                disabled={!selectedTextBox} 
+                className={selectedTextBox?.align === 'center' ? 'active' : ''}
+              >
+                <FaAlignCenter />
+              </button>
+              <button
+                style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }}
+                onClick={() => handleToolbarChange('align', 'right')}
+                disabled={!selectedTextBox} 
+                className={selectedTextBox?.align === 'right' ? 'active' : ''}
+              >
+                <FaAlignRight />
+              </button>
+              <button
+                style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }}
+                onClick={() => handleToolbarChange('align', 'justify')}
+                disabled={!selectedTextBox} 
+                className={selectedTextBox?.align === 'justify' ? 'active' : ''}
+              >
+                <FaAlignJustify />
+              </button>
+              <button
+                style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }}
+                onClick={() => selectedTextBox && handleBulletsToggle(selectedTextBox.id)}
+                disabled={!selectedTextBox} 
+                className={selectedTextBox?.bullets ? 'active' : ''}
+              >
+                •
+              </button>            <input
+                type="color"
+                value={selectedTextBox?.fill || '#222'}
+                onChange={e => handleToolbarChange('fill', e.target.value)}
+                disabled={!selectedTextBox}
+              />
+              <div style={{ display: 'flex', alignItems: 'center', marginLeft: '12px' }}>
+                <span style={{ marginRight: '8px', fontSize: '14px' }}>Spacing:</span>
+                <select
                 value={selectedTextBox?.paragraphSpacing || 0}
                 onChange={e => handleParagraphSpacing(Number(e.target.value))}
                 disabled={!selectedTextBox}
                 style={{ padding: '4px', fontSize: '14px' }}
-              >
-                <option value="0">1.0</option>
-                <option value="4">1.5</option>
-                <option value="8">2.0</option>
-                <option value="12">2.5</option>
-                <option value="16">3.0</option>
-                <option value="20">3.5</option>
-                <option value="24">4.0</option>
-                <option value="28">4.5</option>
-                <option value="32">5.0</option> 
-              </select>
-            </div>
-            <button style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }} onClick={() => {}} disabled={!selectedTextBox}><FaHighlighter /></button>
-          </div>          {/* --- Slide Preview/Editor --- */}
+                >
+            <option value="0">1.0</option>
+            <option value="4">1.5</option>
+            <option value="8">2.0</option>
+            <option value="12">2.5</option>
+            <option value="16">3.0</option>
+            <option value="20">3.5</option>
+            <option value="24">4.0</option>
+            <option value="28">4.5</option>
+            <option value="32">5.0</option> 
+                </select>
+              </div>
+              <button style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }} onClick={() => {}} disabled={!selectedTextBox}><FaHighlighter /></button>
+            </div>          {/* --- Slide Preview/Editor --- */}
           <div
             className="slide-preview"            style={{
               position: "relative",

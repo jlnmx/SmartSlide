@@ -201,6 +201,22 @@
     box-shadow: 0 0 0 2px rgba(64, 55, 68, 0.2);
 }
 
+/* Form Labels */
+.auth-form label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 6px;
+  display: block;
+  text-align: left;
+}
+
+/* Form field containers for labels */
+.auth-form .form-field {
+  display: flex;
+  flex-direction: column;
+}
+
 .auth-btn {
   padding: 14px; /* Match input padding */
   background: #7392B7; /* Match slideshow gradient */

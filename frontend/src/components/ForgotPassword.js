@@ -481,8 +481,7 @@ const ForgotPassword = ({ onBackToLogin }) => {
             <h2>Create New Password</h2>
             <p>Enter your new password below</p>
             
-            <form onSubmit={handleResetPassword}>
-                <div className="form-group">
+            <form onSubmit={handleResetPassword}>                <div className="form-group">
                     <div className="password-input-container">
                         <input
                             type={showNewPassword ? "text" : "password"}
@@ -502,9 +501,7 @@ const ForgotPassword = ({ onBackToLogin }) => {
                             {showNewPassword ? "🙈" : "👁️"}
                         </button>
                     </div>
-                </div>
-                
-                <div className="form-group">
+                </div>                <div className="form-group">
                     <div className="password-input-container">
                         <input
                             type={showConfirmPassword ? "text" : "password"}

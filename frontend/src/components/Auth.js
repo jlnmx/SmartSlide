@@ -148,16 +148,18 @@ const AuthPage = ({ isLogin }) => {
                 required
                 aria-label="Full Name"
               />
-            )}
-            {!isLogin && (
-              <input
-                type="date"
-                placeholder="Birthday"
-                value={birthday}
-                onChange={(e) => setBirthday(e.target.value)}
-                required
-                aria-label="Birthday"
-              />
+            )}            {!isLogin && (
+              <div className="form-field">
+                <label htmlFor="birthdate">Birthdate</label>
+                <input
+                  id="birthdate"
+                  type="date"
+                  value={birthday}
+                  onChange={(e) => setBirthday(e.target.value)}
+                  required
+                  aria-label="Birthdate"
+                />
+              </div>
             )}
             {!isLogin && (
               <input

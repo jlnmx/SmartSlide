@@ -114,34 +114,190 @@
 
 .presentation-list {
   display: grid;
-  grid-template-columns: repeat(3, 1fr); /* Always 3 columns */
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+  margin-top: 20px;
 }
 
 .presentation-card {
-  background-color: #d5f0d1;
-  border: 2px solid #257136;
-  border-radius: 8px;
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
   display: flex;
-  flex-direction: column;      /* Stack content vertically */
-  justify-content: center;     /* Center content vertically */
-  align-items: center;         /* Center content horizontally */
-  font-size: 1.2rem;
-  font-weight: 400;
-  font-family: Verdana;
-  color: #257136;
-  text-align: center;
-  padding: 30px;
-  width: 80%;
-  height: 150px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s ease;
+  flex-direction: column;
+  overflow: hidden;
+  width: 100%;
+  aspect-ratio: 1;            /* Makes the card square */
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
   position: relative;
-  gap: 12px;                   /* Space between title and button */
+  cursor: pointer;
 }
 
 .presentation-card:hover {
-  transform: scale(1.05); /* Slight zoom effect on hover */
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* Slide preview area (upper half) */
+.slide-preview {
+  width: 100%;
+  height: 60%;
+  background-color: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.slide-preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background-color: #ffffff;
+  border: none;
+}
+
+.slide-preview-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #6c757d;
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 20px;
+}
+
+.slide-preview-placeholder .preview-icon {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+
+/* Presentation info area (lower half) */
+.presentation-info {
+  padding: 16px;
+  height: 40%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background-color: #ffffff;
+}
+
+.presentation-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #212529;
+  margin-bottom: 8px;
+  line-height: 1.3;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.presentation-meta {
+  font-size: 0.8rem;
+  color: #6c757d;
+  margin-bottom: 8px;
+  line-height: 1.2;
+}
+
+.presentation-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+}
+
+.delete-btn {
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.delete-btn:hover {
+  background: #c82333;
+}
+
+/* Empty state styling */
+.presentation-card.empty {
+  background-color: #f8f9fa;
+  border: 2px dashed #dee2e6;
+  justify-content: center;
+  align-items: center;
+  color: #6c757d;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.presentation-card.error {
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  color: #721c24;
+  justify-content: center;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+/* Mini slide preview styles - accurate rendering */
+.mini-slide-preview {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  border-radius: 8px 8px 0 0;
+  overflow: hidden;
+  background: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Hide overlay styles for accurate rendering */
+.mini-slide-overlay {
+  display: none;
+}
+
+.mini-slide-title {
+  display: none;
+}
+
+.mini-slide-content {
+  display: none;
+}
+
+.slide-preview-loading {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f8f9fa;
+}
+
+.mini-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #0078d4;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 /* Account button styles */
@@ -260,23 +416,39 @@
     font-size: 0.8rem;
     padding: 6px 12px;
   }
-
   .presentation-card {
     font-size: 0.9rem;
-    padding: 15px;
+    padding: 0;
   }
 
-  @media (max-width: 900px) {
-  .presentation-list {
-    grid-template-columns: repeat(2, 1fr);
+  .presentation-info {
+    padding: 12px;
+  }
+
+  .presentation-title {
+    font-size: 0.9rem;
+  }
+
+  .presentation-meta {
+    font-size: 0.75rem;
   }
 }
+
+/* Responsive grid adjustments */
+@media (max-width: 900px) {
+  .presentation-list {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px;
+  }
+}
+
 @media (max-width: 600px) {
   .presentation-list {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
   }
 }
-}
+
 
 /* Logout Modal Styles */
 .logout-modal-overlay {

@@ -360,51 +360,39 @@ def send_sms_verification(phone_number, verification_code):
 
 main = Blueprint("main", __name__)
 
-# Add proper CORS headers for all responses
-@main.after_request
-def after_request(response):
-    origin = request.headers.get('Origin')
-    # Allow localhost for development and all Vercel deployments
-    allowed_origins = [
-        'http://localhost:3000',
-        'https://smartslide.vercel.app',
-        'https://smartslide-git-main-your-username.vercel.app',  # Git branch deployments
-        'https://smartslide-git-master-your-username.vercel.app'  # Master branch deployments
-    ]
+# # Add proper CORS headers for all responses
+# @main.after_request
+# def after_request(response):
+#     origin = request.headers.get('Origin')
     
-    # Also allow any vercel.app subdomain for your project
-    if origin and (origin in allowed_origins or (origin.endswith('.vercel.app') and 'smartslide' in origin)):
-        response.headers.add('Access-Control-Allow-Origin', origin)
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept,Origin')
-        response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH')
-        response.headers.add('Access-Control-Allow-Credentials', 'true')
-        response.headers.add('Access-Control-Max-Age', '86400')
-        response.headers.add('Vary', 'Origin')
-    return response
-
-# Handle preflight requests globally
-@main.before_request
-def handle_preflight():
-    if request.method == "OPTIONS":
-        origin = request.headers.get('Origin')
-        # Allow localhost for development and all Vercel deployments
-        allowed_origins = [
-            'http://localhost:3000',
-            'https://smartslide.vercel.app',
-            'https://smartslide-git-main-your-username.vercel.app',
-            'https://smartslide-git-master-your-username.vercel.app'
-        ]
+#     # Only add headers if origin is allowed and not already set
+#     if origin and origin in ['http://localhost:3000', 'https://smartslide.vercel.app']:
+#         if not response.headers.get('Access-Control-Allow-Origin'):
+#             response.headers.add('Access-Control-Allow-Origin', origin)
+#         if not response.headers.get('Access-Control-Allow-Headers'):
+#             response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept,Origin')
+#         if not response.headers.get('Access-Control-Allow-Methods'):
+#             response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH')
+#         if not response.headers.get('Access-Control-Allow-Credentials'):
+#             response.headers.add('Access-Control-Allow-Credentials', 'true')
+#         if not response.headers.get('Access-Control-Max-Age'):
+#             response.headers.add('Access-Control-Max-Age', '86400')
+    
+#     return response
+# # Handle preflight requests globally
+# @main.before_request
+# def handle_preflight():
+#     if request.method == "OPTIONS":
+#         origin = request.headers.get('Origin')
         
-        # Also allow any vercel.app subdomain for your project
-        if origin and (origin in allowed_origins or (origin.endswith('.vercel.app') and 'smartslide' in origin)):
-            response = jsonify({'status': 'ok'})
-            response.headers.add('Access-Control-Allow-Origin', origin)
-            response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept,Origin')
-            response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH')
-            response.headers.add('Access-Control-Allow-Credentials', 'true')
-            response.headers.add('Access-Control-Max-Age', '86400')
-            response.headers.add('Vary', 'Origin')
-            return response
+#         if origin and origin in ['http://localhost:3000', 'https://smartslide.vercel.app']:
+#             response = jsonify({'status': 'ok'})
+#             response.headers.add('Access-Control-Allow-Origin', origin)
+#             response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept,Origin')
+#             response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH')
+#             response.headers.add('Access-Control-Allow-Credentials', 'true')
+#             response.headers.add('Access-Control-Max-Age', '86400')
+#             return response
 
 # --- SIMPLE HEALTH CHECK FOR CORS TESTING ---
 @main.route('/health', methods=['GET', 'OPTIONS'])

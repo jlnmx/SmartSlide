@@ -322,42 +322,14 @@ const defaultSlide = (templateId) => {
 };
 
 function mapGeneratedSlideToEditorFormat(s) {
-  // Process generated image if available
-  let imageData = null;
-  if (s.generated_image && s.generated_image.url) {
-    imageData = {
-      src: `${config.API_BASE_URL}${s.generated_image.url}`,
-      x: 450,
-      y: 100,
-      width: 350,
-      height: 200,
-      id: uuidv4(),
-      zIndex: 101,
-      generated: true,
-      prompt: s.generated_image.prompt
-    };
-  } else if (s.image_url) {
-    // Legacy support for image_url format
-    imageData = {
-      src: s.image_url,
-      x: 400,
-      y: 100,
-      width: 200,
-      height: 150,
-      id: uuidv4(),
-      zIndex: 101
-    };
-  }
-
   return {
     textboxes: [
       { ...defaultTextBox("title"), text: s.title || "Title", y: 60 },
       { ...defaultTextBox("body"), text: Array.isArray(s.content) ? s.content.join("\n") : (s.content || "Body text here..."), y: 150 }
     ],
     background: { fill: "#fff" },
-    image: null, // Legacy single image field
-    images: imageData ? [imageData] : [], // Use new images array format
-    generated_image: s.generated_image || null // Store original generated image data
+    image: null,
+    images: []
   };
 }
 
@@ -514,8 +486,7 @@ const SlideEditor = () => {
   useEffect(() => {
     // If we have a presentationId from navigation, prioritize navigation state over localStorage
     if (presentationIdFromNav && slidesFromNav && Array.isArray(slidesFromNav) && slidesFromNav.length > 0) {
-      const processedSlides = processGeneratedImages(mapIfNeeded(slidesFromNav));
-      setSlides(processedSlides);
+      setSlides(mapIfNeeded(slidesFromNav));
       return;
     }
     
@@ -525,8 +496,7 @@ const SlideEditor = () => {
       try {
         const parsedSlides = JSON.parse(storedSlides);
         if (Array.isArray(parsedSlides) && parsedSlides.length > 0) {
-          const processedSlides = processGeneratedImages(mapIfNeeded(parsedSlides));
-          setSlides(processedSlides);
+          setSlides(mapIfNeeded(parsedSlides));
           return;
         }
       } catch (e) {
@@ -536,8 +506,7 @@ const SlideEditor = () => {
     }
     // Fallback to navigation state
     if (slidesFromNav && Array.isArray(slidesFromNav) && slidesFromNav.length > 0) {
-      const processedSlides = processGeneratedImages(mapIfNeeded(slidesFromNav));
-      setSlides(processedSlides);
+      setSlides(mapIfNeeded(slidesFromNav));
     } else {
       setSlides([defaultSlide()]);
     }

@@ -1765,14 +1765,14 @@ def generate_presentation():
                                 text_to_add = content_node.get_text()
                                 span_style_str = content_node.get('style', '')
                                 span_styles = parse_span_style(span_style_str)
-                                
                                 if 'fontfamily' in span_styles: run_font_family = span_styles['fontfamily']
                                 if 'fontsize' in span_styles:
                                     try: run_font_size_pt = float(str(span_styles['fontsize']).replace('pt','').replace('px',''))
                                     except ValueError: pass
                                 if 'color' in span_styles: 
                                     try: run_font_color_rgb = hex_to_rgb(span_styles['color'])
-                                    except: pass # Ignore invalid color                                if 'bold' in span_styles: run_bold = str(span_styles['bold']).lower() == 'true'
+                                    except: pass # Ignore invalid color
+                                if 'bold' in span_styles: run_bold = str(span_styles['bold']).lower() == 'true'
                                 if 'italic' in span_styles: run_italic = str(span_styles['italic']).lower() == 'true'
                                 if 'underline' in span_styles: run_underline = str(span_styles['underline']).lower() == 'true'
                             

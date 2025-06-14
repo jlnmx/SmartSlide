@@ -1018,8 +1018,15 @@ def save_slides_state():
         return jsonify({"error": "An error occurred while saving the presentation."}), 500
 
 # --- FIREBASE GENERATE SLIDES ENDPOINT (REMOVE SQLAlchemy) ---
-@main.route("/generate-slides", methods=["POST"])
+@main.route("/generate-slides", methods=["POST", "OPTIONS"])
 def generate_slides():
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'ok'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response
+        
     data = request.json
     if not data:
         return jsonify({"error": "No data provided"}), 400
@@ -1512,8 +1519,15 @@ def apply_template_to_slide(slide, template, slide_data, ppt=None):
             print(f"Failed to add image to slide: {e}")
 
 
-@main.route("/generate-presentation", methods=["POST"])
+@main.route("/generate-presentation", methods=["POST", "OPTIONS"])
 def generate_presentation():
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'ok'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response
+        
     # Define slide and editor dimensions (in inches and pixels)
     PPTX_SLIDE_WIDTH_INCHES = 13.33
     PPTX_SLIDE_HEIGHT_INCHES = 7.5

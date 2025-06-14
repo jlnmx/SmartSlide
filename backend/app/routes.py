@@ -363,23 +363,32 @@ def send_sms_verification(phone_number, verification_code):
         return True, "SMS sent (development mode)"
 
 main = Blueprint("main", __name__)
-# CORS(main, 
-#     resources={r"/*": {"origins": [
-#         "http://localhost:3000",
-#         "https://smartslide.vercel.app"
-#     ]}},
-#     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-#     allow_headers=["Content-Type", "Authorization"],
-#     supports_credentials=True
-# )
 
-# @main.after_request
-# def after_request(response):
-#     response.headers.add('Access-Control-Allow-Origin', 'http://localhost:3000')
-#     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-#     response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
-#     response.headers.add('Access-Control-Allow-Credentials', 'true')
-#     return response
+# Add proper CORS headers for all responses
+@main.after_request
+def after_request(response):
+    origin = request.headers.get('Origin')
+    if origin in ['http://localhost:3000', 'https://smartslide.vercel.app']:
+        response.headers.add('Access-Control-Allow-Origin', origin)
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        response.headers.add('Access-Control-Max-Age', '86400')
+    return response
+
+# Handle preflight requests globally
+@main.before_request
+def handle_preflight():
+    if request.method == "OPTIONS":
+        origin = request.headers.get('Origin')
+        if origin in ['http://localhost:3000', 'https://smartslide.vercel.app']:
+            response = jsonify({'status': 'ok'})
+            response.headers.add('Access-Control-Allow-Origin', origin)
+            response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept')
+            response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+            response.headers.add('Access-Control-Allow-Credentials', 'true')
+            response.headers.add('Access-Control-Max-Age', '86400')
+            return response
 
 # --- SIMPLE HEALTH CHECK FOR CORS TESTING ---
 @main.route('/health', methods=['GET', 'OPTIONS'])

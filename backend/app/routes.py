@@ -368,12 +368,22 @@ main = Blueprint("main", __name__)
 @main.after_request
 def after_request(response):
     origin = request.headers.get('Origin')
-    if origin in ['http://localhost:3000', 'https://smartslide.vercel.app']:
+    # Allow localhost for development and all Vercel deployments
+    allowed_origins = [
+        'http://localhost:3000',
+        'https://smartslide.vercel.app',
+        'https://smartslide-git-main-your-username.vercel.app',  # Git branch deployments
+        'https://smartslide-git-master-your-username.vercel.app'  # Master branch deployments
+    ]
+    
+    # Also allow any vercel.app subdomain for your project
+    if origin and (origin in allowed_origins or (origin.endswith('.vercel.app') and 'smartslide' in origin)):
         response.headers.add('Access-Control-Allow-Origin', origin)
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept')
-        response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept,Origin')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH')
         response.headers.add('Access-Control-Allow-Credentials', 'true')
         response.headers.add('Access-Control-Max-Age', '86400')
+        response.headers.add('Vary', 'Origin')
     return response
 
 # Handle preflight requests globally
@@ -381,13 +391,23 @@ def after_request(response):
 def handle_preflight():
     if request.method == "OPTIONS":
         origin = request.headers.get('Origin')
-        if origin in ['http://localhost:3000', 'https://smartslide.vercel.app']:
+        # Allow localhost for development and all Vercel deployments
+        allowed_origins = [
+            'http://localhost:3000',
+            'https://smartslide.vercel.app',
+            'https://smartslide-git-main-your-username.vercel.app',
+            'https://smartslide-git-master-your-username.vercel.app'
+        ]
+        
+        # Also allow any vercel.app subdomain for your project
+        if origin and (origin in allowed_origins or (origin.endswith('.vercel.app') and 'smartslide' in origin)):
             response = jsonify({'status': 'ok'})
             response.headers.add('Access-Control-Allow-Origin', origin)
-            response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept')
-            response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+            response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept,Origin')
+            response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH')
             response.headers.add('Access-Control-Allow-Credentials', 'true')
             response.headers.add('Access-Control-Max-Age', '86400')
+            response.headers.add('Vary', 'Origin')
             return response
 
 # --- SIMPLE HEALTH CHECK FOR CORS TESTING ---
@@ -396,8 +416,11 @@ def health_check():
     return jsonify({'status': 'ok', 'message': 'Backend is running'}), 200
 
 # --- FIREBASE USER REGISTRATION ---
-@main.route('/register', methods=['POST'])
+@main.route('/register', methods=['POST', 'OPTIONS'])
 def register():
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
@@ -583,9 +606,12 @@ def save_presentation():
         return jsonify({'error': 'Failed to save presentation'}), 500
 
 # --- FIREBASE GET PRESENTATIONS FOR USER ---
-@main.route('/presentations/<user_id>', methods=['GET'])
+@main.route('/presentations/<user_id>', methods=['GET', 'OPTIONS'])
 def get_presentations(user_id):
     """Return the 10 most recent presentations for a user, with ISO-formatted timestamps."""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+        
     try:
         current_app.logger.info(f"Fetching presentations for user_id: {user_id}")
         presentations_ref = firestore_db.collection('presentations')
@@ -2071,138 +2097,6 @@ Make sure to generate exactly {num_slides} slides with substantial content for e
         }), 200
 
     except Exception as e:
-        current_app.logger.error(f"Error in /paste-and-create: {e}", exc_info=True)
-        return jsonify({"error": "Failed to generate slides from pasted text."}), 500
-    
-@main.route('/upload-file', methods=['POST', 'OPTIONS'])
-def upload_file_and_generate_slides():
-    if request.method == 'OPTIONS':
-        return jsonify({'status': 'ok'}), 200
-
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part in the request'}), 400
-
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-
-    # Optional: language and numSlides from form data
-    language = request.form.get('language', 'English')
-    
-    # Fix: Support up to 30 slides and validate properly
-    try:
-        num_slides = int(request.form.get('numSlides', 6))
-        if num_slides <= 0 or num_slides > 30:
-            return jsonify({'error': 'Number of slides must be between 1 and 30'}), 400
-    except (ValueError, TypeError):
-        return jsonify({'error': 'Invalid number of slides'}), 400
-
-    # Extract text from file
-    filename = file.filename.lower()
-    text = ""
-    try:
-        if filename.endswith('.pdf'):
-            from PyPDF2 import PdfReader
-            reader = PdfReader(file)
-            for page in reader.pages:
-                text += page.extract_text() or ""
-        elif filename.endswith('.docx'):
-            from docx import Document
-            doc = Document(file)
-            for para in doc.paragraphs:
-                text += para.text + "\n"
-        elif filename.endswith('.txt'):
-            text = file.read().decode('utf-8', errors='ignore')
-        elif filename.endswith('.csv'):
-            import pandas as pd
-            df = pd.read_csv(file)
-            text = df.to_string(index=False)
-        elif filename.endswith('.xlsx') or filename.endswith('.xls'):
-            import pandas as pd
-            df = pd.read_excel(file)
-            text = df.to_string(index=False)
-        else:
-            return jsonify({'error': 'Unsupported file type'}), 400
-    except Exception as e:
-        current_app.logger.error(f"Error extracting text from file: {e}", exc_info=True)
-    if not text.strip():
-        return jsonify({'error': 'No text extracted from file'}), 400
-
-    # Extract topic/title
-    lines = [line.strip() for line in text.split('\n') if line.strip()]
-    topic = lines[0] if lines else "Untitled Topic"
-
-    # Structure the text for slides using LLM
-    prompt = f"""
-You are an assistant that structures uploaded file content into a professional presentation outline.
-Given the following text, extract the main topic as the title, and organize the content into exactly {num_slides} slides.
-Each slide should have a concise and clear title and content.
-Format the content as bullet points or short paragraphs.
-Use Markdown for formatting: **bold** for emphasis, *italic* for highlights, and __underline__ for key terms.
-If the text is long, summarize and split it logically across slides.
-
-Text:
----
-{text[:12000]}  # Limit to 12k chars for LLM safety
----
-
-Output a JSON array where each object has:
-- 'title': string (slide title)
-- 'content': array of strings (slide content, Markdown allowed)
-- 'image_prompt': string (optional, for relevant image description)
-The first slide should be a title slide with the topic and a short description.
-Make sure to generate exactly {num_slides} slides.
-"""
-
-    try:
-        headers = {
-            "Authorization": f"Bearer {GROQ_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        
-        max_tokens = 4096
-        if num_slides > 15:
-            max_tokens = 6144
-        elif num_slides > 25:
-            max_tokens = 8192
-            
-        payload = {
-            "model": "llama3-8b-8192",
-            "messages": [
-                {"role": "system", "content": "You are a helpful assistant that generates slide content in JSON format."},
-                {"role": "user", "content": prompt}
-            ],
-            "max_tokens": max_tokens,
-            "temperature": 0.4
-        }
-        response = requests.post(GROQ_API_URL, headers=headers, json=payload)
-        response.raise_for_status()
-        result = response.json()
-        model_output = result["choices"][0]["message"]["content"]
-
-        # Extract JSON array from the response
-        import re, json
-        match = re.search(r'\[\s*{.*}\s*\]', model_output, re.DOTALL)
-        if not match:
-            return jsonify({"error": "Failed to parse slides output."}), 500
-        slides_data = json.loads(match.group(0))
-
-        if len(slides_data) != num_slides:
-            while len(slides_data) < num_slides:
-                slides_data.append({
-                    "title": f"Additional Content {len(slides_data) + 1}",
-                    "content": ["Additional content will be added here."]
-                })
-            slides_data = slides_data[:num_slides]
-
-        detected_topic = slides_data[0]["title"] if slides_data and "title" in slides_data[0] else topic
-
-        return jsonify({
-            "slides": slides_data,
-            "topic": detected_topic
-        }), 200
-
-    except Exception as e:
         current_app.logger.error(f"Error in /upload-file: {e}", exc_info=True)
         return jsonify({"error": "Failed to generate slides from file."}), 500
     
@@ -2893,4 +2787,3 @@ def chatbot():
     except Exception as e:
         current_app.logger.error(f"Error in chatbot endpoint: {e}")
         return jsonify({"error": "Internal server error"}), 500
-  

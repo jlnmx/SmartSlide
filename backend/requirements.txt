@@ -12,9 +12,9 @@ google-auth-httplib2==0.2.0
 google-cloud-core==2.4.3
 google-cloud-firestore==2.20.2
 google-cloud-storage==3.1.0
-google-cloud-crc32c==1.7.1
+google-crc32c==1.7.1
 google-resumable-media==2.7.2
-googleapis-common-protos==1.70.2
+googleapis-common-protos==1.70.0
 grpcio==1.72.0rc1
 grpcio-status==1.72.0rc1
 
@@ -43,6 +43,7 @@ lxml==5.4.0
 
 # HTTP and Web Scraping
 requests==2.32.3
+youtube-transcript-api==1.0.3
 
 # Utilities
 python-dotenv==1.1.0
@@ -68,3 +69,11 @@ idna==3.10
 itsdangerous==2.2.0
 urllib3==2.3.0
 six==1.17.0
+httplib2==0.22.0
+proto-plus==1.26.1
+protobuf==6.31.0
+pyasn1==0.6.1
+pyasn1-modules==0.4.2
+pycparser==2.22
+rsa==4.9.1
+cachetools==5.5.2

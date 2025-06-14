@@ -110,9 +110,9 @@ const defaultTextBox = (type = "body") => {
       width: 680, // Title width
       height: 80, // Title height
       fontSize: 36,
-      fill: "#222222",
+      fill: "#000000",
       fontFamily: "Arial",
-      fontStyle: {},
+      fontStyle: { bold: true },
       align: "left",
       lineHeight: 1,
       paragraphSpacing: 0,
@@ -129,7 +129,7 @@ const defaultTextBox = (type = "body") => {
       width: 800, // Body width
       height: 350, // Body height
       fontSize: 24,
-      fill: "#444444",
+      fill: "#000000",
       fontFamily: "Arial",
       fontStyle: {},
       align: "left",
@@ -322,15 +322,42 @@ const defaultSlide = (templateId) => {
 };
 
 function mapGeneratedSlideToEditorFormat(s) {
+  // Process generated image if available
+  let imageData = null;
+  if (s.generated_image && s.generated_image.url) {
+    imageData = {
+      src: `${config.API_BASE_URL}${s.generated_image.url}`,
+      x: 450,
+      y: 100,
+      width: 350,
+      height: 200,
+      id: uuidv4(),
+      zIndex: 101,
+      generated: true,
+      prompt: s.generated_image.prompt
+    };
+  } else if (s.image_url) {
+    // Legacy support for image_url format
+    imageData = {
+      src: s.image_url,
+      x: 400,
+      y: 100,
+      width: 200,
+      height: 150,
+      id: uuidv4(),
+      zIndex: 101
+    };
+  }
+
   return {
     textboxes: [
       { ...defaultTextBox("title"), text: s.title || "Title", y: 60 },
       { ...defaultTextBox("body"), text: Array.isArray(s.content) ? s.content.join("\n") : (s.content || "Body text here..."), y: 150 }
     ],
     background: { fill: "#fff" },
-    image: s.image_url
-      ? { src: s.image_url, x: 400, y: 100, width: 200, height: 150 }
-      : null
+    image: null, // Legacy single image field
+    images: imageData ? [imageData] : [], // Use new images array format
+    generated_image: s.generated_image || null // Store original generated image data
   };
 }
 
@@ -483,12 +510,12 @@ const SlideEditor = () => {
 
   useEffect(() => {
     console.log("SlideEditor presentationId:", presentationId, "from nav:", presentationIdFromNav);
-  }, [presentationId, presentationIdFromNav]);
-  // Load slides from localStorage on mount only
+  }, [presentationId, presentationIdFromNav]);  // Load slides from localStorage on mount only
   useEffect(() => {
     // If we have a presentationId from navigation, prioritize navigation state over localStorage
     if (presentationIdFromNav && slidesFromNav && Array.isArray(slidesFromNav) && slidesFromNav.length > 0) {
-      setSlides(mapIfNeeded(slidesFromNav));
+      const processedSlides = processGeneratedImages(mapIfNeeded(slidesFromNav));
+      setSlides(processedSlides);
       return;
     }
     
@@ -498,7 +525,8 @@ const SlideEditor = () => {
       try {
         const parsedSlides = JSON.parse(storedSlides);
         if (Array.isArray(parsedSlides) && parsedSlides.length > 0) {
-          setSlides(mapIfNeeded(parsedSlides));
+          const processedSlides = processGeneratedImages(mapIfNeeded(parsedSlides));
+          setSlides(processedSlides);
           return;
         }
       } catch (e) {
@@ -508,7 +536,8 @@ const SlideEditor = () => {
     }
     // Fallback to navigation state
     if (slidesFromNav && Array.isArray(slidesFromNav) && slidesFromNav.length > 0) {
-      setSlides(mapIfNeeded(slidesFromNav));
+      const processedSlides = processGeneratedImages(mapIfNeeded(slidesFromNav));
+      setSlides(processedSlides);
     } else {
       setSlides([defaultSlide()]);
     }
@@ -1702,9 +1731,7 @@ const handleParagraphSpacing = value => {
                 Change Template
                 </button>
               </div>
-              </div>
-              
-              <div style={{ width: '100%' }}>
+              </div>              <div style={{ width: '100%' }}>
               <label style={{ fontSize: 13, color: '#222', marginBottom: 4 }}>Image</label>            <div className="image-upload-row">
                 <button className="image-upload-btn" onClick={() => fileInputRef.current.click()}>Upload Image</button>
                 <input type="file" accept="image/jpeg,image/jpg,image/png,image/gif,image/bmp,image/webp,image/svg+xml" multiple ref={fileInputRef} style={{ display: 'none' }} onChange={handleImageUpload} />              {slide.image && <button className="remove-image-btn" onClick={handleRemoveLegacyImage}>Remove Legacy Image</button>}
@@ -1798,9 +1825,9 @@ const handleParagraphSpacing = value => {
                 className={selectedTextBox?.bullets ? 'active' : ''}
               >
                 •
-              </button>            <input
+              </button>              <input
                 type="color"
-                value={selectedTextBox?.fill || '#222'}
+                value={selectedTextBox?.fill || '#000000'}
                 onChange={e => handleToolbarChange('fill', e.target.value)}
                 disabled={!selectedTextBox}
               />

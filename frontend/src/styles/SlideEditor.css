@@ -505,17 +505,17 @@
 
 /* --- Action Button Styles --- */
 .action-btn {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
-  padding: 8px 20px;
-  border-radius: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
   border: none;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
 .action-btn.primary {
@@ -526,7 +526,7 @@
 .action-btn.primary:hover {
   background: linear-gradient(135deg, #1565c0 0%, #1e88e5 100%);
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .action-btn.secondary {
@@ -537,7 +537,7 @@
 .action-btn.secondary:hover {
   background: linear-gradient(135deg, #616161 0%, #757575 100%);
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .action-btn span {

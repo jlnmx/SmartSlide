@@ -36,10 +36,6 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from docx import Document # Added for Word export
 from bs4 import BeautifulSoup
-try:
-    from youtube_transcript_api import YouTubeTranscriptApi
-except ImportError:
-    YouTubeTranscriptApi = None
 from collections import Counter # Added import for Counter
 import smtplib
 from email.mime.text import MIMEText

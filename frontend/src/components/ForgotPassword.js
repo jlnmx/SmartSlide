@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
 import { auth } from '../firebase';
 import '../styles/ForgotPassword.css';
+import config from '../config
 
 const ForgotPassword = ({ onBackToLogin }) => {
     const [step, setStep] = useState('select-method'); // 'select-method', 'enter-identifier', 'verify-code', 'reset-password'
@@ -153,7 +154,7 @@ const ForgotPassword = ({ onBackToLogin }) => {
                         console.log('Firebase billing not enabled, falling back to backend SMS service...');
                         // Fall back to backend SMS service
                         try {
-                            const response = await fetch('http://localhost:5000/forgot-password/send-verification', {
+                            const response = await fetch('${config.API_BASE_URL}/forgot-password/send-verification', {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
@@ -188,7 +189,7 @@ const ForgotPassword = ({ onBackToLogin }) => {
                 }
             } else {
                 // Use backend for email verification
-                const response = await fetch('http://localhost:5000/forgot-password/send-verification', {
+                const response = await fetch('${config.API_BASE_URL}/forgot-password/send-verification', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

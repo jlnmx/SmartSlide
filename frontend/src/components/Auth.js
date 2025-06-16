@@ -138,7 +138,8 @@ const AuthPage = ({ isLogin }) => {
             {isLogin
               ? "Get started on creating presentations."
               : "Join SmartSlide and start creating."}
-          </p>          <form className="auth-form" onSubmit={handleSubmit}>
+          </p>          
+            <form className="auth-form" onSubmit={handleSubmit}>
             {!isLogin && (
               <input
                 type="text"

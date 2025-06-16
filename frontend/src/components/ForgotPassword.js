@@ -106,7 +106,7 @@ const ForgotPassword = ({ onBackToLogin }) => {
                 }
 
                 // First check if user exists in our backend
-                const checkResponse = await fetch('http://localhost:5000/forgot-password/send-verification', {
+                const checkResponse = await fetch('${config.API_BASE_URL}/forgot-password/send-verification', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -240,7 +240,7 @@ const ForgotPassword = ({ onBackToLogin }) => {
                     const idToken = await result.user.getIdToken();
                     
                     // Send to backend for password reset flow
-                    const response = await fetch('http://localhost:5000/forgot-password/verify-firebase-sms', {
+                    const response = await fetch('${config.API_BASE_URL}/forgot-password/verify-firebase-sms', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -267,7 +267,7 @@ const ForgotPassword = ({ onBackToLogin }) => {
                 }
             } else if (method === 'phone' && resetId) {
                 // Use backend verification for phone (fallback case)
-                const response = await fetch('http://localhost:5000/forgot-password/verify-code', {
+                const response = await fetch('${config.API_BASE_URL}/forgot-password/verify-code', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -288,7 +288,7 @@ const ForgotPassword = ({ onBackToLogin }) => {
                 }
             } else {
                 // Use backend for email verification
-                const response = await fetch('http://localhost:5000/forgot-password/verify-code', {
+                const response = await fetch('${config.API_BASE_URL}/forgot-password/verify-code', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -333,7 +333,7 @@ const ForgotPassword = ({ onBackToLogin }) => {
         }
 
         try {
-            const response = await fetch('http://localhost:5000/forgot-password/reset-password', {
+            const response = await fetch('${config.API_BASE_URL}/forgot-password/reset-password', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

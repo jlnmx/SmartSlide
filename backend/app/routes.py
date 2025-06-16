@@ -258,7 +258,7 @@ def send_email_verification(email, verification_code):
         # Option 2: Send via SMTP (Gmail)
         if not EMAIL_ADDRESS or not EMAIL_PASSWORD:
             current_app.logger.info(f"Email service not configured, logging code for {email}: {verification_code}")
-            return True, "Email service configured (development mode)"
+            return True, "Email service configured (development mode)", verification_code
         
         # Create message
         msg = MIMEMultipart()
@@ -319,13 +319,13 @@ def send_email_verification(email, verification_code):
         server.quit()
         
         current_app.logger.info(f"Email sent successfully to {email}")
-        return True, "Email sent successfully"
+        return True, "Email sent successfully", verification_code
         
     except Exception as e:
         current_app.logger.error(f"Failed to send email to {email}: {e}")
         # Fallback: log the code for development
         current_app.logger.info(f"Email service failed, password reset code for {email}: {verification_code}")
-        return True, "Email sent (development mode)"
+        return True, "Email sent (development mode)", verification_code
 
 def send_sms_verification(phone_number, verification_code):
     """Send SMS verification code using Firebase Auth"""
@@ -351,12 +351,12 @@ def send_sms_verification(phone_number, verification_code):
         # Option 2: Use a free SMS service or development logging
         # For now, we'll log the code for development
         
-        return True, f"SMS sent to {formatted_phone} (development mode)"
+        return True, f"SMS sent to {formatted_phone} (development mode)", verification_code
         
     except Exception as e:
         current_app.logger.error(f"Failed to send SMS to {phone_number}: {e}")
         current_app.logger.info(f"SMS service failed, password reset code for {phone_number}: {verification_code}")
-        return True, "SMS sent (development mode)"
+        return True, "SMS sent (development mode)", verification_code
 
 main = Blueprint("main", __name__)
 
@@ -2250,24 +2250,16 @@ def send_password_reset_verification():
                 'created_at': firestore.SERVER_TIMESTAMP,
                 'verified': False
             })
+              # Send email verification
+            success, message, code = send_email_verification(identifier, verification_code)
             
-            # Send email verification
-            success, message = send_email_verification(identifier, verification_code)
+            response_data = {
+                'message': 'Verification code sent to your email',
+                'reset_id': reset_ref.id,
+                'verification_code': code  # Always include for development
+            }
             
-            if success:
-                return jsonify({
-                    'message': 'Verification code sent to your email',
-                    'reset_id': reset_ref.id
-                }), 200
-            else:
-                # Fallback: log the code for development
-                current_app.logger.info(f"Email service failed, password reset code for {identifier}: {verification_code}")
-                return jsonify({
-                    'message': 'Verification code sent to your email',
-                    'reset_id': reset_ref.id,
-                    # Remove this line in production:
-                    'verification_code': verification_code
-                }), 200
+            return jsonify(response_data), 200
         elif method == 'phone':
             # Find user by contact number
             users_query = users_ref.where('contact_number', '==', identifier).get()
@@ -2297,24 +2289,16 @@ def send_password_reset_verification():
                 'created_at': firestore.SERVER_TIMESTAMP,
                 'verified': False
             })
+              # Send SMS verification
+            success, message, code = send_sms_verification(identifier, verification_code)
             
-            # Send SMS verification
-            success, message = send_sms_verification(identifier, verification_code)
+            response_data = {
+                'message': 'Verification code sent to your phone',
+                'reset_id': reset_ref.id,
+                'verification_code': code  # Always include for development
+            }
             
-            if success:
-                return jsonify({
-                    'message': 'Verification code sent to your phone',
-                    'reset_id': reset_ref.id
-                }), 200
-            else:
-                # Fallback: log the code for development
-                current_app.logger.info(f"SMS service failed, password reset code for {identifier}: {verification_code}")
-                return jsonify({
-                    'message': 'Verification code sent to your phone',
-                    'reset_id': reset_ref.id,
-                    # Remove this line in production:
-                    'verification_code': verification_code
-                }), 200
+            return jsonify(response_data), 200
             
     except Exception as e:
         current_app.logger.error(f"Error in password reset verification: {e}")

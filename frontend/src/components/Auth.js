@@ -142,11 +142,11 @@ const AuthPage = ({ isLogin }) => {
             {!isLogin && (
               <input
                 type="text"
-                placeholder="Full Name"
+                placeholder="Full Name (e.g. Juan Dela Cruz)"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
-                aria-label="Full Name"
+                aria-label="Full Name (e.g. Juan Dela Cruz)"
               />
             )}            {!isLogin && (
               <div className="form-field">

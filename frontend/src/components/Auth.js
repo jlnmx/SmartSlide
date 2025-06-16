@@ -206,7 +206,6 @@ const AuthPage = ({ isLogin }) => {
                 </button>
               </div>
             )}
-            )}
             <button type="submit" className="auth-btn">
               {isLogin ? "Sign In" : "Sign Up"}
             </button>

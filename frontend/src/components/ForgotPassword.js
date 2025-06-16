@@ -11,11 +11,11 @@ const ForgotPassword = ({ onBackToLogin }) => {
     const [verificationCode, setVerificationCode] = useState('');    const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showNewPassword, setShowNewPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-    const [resetId, setResetId] = useState('');
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);    const [resetId, setResetId] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
+    const [displayedCode, setDisplayedCode] = useState(''); // For displaying verification code in UI
     const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
     const [confirmationResult, setConfirmationResult] = useState(null);// Initialize reCAPTCHA verifier only when phone method is selected and container exists
     const initializeRecaptcha = () => {
@@ -62,12 +62,11 @@ const ForgotPassword = ({ onBackToLogin }) => {
                 setRecaptchaVerifier(null);
             }
         };
-    }, [method, step]);
-
-    const handleMethodSelection = (selectedMethod) => {
+    }, [method, step]);    const handleMethodSelection = (selectedMethod) => {
         setMethod(selectedMethod);
         setStep('enter-identifier');
         setError('');
+        setDisplayedCode(''); // Clear any displayed code
     };
 
     const handleSendVerification = async (e) => {
@@ -153,8 +152,7 @@ const ForgotPassword = ({ onBackToLogin }) => {
                     } else if (firebaseError.code === 'auth/billing-not-enabled') {
                         console.log('Firebase billing not enabled, falling back to backend SMS service...');
                         // Fall back to backend SMS service
-                        try {
-                            const response = await fetch(`${config.API_BASE_URL}/forgot-password/send-verification`, {
+                        try {                            const response = await fetch(`${config.API_BASE_URL}/forgot-password/send-verification`, {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
@@ -171,9 +169,10 @@ const ForgotPassword = ({ onBackToLogin }) => {
                                 setResetId(data.reset_id);
                                 setMessage('Verification code sent to your phone (backend service)');
                                 setStep('verify-code');
-                                // In development, show the verification code
+                                // Display the verification code in the UI for development
                                 if (data.verification_code) {
                                     console.log('Verification code (DEV ONLY):', data.verification_code);
+                                    setDisplayedCode(data.verification_code);
                                 }
                             } else {
                                 setError(data.error || 'Failed to send verification code');
@@ -200,15 +199,14 @@ const ForgotPassword = ({ onBackToLogin }) => {
                     }),
                 });
 
-                const data = await response.json();
-
-                if (response.ok) {
+                const data = await response.json();                if (response.ok) {
                     setResetId(data.reset_id);
                     setMessage(data.message);
                     setStep('verify-code');
-                    // In development, show the verification code (remove in production)
+                    // Display the verification code in the UI for development
                     if (data.verification_code) {
                         console.log('Verification code (DEV ONLY):', data.verification_code);
+                        setDisplayedCode(data.verification_code);
                     }
                 } else {
                     setError(data.error || 'Failed to send verification code');
@@ -432,15 +430,28 @@ const ForgotPassword = ({ onBackToLogin }) => {
                 ← Back to method selection
             </button>
         </div>
-    );
-
-    const renderVerifyCode = () => (
+    );    const renderVerifyCode = () => (
         <div className="forgot-password-step">
             <h2>Enter Verification Code</h2>
             <p>
                 We've sent a 6-digit code to your {method === 'email' ? 'email' : 'phone number'}: 
                 <span className="identifier-display">{identifier}</span>
             </p>
+            
+            {/* Display verification code for development */}
+            {displayedCode && (
+                <div className="development-code-display">
+                    <div className="dev-code-header">
+                        <strong>Development Mode - Verification Code:</strong>
+                    </div>
+                    <div className="dev-code-value">
+                        {displayedCode}
+                    </div>
+                    <div className="dev-code-note">
+                        (This is displayed for testing purposes only)
+                    </div>
+                </div>
+            )}
             
             <form onSubmit={handleVerifyCode}>
                 <div className="form-group">
@@ -460,10 +471,12 @@ const ForgotPassword = ({ onBackToLogin }) => {
                     {loading ? 'Verifying...' : 'Verify Code'}
                 </button>
             </form>
-            
-            <button 
+              <button 
                 className="resend-button"
-                onClick={() => setStep('enter-identifier')}
+                onClick={() => {
+                    setDisplayedCode(''); // Clear the displayed code
+                    setStep('enter-identifier');
+                }}
                 disabled={loading}
             >
                 Resend code
@@ -471,13 +484,16 @@ const ForgotPassword = ({ onBackToLogin }) => {
             
             <button 
                 className="back-button"
-                onClick={() => setStep('enter-identifier')}
+                onClick={() => {
+                    setDisplayedCode(''); // Clear the displayed code
+                    setStep('enter-identifier');
+                }}
                 disabled={loading}
             >
                 ← Change {method === 'email' ? 'email' : 'phone number'}
             </button>
         </div>
-    );    const renderResetPassword = () => (
+    );const renderResetPassword = () => (
         <div className="forgot-password-step">
             <h2>Create New Password</h2>
             <p>Enter your new password below</p>

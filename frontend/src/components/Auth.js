@@ -186,17 +186,6 @@ const AuthPage = ({ isLogin }) => {
               required
               aria-label="Password"
             />
-            {isLogin && (
-              <div className="forgot-password-link">
-                <button 
-                  type="button" 
-                  className="forgot-password-btn"
-                  onClick={handleForgotPasswordClick}
-                >
-                  Forgot Password?
-                </button>
-              </div>
-            )}
             {!isLogin && (
               <input
                 type="password"

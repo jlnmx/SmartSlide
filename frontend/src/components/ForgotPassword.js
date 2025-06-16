@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
-import { auth } from '../firebase';
-import '../styles/ForgotPassword.css';
-import config from '../config';
+import React, { useState, useEffect } from "react";
+import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
+import { auth } from "../firebase";
+import "../styles/ForgotPassword.css";
+import config from "../config";
 
 const ForgotPassword = ({ onBackToLogin }) => {
     const [step, setStep] = useState('select-method'); // 'select-method', 'enter-identifier', 'verify-code', 'reset-password'

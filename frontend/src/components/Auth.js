@@ -195,6 +195,17 @@ const AuthPage = ({ isLogin }) => {
                 required
                 aria-label="Confirm Password"
               />
+            {isLogin && (
+              <div className="forgot-password-link">
+                <button Add commentMore actions
+                  type="button" 
+                  className="forgot-password-btn"
+                  onClick={handleForgotPasswordClick}
+                >
+                  Forgot Password?
+                </button>
+              </div>
+            )}
             )}
             <button type="submit" className="auth-btn">
               {isLogin ? "Sign In" : "Sign Up"}

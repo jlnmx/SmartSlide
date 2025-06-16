@@ -1819,7 +1819,6 @@ const handleParagraphSpacing = value => {
             <option value="32">5.0</option> 
                 </select>
               </div>
-              <button style={{ ...TOOLBAR_BUTTON_STYLE, fontSize: 15 }} onClick={() => {}} disabled={!selectedTextBox}><FaHighlighter /></button>
             </div>          {/* --- Slide Preview/Editor --- */}
           <div
             className="slide-preview"            style={{

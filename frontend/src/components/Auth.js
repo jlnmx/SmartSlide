@@ -195,6 +195,7 @@ const AuthPage = ({ isLogin }) => {
                 required
                 aria-label="Confirm Password"
               />
+            )}
             {!isLogin && (
               <div className="forgot-password-link">
                 <button Add commentMore actions

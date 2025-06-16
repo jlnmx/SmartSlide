@@ -198,7 +198,7 @@ const AuthPage = ({ isLogin }) => {
             )}
             {isLogin && (
               <div className="forgot-password-link">
-                <button Add commentMore actions
+                <button 
                   type="button" 
                   className="forgot-password-btn"
                   onClick={handleForgotPasswordClick}

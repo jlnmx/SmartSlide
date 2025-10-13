@@ -17,6 +17,7 @@ def create_app():
     CORS(app, 
          origins=[
              "http://localhost:3000",
+             "http://127.0.0.1:3000"
              "https://smartslide.vercel.app"
          ],
          methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],

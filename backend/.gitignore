@@ -1,7 +1,30 @@
+# Credentials and secrets
 credentials.json
-
-.env
-
-/migrations
-
 firebase_key.json
+*.json
+.env
+.env.local
+.env.production
+
+# Database
+/migrations
+*.db
+*.sqlite
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/
+env/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -7,7 +7,7 @@
   "scripts": {
     "start": "concurrently \"npm run start-frontend\" \"npm run start-backend\"",
     "start-frontend": "react-scripts start",
-    "start-backend": "cd ../backend && python run.py",
+    "start-backend": "cd ../backend && .venv/Scripts/python.exe run.py",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",

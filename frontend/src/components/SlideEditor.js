@@ -1618,16 +1618,30 @@ const handleParagraphSpacing = value => {
               <div className="slide-thumb-label">Slide {idx + 1}</div>
               {renderSlideThumb(s, idx, idx === 0)}              {slides.length > 1 && (
                 <button
-                  className="slide-thumb-delete"
-                  onClick={e => {
-                    e.stopPropagation();
-                    const newSlides = slides.filter((_, i) => i !== idx);
-                    const newIdx = idx === 0 ? 0 : Math.max(0, currentIdx - (idx < currentIdx ? 1 : 0));
-                    updateSlidesAndIndexWithHistory(newSlides, newIdx, 'Delete slide');
-                  }}
-                >
-                  ×
-                </button>
+    className="slide-thumb-delete"
+    onClick={e => {
+      e.stopPropagation();  // Prevent slide selection
+      e.preventDefault();   // Prevent any default behavior
+      
+      // Confirm deletion
+      if (window.confirm(`Delete Slide ${idx + 1}?`)) {
+        const newSlides = slides.filter((_, i) => i !== idx);
+        const newIdx = idx === 0 ? 0 : Math.max(0, currentIdx - (idx < currentIdx ? 1 : 0));
+        updateSlidesAndIndexWithHistory(newSlides, newIdx, `Delete slide ${idx + 1}`);
+      }
+    }}
+    onMouseDown={e => {
+      e.stopPropagation();  // CRITICAL: Stop drag from starting
+    }}
+    onDragStart={e => {
+      e.preventDefault();  // CRITICAL: Prevent button from being dragged
+      e.stopPropagation();
+    }}
+    title={`Delete Slide ${idx + 1}`}  /* Add tooltip */
+    aria-label={`Delete Slide ${idx + 1}`}  /* Accessibility */
+  >
+    ×
+  </button>
               )}
             </div>            )})}
 

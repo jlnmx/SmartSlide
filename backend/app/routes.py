@@ -24,6 +24,7 @@ from dotenv import load_dotenv
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from io import BytesIO
+from app.image_service import generate_slide_image
 from pptx import Presentation as PptxPresentation
 from pptx.util import Pt, Inches
 from pptx.dml.color import RGBColor
@@ -771,7 +772,7 @@ def generate_quiz_route():
             "Content-Type": "application/json"
         }
         payload = {
-            "model": "llama3-8b-8192",
+            "model": "llama-3.3-70b-versatile",
             "messages": [
                 {"role": "system", "content": "You are an assistant that generates quizzes in JSON format based on provided text."},
                 {"role": "user", "content": quiz_prompt}
@@ -864,7 +865,7 @@ def generate_script_route():
             "Content-Type": "application/json"
         }
         payload = {
-            "model": "llama3-8b-8192",
+            "model": "llama-3.3-70b-versatile",
             "messages": [
                 {"role": "system", "content": "You are an assistant that generates speaker scripts based on provided presentation content."},
                 {"role": "user", "content": script_prompt}
@@ -1055,7 +1056,10 @@ def generate_slides():
     if not prompt_topic:
         return jsonify({"error": "Prompt topic is required."}), 400
     try:
-        import requests, json, re, traceback
+        api_key = current_app.config.get('GROQ_API_KEY') or GROQ_API_KEY
+        if not api_key:
+            current_app.logger.error("GROQ_API_KEY is not configured")
+            return jsonify({"error": "Server configuration error: AI service not configured"}), 500
         
         # Calculate content slides (excluding title, conclusion, and references)
         content_slides = max(1, num_slides - 3)  # At least 1 content slide
@@ -1213,7 +1217,7 @@ def generate_slides():
             max_tokens = 8192  # Even more tokens for very large presentations
             
         payload = {
-            "model": "llama3-8b-8192",  
+            "model": "llama-3.3-70b-versatile",
             "messages": [
                 {"role": "system", "content": "You are a helpful assistant that generates comprehensive slide content in JSON format. Always ensure the last two slides are Conclusion and References respectively."},
                 {"role": "user", "content": generation_prompt}
@@ -1223,7 +1227,18 @@ def generate_slides():
         }
         response = requests.post(GROQ_API_URL, headers=headers, json=payload)
         if response.status_code != 200:
-            return jsonify({"error": "Failed to generate slides."}), 500
+            error_details = "N/A"
+            try:
+                error_details = response.json()
+            except ValueError:
+                error_details = response.text
+            
+            current_app.logger.error(f"Groq API Error (Status {response.status_code}): {error_details}")
+            return jsonify({
+                "error": "Failed to generate slides from AI service.",
+                "details": str(error_details),
+                "status_code": response.status_code
+            }), 502
 
         result = response.json()
         model_output = result["choices"][0]["message"]["content"]
@@ -1365,7 +1380,13 @@ def generate_slides():
             update_analytics_on_slide(user_id, topic=prompt_topic)
 
         return jsonify({"slides": slides_data})
-
+    
+    except requests.exceptions.Timeout:
+        current_app.logger.error("Request to Groq API timed out")
+        return jsonify({"error": "Request timed out. Please try again."}), 504
+    except requests.exceptions.RequestException as req_error:
+        current_app.logger.error(f"Network error: {req_error}")
+        return jsonify({"error": "Network error connecting to AI service."}), 503
     except json.JSONDecodeError as e:
         print(f"JSON Decode Error: {e}")
         return jsonify({"error": "JSON decode error."}), 500
@@ -2014,7 +2035,7 @@ Make sure to generate exactly {num_slides} slides with substantial content for e
             max_tokens = 8192
             
         payload = {
-            "model": "llama3-8b-8192",
+            "model": "llama-3.3-70b-versatile",
             "messages": [
                 {"role": "system", "content": "You are a helpful assistant that generates slide content in JSON format. Always ensure comprehensive content and that the last two slides are Conclusion and References."},
                 {"role": "user", "content": prompt}
@@ -2729,7 +2750,7 @@ def chatbot():
         }
         
         payload = {
-            "model": "llama3-8b-8192",
+            "model": "llama-3.3-70b-versatile",
             "messages": [
                 {"role": "system", "content": "You are SmartSlide Assistant, a helpful chatbot for the SmartSlide presentation tool. Provide accurate, friendly, and concise responses about SmartSlide features and usage."},
                 {"role": "user", "content": chatbot_prompt}

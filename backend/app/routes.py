@@ -1028,6 +1028,53 @@ def save_slides_state():
         current_app.logger.error(f"Error in /api/save-slides-state: {e}", exc_info=True)
         return jsonify({"error": "An error occurred while saving the presentation."}), 500
 
+# Add this helper function around line 1030, before @main. route("/generate-slides")
+def sanitize_json_string(text):
+    """Sanitize a string to be JSON-safe"""
+    if not isinstance(text, str):
+        return text
+    
+    # Replace curly quotes with straight quotes
+    text = text.replace('"', '"').replace('"', '"')
+    text = text.replace(''', "'").replace(''', "'")
+    
+    # Remove other problematic characters
+    text = text.replace('\u2018', "'").replace('\u2019', "'")
+    text = text.replace('\u201C', '"').replace('\u201D', '"')
+    text = text.replace('\u2013', '-').replace('\u2014', '-')
+    
+    # Escape backslashes first
+    text = text.replace('\\', '\\\\')
+    
+    # Escape quotes properly
+    text = text.replace('"', '\\"')
+    
+    # Remove control characters
+    text = ''.join(char for char in text if ord(char) >= 32 or char in '\n\r\t')
+    
+    return text
+
+def clean_json_output(json_str):
+    """Clean AI-generated JSON string before parsing"""
+    # Remove markdown code blocks if present
+    json_str = re. sub(r'^```json\s*', '', json_str)
+    json_str = re. sub(r'^```\s*', '', json_str)
+    json_str = re.sub(r'\s*```$', '', json_str)
+    
+    # Remove any text before the first [ or after the last ]
+    match = re.search(r'\[.*\]', json_str, re. DOTALL)
+    if match:
+        json_str = match.group(0)
+    
+    # Fix common JSON errors
+    # Remove trailing commas before ] or }
+    json_str = re.sub(r',(\s*[}\]])', r'\1', json_str)
+    
+    # Fix single quotes to double quotes (but not inside strings)
+    # This is tricky, so we'll leave it to json.loads to fail if needed
+    
+    return json_str. strip() 
+
 # --- FIREBASE GENERATE SLIDES ENDPOINT (REMOVE SQLAlchemy) ---
 @main.route("/generate-slides", methods=["POST", "OPTIONS"])
 def generate_slides():
@@ -1039,20 +1086,23 @@ def generate_slides():
         return response
         
     data = request.json
-    if not data:
+    if not data: 
         return jsonify({"error": "No data provided"}), 400
 
     prompt_topic = data.get("prompt")
     language = data.get("language", "English")
     user_id = data.get("user_id")  # Expect user_id from frontend
     template = data.get("template")
+    generate_images = data.get("generate_images", False)  # ✅ NEW: Get image generation flag
+    image_style = data.get("image_style", "professional")  # ✅ NEW: Get image style preference
+
     try:
         num_slides = int(data.get("numSlides", 5))
         # Fix: Change validation to properly support up to 30 slides
         if num_slides <= 0 or num_slides > 30:
             return jsonify({"error": "Number of slides must be between 1 and 30."}), 400
     except (ValueError, TypeError):
-        return jsonify({"error": "Invalid number of slides."}), 400
+        return jsonify({"error": "Invalid number of slides. "}), 400
     if not prompt_topic:
         return jsonify({"error": "Prompt topic is required."}), 400
     try:
@@ -1065,143 +1115,53 @@ def generate_slides():
         content_slides = max(1, num_slides - 3)  # At least 1 content slide
         
         generation_prompt = f"""
-        Generate a professional, well-structured presentation about \"{prompt_topic}\".
-        Requirements:
-        - The presentation must have exactly {num_slides} slides.
-        - Use {language} as the language.
-        - Each slide should have:
-          - A concise and engaging title.
-          - Remove the unnecessary characters from the texts like the ** or __. 
-          - Make the structure of the sentences or paragraph clean
-          - Generate the best answers possible for the given topic and do not be frugal with the content.
-          - Clear and concise content, formatted as bullet points or short paragraphs.
-          - Use Markdown for formatting: **bold** for emphasis, *italic* for highlights, and __underline__ for key terms.
-          - If applicable, include a relevant image description for each slide (e.g., "A diagram of the water cycle").
-        
-        - Organize the content logically:
-          - Slide 1: Title slide with the topic and description.
-          - Slide 2: Introduction (overview of the topic).
-          - Slides 3-{num_slides-2}: Main content slides with detailed information, examples, case studies, analysis, etc.
-          - Slide {num_slides-1}: Conclusion and Next Steps
-          - Slide {num_slides}: References and Sources
-        
-        - For presentations with many slides ({num_slides} slides), ensure each content slide covers a specific aspect:
-          - Background/History
-          - Key Concepts/Definitions
-          - Current State/Market Analysis
-          - Trends and Developments
-          - Challenges and Opportunities
-          - Case Studies/Examples
-          - Best Practices
-          - Implementation Strategies
-          - Risk Assessment
-          - Future Outlook
-          - Recommendations
-          - Action Items
-        
-        - Ensure the content is professional, insightful, and suitable for a business or academic audience.
-        - Each slide must have substantial content - no empty or placeholder slides.
-        - Provide a JSON array where each object has:
-          - 'title': string,
-          - 'content': array of strings (use Markdown for formatting),
-          - 'image_prompt': string (optional, for generating relevant images).
+        Generate a professional, well-structured presentation about \"{prompt_topic}\". 
 
-        Example structure for a {num_slides}-slide presentation:
+        CRITICAL JSON FORMATTING RULES:
+        - Return ONLY a valid JSON array
+        - All strings must use straight double quotes ("), not curly quotes
+        - Escape all quotes inside strings with backslash
+        - No trailing commas
+        - No comments in JSON
+        - Each slide must be a complete object
+
+        Requirements:
+        - The presentation must have exactly {num_slides} slides.  
+        - Use {language} as the language. 
+        - Each slide should have:  
+        - A concise and engaging title.  
+        - Remove the unnecessary characters from the texts like the ** or __.   
+        - Make the structure of the sentences or paragraph clean
+        - Generate the best answers possible for the given topic and do not be frugal with the content. 
+        - Clear and concise content, formatted as bullet points or short paragraphs.
+        - Use simple Markdown for formatting:  **bold** for emphasis, *italic* for highlights. 
+        {"- A SHORT image description (max 10 words, NO quotes or special characters)" if generate_images else ""}
+
+        - Organize the content logically:  
+        - Slide 1: Title slide with the topic and description.  
+        - Slide 2: Introduction (overview of the topic).
+        - Slides 3-{num_slides-2}: Main content slides with detailed information, examples, case studies, analysis, etc.
+        - Slide {num_slides-1}: Conclusion and Next Steps
+        - Slide {num_slides}: References and Sources
+
+        - Provide a JSON array where each object has: 
+        - "title": string (no special quotes),
+        - "content": array of strings,
+        {"- \"image_prompt\": string (SHORT, simple description, NO quotes inside)" if generate_images else ""}
+
+        Example format:
         [
-          {{
-            "title": "{prompt_topic}",
+        {{
+            "title": "Introduction to {prompt_topic}",
             "content": [
-              "A comprehensive overview of {prompt_topic}",
-              "Understanding the key aspects and implications",
-              "Strategic insights and analysis"
-            ]
-          }},
-          {{
-            "title": "Introduction and Overview",
-            "content": [
-              "Definition and scope of {prompt_topic}",
-              "Why this topic is important in today's context",
-              "Key questions we will address",
-              "Expected outcomes from this presentation"
-            ]
-          }},
-          {{
-            "title": "Historical Background and Context",
-            "content": [
-              "Origins and evolution of {prompt_topic}",
-              "Key milestones and developments",
-              "Historical significance and impact",
-              "Lessons learned from the past"
-            ]
-          }},
-          {{
-            "title": "Current Market Analysis",
-            "content": [
-              "Present state of {prompt_topic}",
-              "Market size and growth trends",
-              "Key players and stakeholders",
-              "Current challenges and opportunities"
-            ]
-          }},
-          {{
-            "title": "Key Trends and Developments",
-            "content": [
-              "Emerging trends in {prompt_topic}",
-              "Technological advancements",
-              "Industry innovations",
-              "Future growth projections"
-            ]
-          }},
-          {{
-            "title": "Challenges and Risk Factors",
-            "content": [
-              "Major obstacles and barriers",
-              "Risk assessment and mitigation",
-              "Common pitfalls to avoid",
-              "Strategic considerations"
-            ]
-          }},
-          {{
-            "title": "Case Studies and Examples",
-            "content": [
-              "Real-world applications of {prompt_topic}",
-              "Success stories and best practices",
-              "Lessons from failures",
-              "Industry benchmarks"
-            ]
-          }},
-          {{
-            "title": "Implementation Strategies",
-            "content": [
-              "Step-by-step approach to {prompt_topic}",
-              "Resource requirements and planning",
-              "Timeline and milestones",
-              "Success metrics and KPIs"
-            ]
-          }},
-          {{
-            "title": "Conclusion and Next Steps",
-            "content": [
-              "Summary of key findings and insights",
-              "Strategic recommendations",
-              "Immediate action items",
-              "Long-term considerations",
-              "Follow-up activities and monitoring"
-            ]
-          }},
-          {{
-            "title": "References and Sources",
-            "content": [
-              "1. Academic journals and research papers",
-              "2. Industry reports and white papers",
-              "3. Expert interviews and surveys",
-              "4. Government and regulatory publications",
-              "5. Professional associations and standards"
-            ]
-          }}
+            "Overview of the main concepts",
+            "Key points to understand",
+            "Why this topic matters"
+            ]{', "image_prompt": "simple diagram showing main concepts"' if generate_images else ''}
+        }}
         ]
 
-        Generate exactly {num_slides} slides now with substantial content for each slide:
+        Generate exactly {num_slides} slides now in VALID JSON format: 
         """
 
         headers = {
@@ -1240,80 +1200,47 @@ def generate_slides():
                 "status_code": response.status_code
             }), 502
 
+        # Around line 1244-1260 in routes.py
         result = response.json()
         model_output = result["choices"][0]["message"]["content"]
 
-        # Extract JSON array from the response
-        match = re.search(r'\[\s*{.*}\s*\]', model_output, re.DOTALL)
-        if not match:
-            return jsonify({"error": "Failed to parse slides output."}), 500
-        slides_data = json.loads(match.group(0))
-
-        # Validate and ensure we have the right number of slides with proper structure
-        if len(slides_data) != num_slides:
-            current_app.logger.warning(f"Generated {len(slides_data)} slides instead of requested {num_slides}")
+        # ✅ Clean and extract JSON with better error handling
+        try: 
+            current_app.logger.info(f"Raw AI output length: {len(model_output)} chars")
             
-            # If we got fewer slides than requested, add content slides before conclusion
-            while len(slides_data) < num_slides:
-                insert_position = max(2, len(slides_data) - 2)  # Insert before conclusion
-                
-                # Generate additional content based on slide position
-                additional_topics = [
-                    "Detailed Analysis and Insights",
-                    "Technical Specifications and Requirements",
-                    "Cost-Benefit Analysis",
-                    "Stakeholder Impact Assessment",
-                    "Regulatory and Compliance Considerations",
-                    "Technology Integration and Innovation",
-                    "Performance Metrics and Evaluation",
-                    "Sustainability and Environmental Impact",
-                    "Global Perspectives and Comparisons",
-                    "Future Research and Development",
-                    "Partnership and Collaboration Opportunities",
-                    "Training and Development Needs"
-                ]
-                
-                topic_index = (len(slides_data) - 3) % len(additional_topics)
-                topic_title = additional_topics[topic_index]
-                
-                new_slide = {
-                    "title": f"{topic_title}",
-                    "content": [
-                        f"Comprehensive analysis of {topic_title.lower()} in relation to {prompt_topic}",
-                        f"Key factors and considerations for {topic_title.lower()}",
-                        f"Strategic implications and recommendations",
-                        f"Best practices and implementation guidelines"
-                    ]
-                }
-                
-                slides_data.insert(insert_position, new_slide)
+            # Clean the JSON output
+            cleaned_output = clean_json_output(model_output)
+            current_app.logger.debug(f"Cleaned JSON (first 300 chars): {cleaned_output[:300]}...")
             
-            # If we got more slides than requested, trim excess content slides
-            if len(slides_data) > num_slides:
-                # Keep title, conclusion, and references, trim middle content
-                title_slide = slides_data[0]
-                content_slides = slides_data[1:-2][:num_slides-3]
-                conclusion_slide = slides_data[-2] if len(slides_data) >= 2 else {
-                    "title": "Conclusion and Next Steps",
-                    "content": [
-                        f"Summary: {prompt_topic} presents significant opportunities and considerations",
-                        "Key takeaways from our comprehensive analysis",
-                        "Strategic recommendations for implementation",
-                        "Immediate action items and priorities",
-                        "Long-term vision and goals",
-                        "Success metrics and monitoring approach"
-                    ]
-                }
-                references_slide = slides_data[-1] if len(slides_data) >= 1 else {
-                    "title": "References and Sources",
-                    "content": [
-                        "1. Industry reports and publications",
-                        "2. Academic research and studies",
-                        "3. Expert analysis and insights"
-                    ]
-                }
-                
-                slides_data = [title_slide] + content_slides + [conclusion_slide, references_slide]
+            # Parse JSON
+            slides_data = json. loads(cleaned_output)
+            
+            # Validate slides_data is a list
+            if not isinstance(slides_data, list):
+                current_app.logger.error(f"slides_data is not a list: {type(slides_data)}")
+                return jsonify({"error":  "Invalid slides format received from AI. "}), 500
+            
+            current_app.logger.info(f"✅ Successfully parsed {len(slides_data)} slides")
+            
+        except json.JSONDecodeError as e:
+            current_app. logger.error(f"❌ JSON Decode Error: {e}")
+            current_app. logger.error(f"Error at position {e.pos}: {e.msg}")
+            
+            # Log the problematic section
+            if 'cleaned_output' in locals():
+                start = max(0, e.pos - 100)
+                end = min(len(cleaned_output), e.pos + 100)
+                current_app.logger.error(f"Context around error: ... {cleaned_output[start:end]}...")
+            
+            return jsonify({
+                "error": "Failed to parse AI response. Please try again with a simpler topic.",
+                "details": f"JSON error at position {e.pos}: {e.msg}"
+            }), 500
+            
+        except Exception as e: 
+            current_app.logger.error(f"❌ Unexpected error parsing slides: {e}")
+            current_app.logger.error(f"Stack trace:", exc_info=True)
+            return jsonify({"error": f"Error processing slides: {str(e)}"}), 500
 
         # Ensure the last two slides are always Conclusion and References
         if num_slides >= 2:
@@ -1350,24 +1277,99 @@ def generate_slides():
                     }
 
         # Final validation - ensure all slides have substantial content
+                # Final validation - ensure all slides have substantial content
         for i, slide in enumerate(slides_data):
             if not slide.get("content") or len(slide["content"]) == 0:
                 slide["content"] = [
-                    f"Detailed information about {slide.get('title', 'this topic')}",
+                    f"Detailed information about {slide. get('title', 'this topic')}",
                     "Key insights and analysis",
                     "Important considerations and implications",
                     "Strategic recommendations"
                 ]
             elif len(slide["content"]) < 2:
                 # Ensure each slide has at least 2-3 content points
-                slide["content"].extend([
+                slide["content"]. extend([
                     "Additional insights and analysis",
                     "Strategic implications and recommendations"
                 ])
 
+        # ✅ ADD THIS ENTIRE BLOCK HERE - Image Generation
+               # ✅ IMPROVED IMAGE GENERATION - Safe character handling
+        if generate_images: 
+            current_app.logger.info(f"🎨 Generating images for {len(slides_data)} slides...")
+            
+            for i, slide in enumerate(slides_data):
+                try: 
+                    # Skip title slide (first) and last 2 slides (conclusion/references)
+                    if i == 0 or i >= len(slides_data) - 2:
+                        current_app.logger.info(f"⏭️  Skipping image for slide {i+1} (title/conclusion/references)")
+                        continue
+                    
+                    # ✅ Create clean, safe image prompt
+                    title = slide.get('title', 'presentation topic')
+                    
+                    # Remove any quotes, backslashes, and special characters from title
+                    title = str(title).replace('"', '').replace("'", '').replace('\\', '').replace('\n', ' ')
+                    title = title.replace(''', '').replace(''', '').replace('"', '').replace('"', '')
+                    
+                    # Get first content item safely
+                    content = slide.get('content', [])
+                    first_content = ''
+                    if isinstance(content, list) and len(content) > 0:
+                        first_content = str(content[0])[:100]
+                        # Clean first_content too
+                        first_content = first_content.replace('"', '').replace("'", '').replace('\\', '').replace('\n', ' ')
+                        first_content = first_content.replace(''', '').replace(''', '').replace('"', '').replace('"', '')
+                    
+                    # Check if AI provided an image_prompt (and clean it if so)
+                    ai_image_prompt = slide.get("image_prompt", "")
+                    if ai_image_prompt and isinstance(ai_image_prompt, str) and len(ai_image_prompt.strip()) > 10:
+                        # Use AI's prompt but clean it
+                        image_prompt = ai_image_prompt. replace('"', '').replace("'", '').replace('\\', '')[: 150]
+                    else:
+                        # Create our own safe prompt
+                        if first_content:
+                            image_prompt = f"{title}.  {first_content}"
+                        else:
+                            image_prompt = f"Professional illustration of {title}"
+                    
+                    # Final cleanup - remove any remaining problematic characters
+                    image_prompt = image_prompt.strip()[:200]
+                    
+                    # Remove any remaining special Unicode characters
+                    image_prompt = ''.join(char for char in image_prompt if ord(char) < 127 or char. isalpha())
+                    
+                    current_app.logger. info(f"🖼️  Generating image {i+1}/{len(slides_data)}: {image_prompt[:60]}...")
+                    
+                    # Generate image using Pollinations. ai
+                    try:
+                        image_url = generate_slide_image(
+                            prompt=image_prompt,
+                            width=1024,
+                            height=576,
+                            style=image_style
+                        )
+                        
+                        if image_url:
+                            slide["image_url"] = image_url
+                            current_app.logger.info(f"✅ Successfully generated image for slide {i+1}")
+                            current_app.logger.debug(f"   Image URL: {image_url}")
+                        else:
+                            current_app.logger.warning(f"⚠️  Failed to generate image for slide {i+1} - No URL returned")
+                    except Exception as gen_error:
+                        current_app.logger.error(f"⚠️  Image generation error for slide {i+1}: {gen_error}")
+                        # Continue without failing
+                        
+                except Exception as img_error: 
+                    current_app.logger.error(f"❌ Error processing image for slide {i+1}:  {img_error}")
+                    import traceback
+                    current_app.logger.error(traceback.format_exc())
+                    # Continue without image - don't fail the whole generation
+                    continue
+
         # After successful slide generation, store presentation metadata and slides in Firestore
-        if user_id:
-            doc = firestore_db.collection('presentations').document()
+        if user_id: 
+            doc = firestore_db. collection('presentations').document()
             doc.set({
                 'user_id': user_id,
                 'title': prompt_topic,
@@ -1379,7 +1381,7 @@ def generate_slides():
             # Update analytics after successful slide generation and saving
             update_analytics_on_slide(user_id, topic=prompt_topic)
 
-        return jsonify({"slides": slides_data})
+        return jsonify({"slides":  slides_data})
     
     except requests.exceptions.Timeout:
         current_app.logger.error("Request to Groq API timed out")

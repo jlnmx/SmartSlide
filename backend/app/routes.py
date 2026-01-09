@@ -1074,17 +1074,22 @@ def clean_json_output(json_str):
     # Keep only valid JSON escapes: \", \\, \/, \b, \f, \n, \r, \t, \uXXXX
     
     # First, temporarily protect valid Unicode escapes (\uXXXX where X is hex digit)
-    # by replacing them with placeholders
+    # Use unique placeholders that won't conflict with actual content
+    import uuid
+    unicode_placeholder_prefix = f"__U{uuid.uuid4().hex[:8]}_"
     unicode_escapes = []
+    
     def save_unicode(match):
         unicode_escapes.append(match.group(0))
-        return f"__UNICODE_{len(unicode_escapes)-1}__"
+        return f"{unicode_placeholder_prefix}{len(unicode_escapes)-1}__"
     
-    # Find and save valid Unicode escape sequences
+    # Find and save valid Unicode escape sequences (\uXXXX with exactly 4 hex digits)
     json_str = re.sub(r'\\u[0-9a-fA-F]{4}', save_unicode, json_str)
     
-    # Remove invalid Unicode escapes (e.g., \u followed by less than 4 hex digits or non-hex)
-    # This handles cases like \ua, \u12, \uZZZZ, etc.
+    # Remove invalid Unicode escapes
+    # Case 1: \u followed by 0-3 hex digits (incomplete sequence like \ua, \u12, \u123)
+    # Case 2: \u followed by non-hex character (like \uZZZZ)
+    # In both cases, remove the backslash to convert \u... to u...
     json_str = re.sub(r'\\u([0-9a-fA-F]{0,3}(?![0-9a-fA-F])|[^0-9a-fA-F])', r'u\1', json_str)
     
     # Now fix other invalid escape sequences
@@ -1098,12 +1103,12 @@ def clean_json_output(json_str):
         else:
             return escaped_char  # Remove backslash from invalid escapes
     
-    # Find all backslash escape sequences (Unicode already protected)
+    # Find all remaining backslash escape sequences (valid Unicode already protected)
     json_str = re.sub(r'\\(.)', fix_invalid_escapes, json_str)
     
-    # Restore Unicode escapes
+    # Restore valid Unicode escapes
     for i, unicode_seq in enumerate(unicode_escapes):
-        json_str = json_str.replace(f"__UNICODE_{i}__", unicode_seq)
+        json_str = json_str.replace(f"{unicode_placeholder_prefix}{i}__", unicode_seq)
     
     # Fix common JSON errors
     # Remove trailing commas before ] or }
@@ -1273,7 +1278,7 @@ Generate exactly {num_slides} slides now with professional, educational content:
             current_app.logger.debug(f"Cleaned JSON (first 300 chars): {cleaned_output[:300]}...")
             
             # Parse JSON
-            slides_data = json. loads(cleaned_output)
+            slides_data = json.loads(cleaned_output)
             
             # Validate slides_data is a list
             if not isinstance(slides_data, list):
@@ -1283,8 +1288,8 @@ Generate exactly {num_slides} slides now with professional, educational content:
             current_app.logger.info(f"✅ Successfully parsed {len(slides_data)} slides")
             
         except json.JSONDecodeError as e:
-            current_app. logger.error(f"❌ JSON Decode Error: {e}")
-            current_app. logger.error(f"Error at position {e.pos}: {e.msg}")
+            current_app.logger.error(f"❌ JSON Decode Error: {e}")
+            current_app.logger.error(f"Error at position {e.pos}: {e.msg}")
             
             # Log the problematic section
             if 'cleaned_output' in locals():

@@ -102,7 +102,6 @@ function SlideImage({ src, x, y, width, height, isSelected, onSelect, onChange }
 // Auto font sizing utility function
 const calculateOptimalFontSize = (text, containerWidth, containerHeight, minSize = 12, maxSize = 24) => {
   const textLength = text.length;
-  const containerArea = containerWidth * containerHeight;
   
   // Estimate based on text density
   // More text = smaller font to fit

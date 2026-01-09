@@ -1057,23 +1057,64 @@ def sanitize_json_string(text):
 def clean_json_output(json_str):
     """Clean AI-generated JSON string before parsing"""
     # Remove markdown code blocks if present
-    json_str = re. sub(r'^```json\s*', '', json_str)
-    json_str = re. sub(r'^```\s*', '', json_str)
+    json_str = re.sub(r'^```json\s*', '', json_str)
+    json_str = re.sub(r'^```\s*', '', json_str)
     json_str = re.sub(r'\s*```$', '', json_str)
     
     # Remove any text before the first [ or after the last ]
-    match = re.search(r'\[.*\]', json_str, re. DOTALL)
+    match = re.search(r'\[.*\]', json_str, re.DOTALL)
     if match:
         json_str = match.group(0)
+    
+    # Fix invalid escape sequences
+    # Remove escaped single quotes (invalid in JSON)
+    json_str = json_str.replace("\\'", "'")
+    
+    # Fix other common invalid escapes
+    # Keep only valid JSON escapes: \", \\, \/, \b, \f, \n, \r, \t, \uXXXX
+    
+    # First, temporarily protect valid Unicode escapes (\uXXXX where X is hex digit)
+    # Use unique placeholders that won't conflict with actual content
+    import uuid
+    unicode_placeholder_prefix = f"__U{uuid.uuid4().hex[:8]}_"
+    unicode_escapes = []
+    
+    def save_unicode(match):
+        unicode_escapes.append(match.group(0))
+        return f"{unicode_placeholder_prefix}{len(unicode_escapes)-1}__"
+    
+    # Find and save valid Unicode escape sequences (\uXXXX with exactly 4 hex digits)
+    json_str = re.sub(r'\\u[0-9a-fA-F]{4}', save_unicode, json_str)
+    
+    # Remove invalid Unicode escapes
+    # Case 1: \u followed by 0-3 hex digits (incomplete sequence like \ua, \u12, \u123)
+    # Case 2: \u followed by non-hex character (like \uZZZZ)
+    # In both cases, remove the backslash to convert \u... to u...
+    json_str = re.sub(r'\\u([0-9a-fA-F]{0,3}(?![0-9a-fA-F])|[^0-9a-fA-F])', r'u\1', json_str)
+    
+    # Now fix other invalid escape sequences
+    def fix_invalid_escapes(match):
+        full_match = match.group(0)
+        escaped_char = match.group(1)
+        
+        # Valid JSON single-character escapes: ", \, /, b, f, n, r, t
+        if escaped_char in ['"', '\\', '/', 'b', 'f', 'n', 'r', 't']:
+            return full_match  # Keep valid escapes
+        else:
+            return escaped_char  # Remove backslash from invalid escapes
+    
+    # Find all remaining backslash escape sequences (valid Unicode already protected)
+    json_str = re.sub(r'\\(.)', fix_invalid_escapes, json_str)
+    
+    # Restore valid Unicode escapes
+    for i, unicode_seq in enumerate(unicode_escapes):
+        json_str = json_str.replace(f"{unicode_placeholder_prefix}{i}__", unicode_seq)
     
     # Fix common JSON errors
     # Remove trailing commas before ] or }
     json_str = re.sub(r',(\s*[}\]])', r'\1', json_str)
     
-    # Fix single quotes to double quotes (but not inside strings)
-    # This is tricky, so we'll leave it to json.loads to fail if needed
-    
-    return json_str. strip() 
+    return json_str.strip() 
 
 # --- FIREBASE GENERATE SLIDES ENDPOINT (REMOVE SQLAlchemy) ---
 @main.route("/generate-slides", methods=["POST", "OPTIONS"])
@@ -1128,9 +1169,12 @@ QUALITY STANDARDS:
 
 FORMATTING REQUIREMENTS:
 - Return ONLY valid JSON
-- Use straight double quotes (")
-- No special characters that break JSON
-- Clean, professional text
+- Use straight double quotes (") for strings
+- Do NOT escape apostrophes or single quotes (use "it's" not "it\'s")
+- Do NOT escape any characters except: \" \\ \/ \b \f \n \r \t
+- Apostrophes and single quotes do NOT need escaping in JSON
+- No trailing commas
+- No comments in JSON
 
 CONTENT REQUIREMENTS:
 - Exactly {num_slides} slides in {language}
@@ -1234,7 +1278,7 @@ Generate exactly {num_slides} slides now with professional, educational content:
             current_app.logger.debug(f"Cleaned JSON (first 300 chars): {cleaned_output[:300]}...")
             
             # Parse JSON
-            slides_data = json. loads(cleaned_output)
+            slides_data = json.loads(cleaned_output)
             
             # Validate slides_data is a list
             if not isinstance(slides_data, list):
@@ -1244,8 +1288,8 @@ Generate exactly {num_slides} slides now with professional, educational content:
             current_app.logger.info(f"✅ Successfully parsed {len(slides_data)} slides")
             
         except json.JSONDecodeError as e:
-            current_app. logger.error(f"❌ JSON Decode Error: {e}")
-            current_app. logger.error(f"Error at position {e.pos}: {e.msg}")
+            current_app.logger.error(f"❌ JSON Decode Error: {e}")
+            current_app.logger.error(f"Error at position {e.pos}: {e.msg}")
             
             # Log the problematic section
             if 'cleaned_output' in locals():

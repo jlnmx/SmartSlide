@@ -1072,15 +1072,25 @@ def clean_json_output(json_str):
     
     # Fix other common invalid escapes
     # Keep only valid JSON escapes: \", \\, \/, \b, \f, \n, \r, \t, \uXXXX
-    # Remove any other backslash followed by a character that's not valid
+    
+    # First, temporarily protect valid Unicode escapes (\uXXXX where X is hex digit)
+    # by replacing them with placeholders
+    unicode_escapes = []
+    def save_unicode(match):
+        unicode_escapes.append(match.group(0))
+        return f"__UNICODE_{len(unicode_escapes)-1}__"
+    
+    # Find and save valid Unicode escape sequences
+    json_str = re.sub(r'\\u[0-9a-fA-F]{4}', save_unicode, json_str)
+    
+    # Remove invalid Unicode escapes (e.g., \u followed by less than 4 hex digits or non-hex)
+    # This handles cases like \ua, \u12, \uZZZZ, etc.
+    json_str = re.sub(r'\\u([0-9a-fA-F]{0,3}(?![0-9a-fA-F])|[^0-9a-fA-F])', r'u\1', json_str)
+    
+    # Now fix other invalid escape sequences
     def fix_invalid_escapes(match):
         full_match = match.group(0)
         escaped_char = match.group(1)
-        
-        # Check for Unicode escape sequences (\uXXXX)
-        if escaped_char == 'u':
-            # Keep Unicode escapes as-is (they have 4 hex digits after \u)
-            return full_match
         
         # Valid JSON single-character escapes: ", \, /, b, f, n, r, t
         if escaped_char in ['"', '\\', '/', 'b', 'f', 'n', 'r', 't']:
@@ -1088,8 +1098,12 @@ def clean_json_output(json_str):
         else:
             return escaped_char  # Remove backslash from invalid escapes
     
-    # Find all backslash escape sequences (but not Unicode which we handle above)
+    # Find all backslash escape sequences (Unicode already protected)
     json_str = re.sub(r'\\(.)', fix_invalid_escapes, json_str)
+    
+    # Restore Unicode escapes
+    for i, unicode_seq in enumerate(unicode_escapes):
+        json_str = json_str.replace(f"__UNICODE_{i}__", unicode_seq)
     
     # Fix common JSON errors
     # Remove trailing commas before ] or }

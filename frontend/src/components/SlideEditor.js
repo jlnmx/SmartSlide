@@ -99,6 +99,36 @@ function SlideImage({ src, x, y, width, height, isSelected, onSelect, onChange }
   );
 }
 
+// Auto font sizing utility function
+const calculateOptimalFontSize = (text, containerWidth, containerHeight, minSize = 12, maxSize = 24) => {
+  const textLength = text.length;
+  
+  // Estimate based on text density
+  // More text = smaller font to fit
+  let fontSize;
+  
+  if (textLength < 50) {
+    fontSize = maxSize;
+  } else if (textLength < 150) {
+    fontSize = 20;
+  } else if (textLength < 300) {
+    fontSize = 18;
+  } else if (textLength < 500) {
+    fontSize = 16;
+  } else if (textLength < 800) {
+    fontSize = 14;
+  } else {
+    fontSize = minSize;
+  }
+  
+  // Adjust based on container size
+  // Smaller container = smaller font
+  const heightFactor = containerHeight / 540; // 540 is default slide height
+  fontSize = Math.max(minSize, Math.min(maxSize, fontSize * heightFactor));
+  
+  return Math.round(fontSize);
+};
+
 const defaultTextBox = (type = "body") => {
   if (type === "title") {
     return {
@@ -111,7 +141,7 @@ const defaultTextBox = (type = "body") => {
       height: 80, // Title height
       fontSize: 36,
       fill: "#000000",
-      fontFamily: "Arial",
+      fontFamily: "Lexend, Arial, sans-serif",
       fontStyle: { bold: true },
       align: "left",
       lineHeight: 1,
@@ -130,7 +160,7 @@ const defaultTextBox = (type = "body") => {
       height: 350, // Body height
       fontSize: 24,
       fill: "#000000",
-      fontFamily: "Arial",
+      fontFamily: "Lexend, Arial, sans-serif",
       fontStyle: {},
       align: "left",
       lineHeight: 1,
@@ -344,10 +374,18 @@ const convertBackendImagesToEditor = (slides) => {
 };
 
 function mapGeneratedSlideToEditorFormat(s) {
+  // Prepare text content
+  const titleText = s.title || "Title";
+  const bodyText = Array.isArray(s.content) ? s.content.join("\n") : (s.content || "Body text here...");
+  
+  // Calculate optimal font sizes
+  const titleFontSize = calculateOptimalFontSize(titleText, 400, 80, 20, 36);
+  const bodyFontSize = calculateOptimalFontSize(bodyText, 400, 300, 14, 24);
+  
   const slide = {
     textboxes: [
-      { ...defaultTextBox("title"), text: s.title || "Title", x: 40, y: 30, width: 400 },
-      { ...defaultTextBox("body"), text: Array.isArray(s.content) ? s.content.join("\n") : (s.content || "Body text here..."), x: 40, y: 130, width: 400 }
+      { ...defaultTextBox("title"), text: titleText, fontSize: titleFontSize, x: 40, y: 30, width: 400 },
+      { ...defaultTextBox("body"), text: bodyText, fontSize: bodyFontSize, x: 40, y: 130, width: 400 }
     ],
     background: { fill: "#fff" },
     image: null,
@@ -357,7 +395,7 @@ function mapGeneratedSlideToEditorFormat(s) {
   // If slide has AI-generated image_url, add it to images array on right side
   if (s.image_url && !slide.images.some(img => img.src === s.image_url)) {
     slide.images.push({
-      id: `ai-image-${Date.now()}`,
+      id: `ai-image-${uuidv4()}`,
       src: s.image_url,
       x: 480,
       y: 50,
@@ -376,13 +414,37 @@ const mapIfNeeded = (slideArray) => {
   }
   const firstSlide = slideArray[0];
   if (firstSlide && typeof firstSlide === 'object' && Array.isArray(firstSlide.textboxes)) {
-    return slideArray;
+    // Slides already have editor format, but still need to check for image_url conversion
+    return slideArray.map(slide => {
+      const editorSlide = { ...slide };
+      
+      // Ensure images array exists
+      if (!editorSlide.images) {
+        editorSlide.images = [];
+      }
+      
+      // Convert image_url to images array if present and not already converted
+      if (slide.image_url && !editorSlide.images.some(img => img.src === slide.image_url)) {
+        editorSlide.images.push({
+          id: `ai-image-${uuidv4()}`,
+          src: slide.image_url,
+          x: 480,
+          y: 50,
+          width: 450,
+          height: 440,
+          zIndex: 101
+        });
+      }
+      
+      return editorSlide;
+    });
   }
   return slideArray.map(mapGeneratedSlideToEditorFormat);
 };
 
 const FONT_FAMILIES = [
-  // Sans-serif fonts
+  // Modern/Clean fonts (Lexend added first as default)
+  "Lexend, Arial, sans-serif",
   "Arial", 
   "Helvetica", 
   "Verdana", 

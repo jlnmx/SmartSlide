@@ -1287,6 +1287,28 @@ Generate exactly {num_slides} slides now with professional, educational content:
             
             current_app.logger.info(f"✅ Successfully parsed {len(slides_data)} slides")
             
+            # Clean markdown formatting from slide content
+            def clean_markdown_from_content(content):
+                """Remove markdown formatting from content"""
+                if isinstance(content, str):
+                    # Remove bold markdown
+                    content = re.sub(r'\*\*(.+?)\*\*', r'\1', content)
+                    # Remove italic markdown
+                    content = re.sub(r'\*(.+?)\*', r'\1', content)
+                    # Remove underline markdown
+                    content = re.sub(r'__(.+?)__', r'\1', content)
+                    return content
+                elif isinstance(content, list):
+                    return [clean_markdown_from_content(item) for item in content]
+                return content
+            
+            # Apply markdown cleaning to all slides
+            for slide in slides_data:
+                if 'content' in slide:
+                    slide['content'] = clean_markdown_from_content(slide['content'])
+                if 'title' in slide:
+                    slide['title'] = clean_markdown_from_content(slide['title'])
+            
         except json.JSONDecodeError as e:
             current_app.logger.error(f"❌ JSON Decode Error: {e}")
             current_app.logger.error(f"Error at position {e.pos}: {e.msg}")
@@ -1472,6 +1494,37 @@ def download_image(url, filename):
         return filename
     return None
 
+def calculate_optimal_font_size_backend(content_list, base_font_size=18):
+    """Calculate optimal font size based on content and number of items"""
+    if not isinstance(content_list, list):
+        return base_font_size
+    
+    # Estimate total text length
+    total_chars = sum(len(str(item)) for item in content_list)
+    num_items = len(content_list)
+    
+    # Base sizing on content density
+    if total_chars < 100:
+        font_size = 18
+    elif total_chars < 250:
+        font_size = 16
+    elif total_chars < 400:
+        font_size = 14
+    elif total_chars < 600:
+        font_size = 13
+    else:
+        font_size = 12
+    
+    # Adjust based on number of items
+    if num_items > 15:
+        font_size = min(font_size, 11)
+    elif num_items > 10:
+        font_size = min(font_size, 13)
+    elif num_items > 7:
+        font_size = min(font_size, 14)
+    
+    return max(10, min(20, font_size))  # Clamp between 10-20pt
+
 def apply_template_to_slide(slide, template, slide_data, ppt=None):
     # Set background color
     fill = slide.background.fill
@@ -1494,20 +1547,12 @@ def apply_template_to_slide(slide, template, slide_data, ppt=None):
         content_shape.text_frame.clear()
         content_list = slide_data.get("content", [])
 
-        # --- AUTO FONT SIZE LOGIC ---
+        # --- ENHANCED AUTO FONT SIZE LOGIC ---
         base_font_size = template["content_font"]["size"]
-        font_size = base_font_size
         if template.get("auto_font_size", False):
-            # Reduce font size if content is long (e.g. > 6 lines)
-            n_items = len(content_list) if isinstance(content_list, list) else 1
-            if n_items > 12:
-                font_size = max(14, base_font_size - 8)
-            elif n_items > 9:
-                font_size = max(16, base_font_size - 6)
-            elif n_items > 6:
-                font_size = max(18, base_font_size - 4)
-            else:
-                font_size = base_font_size
+            font_size = calculate_optimal_font_size_backend(content_list, base_font_size)
+        else:
+            font_size = base_font_size
 
         for idx, item in enumerate(content_list):
             p = content_shape.text_frame.add_paragraph()
@@ -1529,17 +1574,10 @@ def apply_template_to_slide(slide, template, slide_data, ppt=None):
         tf.clear()
         content_list = slide_data.get("content", [])
         base_font_size = template["content_font"]["size"]
-        font_size = base_font_size
         if template.get("auto_font_size", False):
-            n_items = len(content_list) if isinstance(content_list, list) else 1
-            if n_items > 12:
-                font_size = max(14, base_font_size - 8)
-            elif n_items > 9:
-                font_size = max(16, base_font_size - 6)
-            elif n_items > 6:
-                font_size = max(18, base_font_size - 4)
-            else:
-                font_size = base_font_size
+            font_size = calculate_optimal_font_size_backend(content_list, base_font_size)
+        else:
+            font_size = base_font_size
         for item in content_list:
             p = tf.add_paragraph()
             p.text = item

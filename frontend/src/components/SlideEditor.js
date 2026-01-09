@@ -415,7 +415,30 @@ const mapIfNeeded = (slideArray) => {
   }
   const firstSlide = slideArray[0];
   if (firstSlide && typeof firstSlide === 'object' && Array.isArray(firstSlide.textboxes)) {
-    return slideArray;
+    // Slides already have editor format, but still need to check for image_url conversion
+    return slideArray.map(slide => {
+      const editorSlide = { ...slide };
+      
+      // Ensure images array exists
+      if (!editorSlide.images) {
+        editorSlide.images = [];
+      }
+      
+      // Convert image_url to images array if present and not already converted
+      if (slide.image_url && !editorSlide.images.some(img => img.src === slide.image_url)) {
+        editorSlide.images.push({
+          id: `ai-image-${Date.now()}-${Math.random()}`,
+          src: slide.image_url,
+          x: 480,
+          y: 50,
+          width: 450,
+          height: 440,
+          zIndex: 101
+        });
+      }
+      
+      return editorSlide;
+    });
   }
   return slideArray.map(mapGeneratedSlideToEditorFormat);
 };

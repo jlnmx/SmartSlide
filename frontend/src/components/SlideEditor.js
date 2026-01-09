@@ -321,6 +321,28 @@ const defaultSlide = (templateId) => {
   }
 };
 
+// Convert backend image_url to editor format
+const convertBackendImagesToEditor = (slides) => {
+  return slides.map((slide, index) => {
+    const editorSlide = { ...slide };
+    
+    // Convert image_url to images array format
+    if (slide.image_url && !slide.images) {
+      editorSlide.images = [{
+        id: `ai-generated-${index}`,
+        src: slide.image_url,
+        x: 640,  // Right half of 1280px slide
+        y: 0,
+        width: 640,  // Half width
+        height: 720,
+        zIndex: 0
+      }];
+    }
+    
+    return editorSlide;
+  });
+};
+
 function mapGeneratedSlideToEditorFormat(s) {
   const slide = {
     textboxes: [

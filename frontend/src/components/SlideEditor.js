@@ -396,7 +396,7 @@ function mapGeneratedSlideToEditorFormat(s) {
   // If slide has AI-generated image_url, add it to images array on right side
   if (s.image_url && !slide.images.some(img => img.src === s.image_url)) {
     slide.images.push({
-      id: `ai-image-${Date.now()}`,
+      id: `ai-image-${uuidv4()}`,
       src: s.image_url,
       x: 480,
       y: 50,
@@ -427,7 +427,7 @@ const mapIfNeeded = (slideArray) => {
       // Convert image_url to images array if present and not already converted
       if (slide.image_url && !editorSlide.images.some(img => img.src === slide.image_url)) {
         editorSlide.images.push({
-          id: `ai-image-${Date.now()}-${Math.random()}`,
+          id: `ai-image-${uuidv4()}`,
           src: slide.image_url,
           x: 480,
           y: 50,

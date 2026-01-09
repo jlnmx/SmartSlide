@@ -1074,14 +1074,21 @@ def clean_json_output(json_str):
     # Keep only valid JSON escapes: \", \\, \/, \b, \f, \n, \r, \t, \uXXXX
     # Remove any other backslash followed by a character that's not valid
     def fix_invalid_escapes(match):
+        full_match = match.group(0)
         escaped_char = match.group(1)
-        # Valid JSON escapes: ", \, /, b, f, n, r, t, u
-        if escaped_char in ['"', '\\', '/', 'b', 'f', 'n', 'r', 't', 'u']:
-            return match.group(0)  # Keep valid escapes
+        
+        # Check for Unicode escape sequences (\uXXXX)
+        if escaped_char == 'u':
+            # Keep Unicode escapes as-is (they have 4 hex digits after \u)
+            return full_match
+        
+        # Valid JSON single-character escapes: ", \, /, b, f, n, r, t
+        if escaped_char in ['"', '\\', '/', 'b', 'f', 'n', 'r', 't']:
+            return full_match  # Keep valid escapes
         else:
             return escaped_char  # Remove backslash from invalid escapes
     
-    # Find all backslash escape sequences
+    # Find all backslash escape sequences (but not Unicode which we handle above)
     json_str = re.sub(r'\\(.)', fix_invalid_escapes, json_str)
     
     # Fix common JSON errors

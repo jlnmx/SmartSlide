@@ -85,12 +85,21 @@ const SlidesGeneratingPage = () => {
         editorSlide.images.push({
           id: `ai-image-${index}`,
           src: slide.image_url,
-          x: 0,
-          y: 0,
-          width: 1280,  // Full slide width
-          height: 720,  // Full slide height
-          zIndex: 0     // Behind text
+          x: 480,      // Right side: 50% of 960px slide width
+          y: 50,       // Small top margin
+          width: 450,  // Takes up most of right half
+          height: 440, // Maintains good aspect ratio
+          zIndex: 101  // Above background
         });
+        
+        // Adjust textboxes to left side if they exist
+        if (editorSlide.textboxes && Array.isArray(editorSlide.textboxes)) {
+          editorSlide.textboxes = editorSlide.textboxes.map(tb => ({
+            ...tb,
+            x: tb.x || 40,
+            width: Math.min(tb.width || 400, 400), // Constrain to left side
+          }));
+        }
       }
       
       return editorSlide;
@@ -244,36 +253,36 @@ const SlidesGeneratingPage = () => {
         <div className="slides-preview-root">
           {getTemplateInfo()}
           <h2 className="outline-title">Outline</h2>
-          <div style={{ display: "flex", alignItems:  "center", gap: "0.5rem", marginBottom: "1.2rem", flexWrap: "wrap" }}>
-            <button className="edit-google-slides-btn" onClick={handleEditSlides} style={{ fontSize: "1rem", padding: "0.4rem 1.1rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1.2rem", flexWrap: "wrap" }}>
+            <button className="edit-google-slides-btn" onClick={handleEditSlides} style={{ fontSize: "0.85rem", padding: "0.4rem 0.8rem", width: "auto", flex: "0 0 auto" }}>
               Edit Slides
             </button>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <label htmlFor="quiz-language-display">Language: </label>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              <label htmlFor="quiz-language-display" style={{ fontSize: "0.85rem", margin: 0, whiteSpace: "nowrap" }}>Language:</label>
               <span
                 id="quiz-language-display"
-                style={{ padding: "0.3rem 0.6rem", fontSize: "1rem", fontWeight: "bold", border: "1px solid #ced4da", borderRadius: "0.25rem", backgroundColor: "#e9ecef", color: "#495057" }}
+                style={{ padding: "0.35rem 0.5rem", fontSize: "0.85rem", fontWeight: "bold", border: "1px solid #ced4da", borderRadius: "0.25rem", backgroundColor: "#e9ecef", color: "#495057", whiteSpace: "nowrap" }}
               >
                 {language}
               </span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <label htmlFor="num-questions-select">Quiz Questions:</label>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              <label htmlFor="num-questions-select" style={{ fontSize: "0.85rem", margin: 0, whiteSpace: "nowrap" }}>Quiz Questions:</label>
               <select
                 id="num-questions-select"
                 value={numQuestions}
                 onChange={e => setNumQuestions(Number(e.target.value))}
-                style={{ padding:  "0.2rem 0.5rem", fontSize: "1rem" }}
+                style={{ padding: "0.35rem 0.5rem", fontSize: "0.85rem", borderRadius: "0.25rem", border: "1px solid #ced4da", width: "auto" }}
               >
                 {[3, 5, 7, 10, 15, 20].map(n => (
                   <option key={n} value={n}>{n}</option>
                 ))}
               </select>
             </div>
-            <button className="generate-btn" style={{ fontSize: "0.95rem", padding: "0.35rem 0.9rem" }} onClick={handleGenerateQuiz}>
+            <button className="generate-btn" style={{ fontSize: "0.85rem", padding: "0.4rem 0.8rem", width: "auto", flex: "0 0 auto" }} onClick={handleGenerateQuiz}>
               Generate Quiz
             </button>
-            <button className="generate-btn" style={{ fontSize:  "0.95rem", padding: "0.35rem 0.9rem" }} onClick={handleGenerateScript}>
+            <button className="generate-btn" style={{ fontSize: "0.85rem", padding: "0.4rem 0.8rem", width: "auto", flex: "0 0 auto" }} onClick={handleGenerateScript}>
               Generate Script
             </button>
           </div>
@@ -340,59 +349,18 @@ const SlidesGeneratingPage = () => {
                     </div>
                     <div className="slide-preview-container">
                       <div className="slide-preview-content">
-                        {/* ✅ Enhanced image display with better styling */}
-                        {imageUrl && (
-                          <div style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '100%',
-                            zIndex: 0,
-                            overflow: 'hidden'
-                          }}>
-                            <img
-                              src={imageUrl}
-                              alt={title}
-                              style={{
-                                width:  '100%',
-                                height: '100%',
-                                objectFit: 'cover',
-                                opacity: 0.25,  // Subtle background
-                                filter: 'blur(1px)'  // Slight blur for better text readability
-                              }}
-                              onError={(e) => {
-                                console.error('Failed to load image:', imageUrl);
-                                e.target.style.display = 'none';
-                              }}
-                            />
-                            {/* Gradient overlay for better text contrast */}
-                            <div style={{
-                              position: 'absolute',
-                              top: 0,
-                              left: 0,
-                              width: '100%',
-                              height: '100%',
-                              background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.7) 0%, rgba(118, 75, 162, 0.7) 100%)',
-                              zIndex:  1
-                            }}></div>
-                          </div>
-                        )}
-                        
-                        {/* ✅ Fallback gradient if no image */}
-                        {! imageUrl && (
-                          <div style={{
-                            position:  'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '100%',
-                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                            zIndex: 0
-                          }}></div>
-                        )}
+                        {/* Simple gradient background */}
+                        <div style={{
+                          position:  'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: '100%',
+                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                          zIndex: 0
+                        }}></div>
 
-                        {/* Content overlay - always on top */}
+                        {/* Content overlay */}
                         <div className="slide-content-overlay" style={{ position: 'relative', zIndex: 2 }}>
                           <div className="slide-title">{title}</div>
                           <div className="slide-body">

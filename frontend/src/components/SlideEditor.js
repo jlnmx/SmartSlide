@@ -322,15 +322,30 @@ const defaultSlide = (templateId) => {
 };
 
 function mapGeneratedSlideToEditorFormat(s) {
-  return {
+  const slide = {
     textboxes: [
-      { ...defaultTextBox("title"), text: s.title || "Title", y: 60 },
-      { ...defaultTextBox("body"), text: Array.isArray(s.content) ? s.content.join("\n") : (s.content || "Body text here..."), y: 150 }
+      { ...defaultTextBox("title"), text: s.title || "Title", x: 40, y: 30, width: 400 },
+      { ...defaultTextBox("body"), text: Array.isArray(s.content) ? s.content.join("\n") : (s.content || "Body text here..."), x: 40, y: 130, width: 400 }
     ],
     background: { fill: "#fff" },
     image: null,
-    images: []
+    images: s.images || []
   };
+  
+  // If slide has AI-generated image_url, add it to images array on right side
+  if (s.image_url && !slide.images.some(img => img.src === s.image_url)) {
+    slide.images.push({
+      id: `ai-image-${Date.now()}`,
+      src: s.image_url,
+      x: 480,
+      y: 50,
+      width: 450,
+      height: 440,
+      zIndex: 101
+    });
+  }
+  
+  return slide;
 }
 
 const mapIfNeeded = (slideArray) => {

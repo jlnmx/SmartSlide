@@ -1354,6 +1354,17 @@ def generate_slides():
                             slide["image_url"] = image_url
                             current_app.logger.info(f"✅ Successfully generated image for slide {i+1}")
                             current_app.logger.debug(f"   Image URL: {image_url}")
+                            
+                            # Adjust textboxes to left side when image is present
+                            if "textboxes" in slide:
+                                for textbox in slide["textboxes"]:
+                                    # Position text on left, image will be on right
+                                    if "x" not in textbox:
+                                        textbox["x"] = 40
+                                    if "width" not in textbox:
+                                        textbox["width"] = 400  # Constrain to left half
+                                    else:
+                                        textbox["width"] = min(textbox["width"], 400)
                         else:
                             current_app.logger.warning(f"⚠️  Failed to generate image for slide {i+1} - No URL returned")
                     except Exception as gen_error:

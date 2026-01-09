@@ -1115,54 +1115,75 @@ def generate_slides():
         content_slides = max(1, num_slides - 3)  # At least 1 content slide
         
         generation_prompt = f"""
-        Generate a professional, well-structured presentation about \"{prompt_topic}\". 
+You are an expert educational content creator and presentation designer. Generate a highly professional, academically rigorous presentation about "{prompt_topic}".
 
-        CRITICAL JSON FORMATTING RULES:
-        - Return ONLY a valid JSON array
-        - All strings must use straight double quotes ("), not curly quotes
-        - Escape all quotes inside strings with backslash
-        - No trailing commas
-        - No comments in JSON
-        - Each slide must be a complete object
+QUALITY STANDARDS:
+- Write in a clear, authoritative, and engaging tone
+- Use precise, academic-level vocabulary appropriate for the subject
+- Ensure logical flow and coherent structure
+- Make titles compelling and descriptive (not generic)
+- Bold important terminology, key concepts, and critical terms
+- Only use bullet points when listing items, steps, or multiple related points
+- Use paragraphs for explanations, descriptions, and narratives
 
-        Requirements:
-        - The presentation must have exactly {num_slides} slides.  
-        - Use {language} as the language. 
-        - Each slide should have:  
-        - A concise and engaging title.  
-        - Remove the unnecessary characters from the texts like the ** or __.   
-        - Make the structure of the sentences or paragraph clean
-        - Generate the best answers possible for the given topic and do not be frugal with the content. 
-        - Clear and concise content, formatted as bullet points or short paragraphs.
-        - Use simple Markdown for formatting:  **bold** for emphasis, *italic* for highlights. 
-        {"- A SHORT image description (max 10 words, NO quotes or special characters)" if generate_images else ""}
+FORMATTING REQUIREMENTS:
+- Return ONLY valid JSON
+- Use straight double quotes (")
+- No special characters that break JSON
+- Clean, professional text
 
-        - Organize the content logically:  
-        - Slide 1: Title slide with the topic and description.  
-        - Slide 2: Introduction (overview of the topic).
-        - Slides 3-{num_slides-2}: Main content slides with detailed information, examples, case studies, analysis, etc.
-        - Slide {num_slides-1}: Conclusion and Next Steps
-        - Slide {num_slides}: References and Sources
+CONTENT REQUIREMENTS:
+- Exactly {num_slides} slides in {language}
+- Each slide must have substantial, meaningful content
+- Titles should be specific and engaging (e.g., "The Transformative Impact of Renewable Energy" instead of "Introduction")
+- Bold key terms using **terminology** format
+- Use bullet points ONLY for lists, enumerations, or multiple items
+- Use descriptive paragraphs for concepts, explanations, and analysis
 
-        - Provide a JSON array where each object has: 
-        - "title": string (no special quotes),
-        - "content": array of strings,
-        {"- \"image_prompt\": string (SHORT, simple description, NO quotes inside)" if generate_images else ""}
+SLIDE STRUCTURE:
+- Slide 1: Compelling title slide with engaging subtitle
+- Slide 2: Context and background (why this topic matters)
+- Slides 3-{num_slides-2}: Core content with deep analysis
+  * Each slide should focus on one key concept
+  * Include specific examples, data, or case studies
+  * Bold important terminology and key concepts
+- Slide {num_slides-1}: Synthesis and implications
+- Slide {num_slides}: References and further reading
 
-        Example format:
-        [
-        {{
-            "title": "Introduction to {prompt_topic}",
-            "content": [
-            "Overview of the main concepts",
-            "Key points to understand",
-            "Why this topic matters"
-            ]{', "image_prompt": "simple diagram showing main concepts"' if generate_images else ''}
-        }}
-        ]
+JSON FORMAT:
+[
+  {{
+    "title": "Engaging, Specific Title That Captures the Concept",
+    "content": [
+      "First point with **bold key terms** when introducing important concepts",
+      "Second point explaining relationships and implications",
+      "Third point providing examples or applications"
+    ],
+    "needs_image": true
+  }}
+]
 
-        Generate exactly {num_slides} slides now in VALID JSON format: 
-        """
+CRITICAL: For each slide, add a "needs_image" boolean field:
+- Set to true if: slide discusses visual concepts, processes, comparisons, systems, data, or anything that benefits from visual representation
+- Set to false if: slide is purely textual (introduction, conclusion, references, quotes, or theoretical concepts)
+
+Examples of slides needing images:
+- Process flows, systems, architectures
+- Comparisons, contrasts, before/after
+- Data, statistics, trends
+- Physical objects, locations, people
+- Diagrams, charts, visual representations
+
+Examples of slides NOT needing images:
+- Title slides
+- Introduction/context slides (just text)
+- Conclusion slides
+- References/sources
+- Quote slides
+- Pure theoretical concepts
+
+Generate exactly {num_slides} slides now with professional, educational content:
+"""
 
         headers = {
             "Authorization": f"Bearer {GROQ_API_KEY}",
@@ -1293,89 +1314,59 @@ def generate_slides():
                     "Strategic implications and recommendations"
                 ])
 
-        # ✅ ADD THIS ENTIRE BLOCK HERE - Image Generation
-               # ✅ IMPROVED IMAGE GENERATION - Safe character handling
+        # ✅ Smart image generation - only generate if slide needs it
         if generate_images: 
-            current_app.logger.info(f"🎨 Generating images for {len(slides_data)} slides...")
+            current_app.logger.info(f"🎨 Analyzing slides for image generation...")
             
             for i, slide in enumerate(slides_data):
                 try: 
-                    # Skip title slide (first) and last 2 slides (conclusion/references)
-                    if i == 0 or i >= len(slides_data) - 2:
-                        current_app.logger.info(f"⏭️  Skipping image for slide {i+1} (title/conclusion/references)")
+                    # Check if slide explicitly says it needs an image
+                    needs_image = slide.get("needs_image", False)
+                    
+                    # Skip title slide and references
+                    slide_title = slide.get('title', '').lower()
+                    is_title = i == 0
+                    is_references = any(keyword in slide_title for keyword in ["reference", "source", "bibliography"])
+                    
+                    if is_title or is_references:
+                        current_app.logger.info(f"⏭️ Skipping image for slide {i+1} (title/references)")
                         continue
                     
-                    # ✅ Create clean, safe image prompt
+                    # Only generate if AI determined slide needs image
+                    if not needs_image:
+                        current_app.logger.info(f"⏭️ Slide {i+1} doesn't need image (content-based)")
+                        continue
+                    
+                    # Generate image for slides that need visual representation
                     title = slide.get('title', 'presentation topic')
+                    title = str(title).replace('"', '').replace("'", '').replace('\\', '')
                     
-                    # Remove any quotes, backslashes, and special characters from title
-                    title = str(title).replace('"', '').replace("'", '').replace('\\', '').replace('\n', ' ')
-                    title = title.replace(''', '').replace(''', '').replace('"', '').replace('"', '')
-                    
-                    # Get first content item safely
                     content = slide.get('content', [])
                     first_content = ''
                     if isinstance(content, list) and len(content) > 0:
                         first_content = str(content[0])[:100]
-                        # Clean first_content too
-                        first_content = first_content.replace('"', '').replace("'", '').replace('\\', '').replace('\n', ' ')
-                        first_content = first_content.replace(''', '').replace(''', '').replace('"', '').replace('"', '')
+                        first_content = first_content.replace('"', '').replace("'", '')
                     
-                    # Check if AI provided an image_prompt (and clean it if so)
-                    ai_image_prompt = slide.get("image_prompt", "")
-                    if ai_image_prompt and isinstance(ai_image_prompt, str) and len(ai_image_prompt.strip()) > 10:
-                        # Use AI's prompt but clean it
-                        image_prompt = ai_image_prompt. replace('"', '').replace("'", '').replace('\\', '')[: 150]
-                    else:
-                        # Create our own safe prompt
-                        if first_content:
-                            image_prompt = f"{title}.  {first_content}"
-                        else:
-                            image_prompt = f"Professional illustration of {title}"
-                    
-                    # Final cleanup - remove any remaining problematic characters
+                    # Create descriptive image prompt
+                    image_prompt = f"{title}. {first_content}"
                     image_prompt = image_prompt.strip()[:200]
+                    image_prompt = ''.join(char for char in image_prompt if ord(char) < 127 or char.isalpha())
                     
-                    # Remove any remaining special Unicode characters
-                    image_prompt = ''.join(char for char in image_prompt if ord(char) < 127 or char. isalpha())
+                    current_app.logger.info(f"🖼️ Generating image {i+1}: {image_prompt[:60]}...")
                     
-                    current_app.logger. info(f"🖼️  Generating image {i+1}/{len(slides_data)}: {image_prompt[:60]}...")
+                    image_url = generate_slide_image(
+                        prompt=image_prompt,
+                        width=1024,
+                        height=576,
+                        style=image_style
+                    )
                     
-                    # Generate image using Pollinations. ai
-                    try:
-                        image_url = generate_slide_image(
-                            prompt=image_prompt,
-                            width=1024,
-                            height=576,
-                            style=image_style
-                        )
-                        
-                        if image_url:
-                            slide["image_url"] = image_url
-                            current_app.logger.info(f"✅ Successfully generated image for slide {i+1}")
-                            current_app.logger.debug(f"   Image URL: {image_url}")
-                            
-                            # Adjust textboxes to left side when image is present
-                            if "textboxes" in slide:
-                                for textbox in slide["textboxes"]:
-                                    # Position text on left, image will be on right
-                                    if "x" not in textbox:
-                                        textbox["x"] = 40
-                                    if "width" not in textbox:
-                                        textbox["width"] = 400  # Constrain to left half
-                                    else:
-                                        textbox["width"] = min(textbox["width"], 400)
-                        else:
-                            current_app.logger.warning(f"⚠️  Failed to generate image for slide {i+1} - No URL returned")
-                    except Exception as gen_error:
-                        current_app.logger.error(f"⚠️  Image generation error for slide {i+1}: {gen_error}")
-                        # Continue without failing
-                        
+                    if image_url:
+                        slide["image_url"] = image_url
+                        current_app.logger.info(f"✅ Generated image for slide {i+1}")
+                    
                 except Exception as img_error: 
-                    current_app.logger.error(f"❌ Error processing image for slide {i+1}:  {img_error}")
-                    import traceback
-                    current_app.logger.error(traceback.format_exc())
-                    # Continue without image - don't fail the whole generation
+                    current_app.logger.error(f"❌ Error with image for slide {i+1}: {img_error}")
                     continue
 
         # After successful slide generation, store presentation metadata and slides in Firestore
@@ -1663,6 +1654,12 @@ def generate_presentation():
 
         # Collect elements to be rendered based on zIndex
         elements_to_render = []
+        
+        # Check if this is a references/sources slide
+        is_references_slide = False
+        slide_title = slide_item_data.get("title", "").lower()
+        if any(keyword in slide_title for keyword in ["reference", "source", "bibliography", "citation"]):
+            is_references_slide = True
 
         textboxes_data = slide_item_data.get("textboxes", [])
         for tb_data in textboxes_data:
@@ -1673,12 +1670,14 @@ def generate_presentation():
             })
 
         images_data = slide_item_data.get("images", []) # Process multiple images
-        for img_data in images_data:
-            elements_to_render.append({
-                "type": "image",
-                "data": img_data,
-                "zIndex": int(img_data.get("zIndex", 101)) # Images have zIndex
-            })
+        # Only add image if NOT a references slide
+        if not is_references_slide:
+            for img_data in images_data:
+                elements_to_render.append({
+                    "type": "image",
+                    "data": img_data,
+                    "zIndex": int(img_data.get("zIndex", 101)) # Images have zIndex
+                })
           # Sort elements by zIndex: lower zIndex elements are added first (appear "behind")
         elements_to_render.sort(key=lambda el: el["zIndex"])
           # Render elements in sorted order
@@ -1711,8 +1710,8 @@ def generate_presentation():
                     tf.clear()
 
                     text_content = el_data.get("text", "")
-                    default_font_family = el_data.get("fontFamily", "Arial")
-                    default_font_size_pt = float(el_data.get("fontSize", 18))
+                    default_font_family = el_data.get("fontFamily", "Lexend")  # Changed from Arial to Lexend
+                    default_font_size_pt = float(el_data.get("fontSize", 16))  # Changed from 18 to 16
                     default_font_color_hex = el_data.get("fill", "#000000")
                     default_font_color_rgb = hex_to_rgb(default_font_color_hex)
                     
@@ -1799,7 +1798,11 @@ def generate_presentation():
                             
                             if text_to_add:
                                 run.text = text_to_add
-                                run.font.name = run_font_family
+                                # Try Lexend first with Arial fallback
+                                try:
+                                    run.font.name = run_font_family if run_font_family != "Lexend" else "Lexend"
+                                except:
+                                    run.font.name = "Arial"  # Fallback
                                 run.font.size = Pt(run_font_size_pt)
                                 if run_font_color_rgb: 
                                     try:

@@ -1057,23 +1057,38 @@ def sanitize_json_string(text):
 def clean_json_output(json_str):
     """Clean AI-generated JSON string before parsing"""
     # Remove markdown code blocks if present
-    json_str = re. sub(r'^```json\s*', '', json_str)
-    json_str = re. sub(r'^```\s*', '', json_str)
+    json_str = re.sub(r'^```json\s*', '', json_str)
+    json_str = re.sub(r'^```\s*', '', json_str)
     json_str = re.sub(r'\s*```$', '', json_str)
     
     # Remove any text before the first [ or after the last ]
-    match = re.search(r'\[.*\]', json_str, re. DOTALL)
+    match = re.search(r'\[.*\]', json_str, re.DOTALL)
     if match:
         json_str = match.group(0)
+    
+    # Fix invalid escape sequences
+    # Remove escaped single quotes (invalid in JSON)
+    json_str = json_str.replace("\\'", "'")
+    
+    # Fix other common invalid escapes
+    # Keep only valid JSON escapes: \", \\, \/, \b, \f, \n, \r, \t, \uXXXX
+    # Remove any other backslash followed by a character that's not valid
+    def fix_invalid_escapes(match):
+        escaped_char = match.group(1)
+        # Valid JSON escapes: ", \, /, b, f, n, r, t, u
+        if escaped_char in ['"', '\\', '/', 'b', 'f', 'n', 'r', 't', 'u']:
+            return match.group(0)  # Keep valid escapes
+        else:
+            return escaped_char  # Remove backslash from invalid escapes
+    
+    # Find all backslash escape sequences
+    json_str = re.sub(r'\\(.)', fix_invalid_escapes, json_str)
     
     # Fix common JSON errors
     # Remove trailing commas before ] or }
     json_str = re.sub(r',(\s*[}\]])', r'\1', json_str)
     
-    # Fix single quotes to double quotes (but not inside strings)
-    # This is tricky, so we'll leave it to json.loads to fail if needed
-    
-    return json_str. strip() 
+    return json_str.strip() 
 
 # --- FIREBASE GENERATE SLIDES ENDPOINT (REMOVE SQLAlchemy) ---
 @main.route("/generate-slides", methods=["POST", "OPTIONS"])
@@ -1128,9 +1143,12 @@ QUALITY STANDARDS:
 
 FORMATTING REQUIREMENTS:
 - Return ONLY valid JSON
-- Use straight double quotes (")
-- No special characters that break JSON
-- Clean, professional text
+- Use straight double quotes (") for strings
+- Do NOT escape apostrophes or single quotes (use "it's" not "it\'s")
+- Do NOT escape any characters except: \" \\ \/ \b \f \n \r \t
+- Apostrophes and single quotes do NOT need escaping in JSON
+- No trailing commas
+- No comments in JSON
 
 CONTENT REQUIREMENTS:
 - Exactly {num_slides} slides in {language}

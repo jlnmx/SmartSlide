@@ -99,6 +99,37 @@ function SlideImage({ src, x, y, width, height, isSelected, onSelect, onChange }
   );
 }
 
+// Auto font sizing utility function
+const calculateOptimalFontSize = (text, containerWidth, containerHeight, minSize = 12, maxSize = 24) => {
+  const textLength = text.length;
+  const containerArea = containerWidth * containerHeight;
+  
+  // Estimate based on text density
+  // More text = smaller font to fit
+  let fontSize;
+  
+  if (textLength < 50) {
+    fontSize = maxSize;
+  } else if (textLength < 150) {
+    fontSize = 20;
+  } else if (textLength < 300) {
+    fontSize = 18;
+  } else if (textLength < 500) {
+    fontSize = 16;
+  } else if (textLength < 800) {
+    fontSize = 14;
+  } else {
+    fontSize = minSize;
+  }
+  
+  // Adjust based on container size
+  // Smaller container = smaller font
+  const heightFactor = containerHeight / 540; // 540 is default slide height
+  fontSize = Math.max(minSize, Math.min(maxSize, fontSize * heightFactor));
+  
+  return Math.round(fontSize);
+};
+
 const defaultTextBox = (type = "body") => {
   if (type === "title") {
     return {
@@ -111,7 +142,7 @@ const defaultTextBox = (type = "body") => {
       height: 80, // Title height
       fontSize: 36,
       fill: "#000000",
-      fontFamily: "Arial",
+      fontFamily: "Lexend, Arial, sans-serif",
       fontStyle: { bold: true },
       align: "left",
       lineHeight: 1,
@@ -130,7 +161,7 @@ const defaultTextBox = (type = "body") => {
       height: 350, // Body height
       fontSize: 24,
       fill: "#000000",
-      fontFamily: "Arial",
+      fontFamily: "Lexend, Arial, sans-serif",
       fontStyle: {},
       align: "left",
       lineHeight: 1,
@@ -344,10 +375,18 @@ const convertBackendImagesToEditor = (slides) => {
 };
 
 function mapGeneratedSlideToEditorFormat(s) {
+  // Prepare text content
+  const titleText = s.title || "Title";
+  const bodyText = Array.isArray(s.content) ? s.content.join("\n") : (s.content || "Body text here...");
+  
+  // Calculate optimal font sizes
+  const titleFontSize = calculateOptimalFontSize(titleText, 400, 80, 20, 36);
+  const bodyFontSize = calculateOptimalFontSize(bodyText, 400, 300, 14, 24);
+  
   const slide = {
     textboxes: [
-      { ...defaultTextBox("title"), text: s.title || "Title", x: 40, y: 30, width: 400 },
-      { ...defaultTextBox("body"), text: Array.isArray(s.content) ? s.content.join("\n") : (s.content || "Body text here..."), x: 40, y: 130, width: 400 }
+      { ...defaultTextBox("title"), text: titleText, fontSize: titleFontSize, x: 40, y: 30, width: 400 },
+      { ...defaultTextBox("body"), text: bodyText, fontSize: bodyFontSize, x: 40, y: 130, width: 400 }
     ],
     background: { fill: "#fff" },
     image: null,
@@ -382,7 +421,8 @@ const mapIfNeeded = (slideArray) => {
 };
 
 const FONT_FAMILIES = [
-  // Sans-serif fonts
+  // Modern/Clean fonts (Lexend added first as default)
+  "Lexend, Arial, sans-serif",
   "Arial", 
   "Helvetica", 
   "Verdana", 

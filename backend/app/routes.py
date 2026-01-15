@@ -1166,6 +1166,7 @@ QUALITY STANDARDS:
 - Bold important terminology, key concepts, and critical terms
 - Only use bullet points when listing items, steps, or multiple related points
 - Use paragraphs for explanations, descriptions, and narratives
+- In references make the format of the list vertically
 
 FORMATTING REQUIREMENTS:
 - Return ONLY valid JSON
@@ -1180,7 +1181,7 @@ CONTENT REQUIREMENTS:
 - Exactly {num_slides} slides in {language}
 - Each slide must have substantial, meaningful content
 - Titles should be specific and engaging (e.g., "The Transformative Impact of Renewable Energy" instead of "Introduction")
-- Bold key terms using **terminology** format
+- Use Bold font for key terms using terminology format
 - Use bullet points ONLY for lists, enumerations, or multiple items
 - Use descriptive paragraphs for concepts, explanations, and analysis
 
@@ -2836,3 +2837,287 @@ def chatbot():
     except Exception as e:
         current_app.logger.error(f"Error in chatbot endpoint: {e}")
         return jsonify({"error": "Internal server error"}), 500
+
+
+# --- ADMIN ENDPOINTS ---
+def verify_admin_key(request):
+    """Verify if the provided admin key is valid"""
+    admin_key = request.headers.get('X-Admin-Key') or request.json.get('admin_key')
+    expected_key = os.environ.get('ADMIN_SECRET_KEY', 'default_admin_key_change_this')
+    return admin_key == expected_key
+
+@main.route('/admin/verify', methods=['POST', 'OPTIONS'])
+def admin_verify():
+    """Verify admin access with secret key"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    
+    try:
+        data = request.get_json()
+        admin_key = data.get('admin_key', '')
+        
+        if verify_admin_key(request):
+            return jsonify({
+                'success': True,
+                'message': 'Admin access granted'
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid admin key'
+            }), 401
+    except Exception as e:
+        current_app.logger.error(f"Error in admin verify: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@main.route('/admin/users', methods=['GET', 'OPTIONS'])
+def admin_get_users():
+    """Get all users (admin only)"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    
+    try:
+        if not verify_admin_key(request):
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        # Get all users from Firestore
+        users_ref = firestore_db.collection('users')
+        users_docs = users_ref.stream()
+        
+        users = []
+        for doc in users_docs:
+            user_data = doc.to_dict()
+            user_data['id'] = doc.id
+            # Remove sensitive data
+            user_data.pop('password', None)
+            users.append(user_data)
+        
+        return jsonify({
+            'success': True,
+            'users': users,
+            'total': len(users)
+        }), 200
+    except Exception as e:
+        current_app.logger.error(f"Error in admin get users: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@main.route('/admin/users/<user_id>', methods=['GET', 'PUT', 'DELETE', 'OPTIONS'])
+def admin_manage_user(user_id):
+    """Get, update, or delete a specific user (admin only)"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    
+    try:
+        if not verify_admin_key(request):
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        user_ref = firestore_db.collection('users').document(user_id)
+        
+        if request.method == 'GET':
+            # Get user details
+            user_doc = user_ref.get()
+            if not user_doc.exists:
+                return jsonify({'error': 'User not found'}), 404
+            
+            user_data = user_doc.to_dict()
+            user_data['id'] = user_doc.id
+            user_data.pop('password', None)
+            
+            # Get user's presentations count
+            presentations_ref = firestore_db.collection('presentations')
+            user_presentations = presentations_ref.where('user_id', '==', user_id).stream()
+            presentations_count = sum(1 for _ in user_presentations)
+            
+            # Get user's quizzes count
+            quizzes_ref = firestore_db.collection('quizzes')
+            user_quizzes = quizzes_ref.where('user_id', '==', user_id).stream()
+            quizzes_count = sum(1 for _ in user_quizzes)
+            
+            # Get user's scripts count
+            scripts_ref = firestore_db.collection('scripts')
+            user_scripts = scripts_ref.where('user_id', '==', user_id).stream()
+            scripts_count = sum(1 for _ in user_scripts)
+            
+            user_data['stats'] = {
+                'presentations': presentations_count,
+                'quizzes': quizzes_count,
+                'scripts': scripts_count
+            }
+            
+            return jsonify({
+                'success': True,
+                'user': user_data
+            }), 200
+        
+        elif request.method == 'PUT':
+            # Update user details
+            data = request.get_json()
+            update_data = {}
+            
+            allowed_fields = ['email', 'full_name', 'user_type', 'institution']
+            for field in allowed_fields:
+                if field in data:
+                    update_data[field] = data[field]
+            
+            if update_data:
+                user_ref.update(update_data)
+                return jsonify({
+                    'success': True,
+                    'message': 'User updated successfully'
+                }), 200
+            else:
+                return jsonify({'error': 'No valid fields to update'}), 400
+        
+        elif request.method == 'DELETE':
+            # Delete user and all their data
+            user_doc = user_ref.get()
+            if not user_doc.exists:
+                return jsonify({'error': 'User not found'}), 404
+            
+            # Delete user's presentations
+            presentations_ref = firestore_db.collection('presentations')
+            user_presentations = presentations_ref.where('user_id', '==', user_id).stream()
+            for pres in user_presentations:
+                pres.reference.delete()
+            
+            # Delete user's quizzes
+            quizzes_ref = firestore_db.collection('quizzes')
+            user_quizzes = quizzes_ref.where('user_id', '==', user_id).stream()
+            for quiz in user_quizzes:
+                quiz.reference.delete()
+            
+            # Delete user's scripts
+            scripts_ref = firestore_db.collection('scripts')
+            user_scripts = scripts_ref.where('user_id', '==', user_id).stream()
+            for script in user_scripts:
+                script.reference.delete()
+            
+            # Delete user's analytics
+            analytics_ref = firestore_db.collection('analytics').document(user_id)
+            if analytics_ref.get().exists:
+                analytics_ref.delete()
+            
+            # Delete user's templates
+            templates_ref = firestore_db.collection('templates')
+            user_templates = templates_ref.where('user_id', '==', user_id).stream()
+            for template in user_templates:
+                template.reference.delete()
+            
+            # Finally, delete the user
+            user_ref.delete()
+            
+            return jsonify({
+                'success': True,
+                'message': 'User and all associated data deleted successfully'
+            }), 200
+    
+    except Exception as e:
+        current_app.logger.error(f"Error in admin manage user: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@main.route('/admin/statistics', methods=['GET', 'OPTIONS'])
+def admin_get_statistics():
+    """Get system-wide statistics (admin only)"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    
+    try:
+        if not verify_admin_key(request):
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        # Count total users
+        users_ref = firestore_db.collection('users')
+        total_users = sum(1 for _ in users_ref.stream())
+        
+        # Count total presentations
+        presentations_ref = firestore_db.collection('presentations')
+        total_presentations = sum(1 for _ in presentations_ref.stream())
+        
+        # Count total quizzes
+        quizzes_ref = firestore_db.collection('quizzes')
+        total_quizzes = sum(1 for _ in quizzes_ref.stream())
+        
+        # Count total scripts
+        scripts_ref = firestore_db.collection('scripts')
+        total_scripts = sum(1 for _ in scripts_ref.stream())
+        
+        # Count total templates
+        templates_ref = firestore_db.collection('templates')
+        total_templates = sum(1 for _ in templates_ref.stream())
+        
+        # Get user type breakdown
+        users_docs = users_ref.stream()
+        user_types = {}
+        for doc in users_docs:
+            user_data = doc.to_dict()
+            user_type = user_data.get('user_type', 'unknown')
+            user_types[user_type] = user_types.get(user_type, 0) + 1
+        
+        return jsonify({
+            'success': True,
+            'statistics': {
+                'total_users': total_users,
+                'total_presentations': total_presentations,
+                'total_quizzes': total_quizzes,
+                'total_scripts': total_scripts,
+                'total_templates': total_templates,
+                'user_types': user_types
+            }
+        }), 200
+    except Exception as e:
+        current_app.logger.error(f"Error in admin get statistics: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@main.route('/admin/presentations', methods=['GET', 'OPTIONS'])
+def admin_get_all_presentations():
+    """Get all presentations (admin only)"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    
+    try:
+        if not verify_admin_key(request):
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        presentations_ref = firestore_db.collection('presentations')
+        presentations_docs = presentations_ref.order_by('created_at', direction=firestore.Query.DESCENDING).limit(100).stream()
+        
+        presentations = []
+        for doc in presentations_docs:
+            pres_data = doc.to_dict()
+            pres_data['id'] = doc.id
+            presentations.append(pres_data)
+        
+        return jsonify({
+            'success': True,
+            'presentations': presentations,
+            'total': len(presentations)
+        }), 200
+    except Exception as e:
+        current_app.logger.error(f"Error in admin get presentations: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@main.route('/admin/presentations/<presentation_id>', methods=['DELETE', 'OPTIONS'])
+def admin_delete_presentation(presentation_id):
+    """Delete a presentation (admin only)"""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    
+    try:
+        if not verify_admin_key(request):
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        pres_ref = firestore_db.collection('presentations').document(presentation_id)
+        pres_doc = pres_ref.get()
+        
+        if not pres_doc.exists:
+            return jsonify({'error': 'Presentation not found'}), 404
+        
+        pres_ref.delete()
+        return jsonify({
+            'success': True,
+            'message': 'Presentation deleted successfully'
+        }), 200
+    except Exception as e:
+        current_app.logger.error(f"Error in admin delete presentation: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+

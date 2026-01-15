@@ -17,6 +17,8 @@ import GeneratedScript from "./GeneratedScript";
 import SlideEditor from "./SlideEditor";
 import SavedQuizzesAndScripts from "./SavedQuizzesAndScripts";
 import UploadTemplates from "./UploadTemplates";
+import Admin from "./Admin";
+import AdminDashboard from "./AdminDashboard";
 
 
 
@@ -70,6 +72,10 @@ const MainRouter = () => {
 
         {/* Help Page */}
         <Route path="/help" element={<Help />} />
+
+        {/* Admin Pages */}
+        <Route path="/admin" element={<Admin />} />
+        <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
         
       </Routes>

@@ -16,7 +16,7 @@ const SlidesGeneratingPage = () => {
       template = null;
     }
   }
-  if (! presentationType) {
+  if (!presentationType) {
     presentationType = localStorage.getItem("presentationType") || "Default";
   }
 
@@ -28,7 +28,7 @@ const SlidesGeneratingPage = () => {
 
   const [isLoading, setIsLoading] = useState(true);
   // Use initialSlides from navigation state if coming from editor, otherwise use slides from props or empty array
-  const [generatedSlides, setGeneratedSlides] = useState(fromEditor ?  initialSlides : (location.state?.slides || []));
+  const [generatedSlides, setGeneratedSlides] = useState(fromEditor ? initialSlides : (location.state?.slides || []));
 
   // --- NEW: Persist language to localStorage when it changes ---
   useEffect(() => {
@@ -47,7 +47,7 @@ const SlidesGeneratingPage = () => {
     } else if (location.state?.slides && location.state.slides.length > 0) {
       // If slides are present in navigation state (not from editor), update localStorage
       localStorage.setItem('latestEditedSlides', JSON.stringify(location.state.slides));
-      latestSlides = location.state. slides;
+      latestSlides = location.state.slides;
     } else {
       // Try to load from localStorage
       const stored = localStorage.getItem('latestEditedSlides');
@@ -75,15 +75,59 @@ const SlidesGeneratingPage = () => {
   // ✅ NEW: Convert slides for editor with proper image handling
   const convertSlidesForEditor = (backendSlides) => {
     return backendSlides.map((slide, index) => {
+      // Create default textboxes if they don't exist
+      const hasTextboxes = slide.textboxes && Array.isArray(slide.textboxes);
+      
       const editorSlide = {
         ...slide,
-        images: slide.images || []
+        images: slide.images || [],
+        textboxes: hasTextboxes ? slide.textboxes : [
+          // Title textbox
+          {
+            id: `title-${index}-${Date.now()}`,
+            type: "title",
+            text: slide.title || "Title",
+            x: 60,
+            y: 60,
+            width: 680,
+            height: 80,
+            fontSize: 36,
+            fill: "#000000",
+            fontFamily: "Arial",
+            fontStyle: { bold: true },
+            align: "left",
+            lineHeight: 1,
+            paragraphSpacing: 0,
+            bullets: false,
+            highlight: "#ffffff"
+          },
+          // Body textbox
+          {
+            id: `body-${index}-${Date.now()}`,
+            type: "body",
+            text: Array.isArray(slide.content) ? slide.content.join("\n") : (slide.content || "Body text here..."),
+            x: 60,
+            y: 160,
+            width: 680,
+            height: 320,
+            fontSize: 18,
+            fill: "#000000",
+            fontFamily: "Arial",
+            fontStyle: {},
+            align: "left",
+            lineHeight: 1.5,
+            paragraphSpacing: 0,
+            bullets: false,
+            highlight: "#ffffff"
+          }
+        ],
+        background: slide.background || { fill: "#fff" }
       };
       
       // If slide has AI-generated image_url, add it to images array
-      if (slide.image_url && ! editorSlide.images.some(img => img.src === slide.image_url)) {
+      if (slide.image_url && !editorSlide.images.some(img => img.src === slide.image_url)) {
         editorSlide.images.push({
-          id: `ai-image-${index}`,
+          id: `ai-image-${index}-${Date.now()}`,
           src: slide.image_url,
           x: 480,      // Right side: 50% of 960px slide width
           y: 50,       // Small top margin
@@ -92,14 +136,11 @@ const SlidesGeneratingPage = () => {
           zIndex: 101  // Above background
         });
         
-        // Adjust textboxes to left side if they exist
-        if (editorSlide.textboxes && Array.isArray(editorSlide.textboxes)) {
-          editorSlide.textboxes = editorSlide.textboxes.map(tb => ({
-            ...tb,
-            x: tb.x || 40,
-            width: Math.min(tb.width || 400, 400), // Constrain to left side
-          }));
-        }
+        // Adjust textboxes to left side to make room for image
+        editorSlide.textboxes = editorSlide.textboxes.map(tb => ({
+          ...tb,
+          width: Math.min(tb.width || 400, 400), // Constrain to left side (400px max)
+        }));
       }
       
       return editorSlide;
@@ -152,20 +193,20 @@ const SlidesGeneratingPage = () => {
       });
 
       if (!response.ok) {
-        const errorData = await response. json();
+        const errorData = await response.json();
         throw new Error(errorData.error || "Failed to generate the presentation.");
       }
 
       const blob = await response.blob();
-      const url = window. URL.createObjectURL(blob);
+      const url = window.URL.createObjectURL(blob);
 
       const link = document.createElement("a");
       link.href = url;
       link.download = "generated_presentation.pptx";
-      document.body. appendChild(link);
+      document.body.appendChild(link);
       link.click();
 
-      document.body. removeChild(link);
+      document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (error) {
       alert(error.message || "An error occurred while generating the presentation.");
@@ -182,12 +223,12 @@ const SlidesGeneratingPage = () => {
       });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData. error || "Failed to generate quiz.");
+        throw new Error(errorData.error || "Failed to generate quiz.");
       }
       const data = await response.json();
-      navigate("/generated-quiz", { state:  { quiz: data.quiz, language } });
+      navigate("/generated-quiz", { state: { quiz: data.quiz, language } });
     } catch (error) {
-      alert(error. message || "An error occurred while generating the quiz.");
+      alert(error.message || "An error occurred while generating the quiz.");
     }
   };
 
@@ -195,10 +236,10 @@ const SlidesGeneratingPage = () => {
     try {
       const response = await fetch(`${config.API_BASE_URL}/generate-script`, {
         method: "POST",
-        headers: { "Content-Type":  "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slides: generatedSlides, language }),
       });
-      if (!response. ok) {
+      if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to generate script.");
       }
@@ -231,7 +272,7 @@ const SlidesGeneratingPage = () => {
   };
 
   const renderSlideContent = (content) => {
-    if (Array. isArray(content)) {
+    if (Array.isArray(content)) {
       return (
         <ul className="slide-bullets">
           {content.map((item, idx) => (
@@ -241,7 +282,7 @@ const SlidesGeneratingPage = () => {
       );
     }
     if (typeof content === 'string') {
-      return <div className="slide-desc">{content.split('\\n').map((line, i) => <div key={i}>{line || <br />}</div>)}</div>;
+      return <div className="slide-desc">{content.split('\n').map((line, i) => <div key={i}>{line || <br />}</div>)}</div>;
     }
     return null;
   };
@@ -292,19 +333,19 @@ const SlidesGeneratingPage = () => {
                 <div className="spinner"></div>
                 <p>Generating slides... Please wait.</p>
               </div>
-            ) : generatedSlides && generatedSlides.length > 0 ?  (
-              generatedSlides. map((slideData, index) => {
+            ) : generatedSlides && generatedSlides.length > 0 ? (
+              generatedSlides.map((slideData, index) => {
                 let title, contentForRender, imageUrl;
 
                 if (slideData.textboxes && Array.isArray(slideData.textboxes)) {
-                  const titleBox = slideData. textboxes.find(tb => tb.type === 'title');
+                  const titleBox = slideData.textboxes.find(tb => tb.type === 'title');
                   const bodyBox = slideData.textboxes.find(tb => tb.type === 'body');
                   
-                  title = titleBox ? titleBox. text : 'Untitled';
+                  title = titleBox ? titleBox.text : 'Untitled';
                   
                   if (bodyBox) {
                     if (bodyBox.bullets) {
-                      contentForRender = bodyBox.text.split('\\n');   
+                      contentForRender = bodyBox.text.split('\n');
                     } else {
                       contentForRender = bodyBox.text; 
                     }
@@ -312,10 +353,10 @@ const SlidesGeneratingPage = () => {
                     contentForRender = '';
                   }
                   // ✅ Check for image in multiple formats
-                  imageUrl = slideData.image_url || (slideData.image ? slideData. image.src : null);
+                  imageUrl = slideData.image_url || (slideData.image ? slideData.image.src : null);
                 } else {
                   title = slideData.title;
-                  contentForRender = slideData. content;
+                  contentForRender = slideData.content;
                   // ✅ Get AI-generated image URL
                   imageUrl = slideData.image_url;
                 }
@@ -393,7 +434,7 @@ const SlidesGeneratingPage = () => {
           </div>
           <div className="slides-preview-footer">
             <span className="slides-count">
-              {generatedSlides.length} slide{generatedSlides.length !== 1 ? 's' :  ''} total
+              {generatedSlides.length} slide{generatedSlides.length !== 1 ? 's' : ''} total
               {generatedSlides.filter(s => s.image_url).length > 0 && (
                 <span style={{ marginLeft: '10px', color: '#667eea' }}>
                   ({generatedSlides.filter(s => s.image_url).length} with AI images)

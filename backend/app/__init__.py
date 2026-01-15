@@ -19,7 +19,7 @@ def create_app():
              "https://smartslide.vercel.app"
          ],
          methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-         allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+         allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin", "X-Admin-Key"],
          supports_credentials=True,
          max_age=86400
     )

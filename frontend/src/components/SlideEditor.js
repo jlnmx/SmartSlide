@@ -357,7 +357,7 @@ function mapGeneratedSlideToEditorFormat(s) {
   // If slide has AI-generated image_url, add it to images array on right side
   if (s.image_url && !slide.images.some(img => img.src === s.image_url)) {
     slide.images.push({
-      id: `ai-image-${Date.now()}`,
+      id: `ai-image-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       src: s.image_url,
       x: 480,
       y: 50,
